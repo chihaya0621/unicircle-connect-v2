@@ -1,36 +1,159 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# UniCircle Connect
 
-## Getting Started
+大学のサークル活動の管理、イベントの告知、大学施設の予約を行うプラットフォーム。
 
-First, run the development server:
+**技術スタック**: Next.js 16 (App Router) / TypeScript / Tailwind CSS v4 / Supabase
+
+---
+
+## セットアップ
+
+### 1. 環境変数
+
+`.env.local` に以下を設定します。
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+```
+
+### 2. データベース
+
+Supabase の SQL Editor で、要件定義書のスキーマ定義を実行したあと、
+`supabase/migrations/0001_handle_new_user.sql` を実行してください。
+
+このマイグレーションは、`auth.users` への INSERT を検知して
+`public.users` と `student_profiles` を自動生成するトリガーを作ります。
+
+### 3. 起動
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ディレクトリ構成
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+app/
+  actions/auth.ts        サインアップ・ログイン・ログアウトの Server Actions
+  (auth)/login           ログイン画面
+  (auth)/signup          新規登録画面
+  dashboard/             ログイン必須のダッシュボード
+  events/                イベント一覧（ロールに応じて可視範囲が変わる）
+components/              UI コンポーネント
+lib/
+  supabase.ts            接続情報 + ブラウザ用クライアント
+  supabase-server.ts     サーバー用クライアント（next/headers 依存）
+  dal.ts                 認証・認可の集約層（Data Access Layer）
+  events.ts              イベント取得クエリ
+  database.types.ts      スキーマに対応する型定義
+proxy.ts                 セッション更新と楽観的リダイレクト
+supabase/migrations/     DB マイグレーション
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## この Next.js は 16 系です
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+学習データや既存記事と挙動が異なる点があります。実装時は
+`node_modules/next/dist/docs/` を参照してください。特に以下に注意。
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| 項目 | Next.js 16 での扱い |
+| --- | --- |
+| Middleware | **`proxy.ts` に改称**。`middleware.ts` は読み込まれない |
+| `cookies()` | 非同期。`await cookies()` が必要 |
+| `searchParams` / `params` | Promise。`await` が必要 |
+| `cacheComponents` | 任意。本プロジェクトでは未使用（Cookie 認証は動的レンダリング前提のため） |
 
-## Deploy on Vercel
+Supabase 側にも版差があります。`@supabase/ssr` 0.12 以降、`setAll` は
+**第2引数で no-store 系ヘッダーを受け取ります**。これを
+レスポンスに反映しないと、CDN が認証 Cookie 付きレスポンスを
+キャッシュして別ユーザーにセッションが渡る恐れがあります
+（`proxy.ts` で対応済み）。
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 設計上の判断と注意点
+
+### `lib/supabase.ts` を2ファイルに分けている理由
+
+要件定義書では「Supabase のクライアント初期化は `lib/supabase.ts` で行う」と
+していますが、SSR 環境ではブラウザ用とサーバー用でクライアントを
+分ける必要があります。サーバー用は `next/headers` に依存するため、
+同じファイルに置くと Client Component から import された瞬間に
+ビルドが壊れます。
+
+そのため接続情報とブラウザ用クライアントを `lib/supabase.ts` に、
+サーバー用を `lib/supabase-server.ts` に分離しました。
+
+### role の自己申告を禁止している
+
+`signUp()` の `options.data` は `raw_user_meta_data` にそのまま入るため、
+**完全にクライアント（＝攻撃者）の制御下**にあります。ここを信用して
+`role` をそのまま保存すると、誰でも curl 一発で `staff` 権限
+（施設マスタ管理・サークル承認権限）を持つアカウントを作れてしまいます。
+
+対策として、トリガー側でセルフサインアップ可能なロールを
+`student` / `general` のみに制限しています。`staff` の付与は管理者が
+`promote_to_staff()` を手動実行する運用です。
+
+```sql
+select public.promote_to_staff('staff@univ.ac.jp', '<university_id>');
+```
+
+### 【要対応】RLS が全許可のままです
+
+要件定義書のとおり、現在すべてのテーブルの RLS ポリシーは `true`
+（全許可）です。つまり **anon key さえあれば誰でも全データを読み書きできます**。
+
+イベント一覧の「一般ユーザーには公開イベントのみ見せる」制御は
+現在アプリケーション側のクエリ (`lib/events.ts`) だけで行っており、
+Supabase の REST API を直接叩かれれば学内限定イベントは読めてしまいます。
+本番前に、同等のルールを必ず RLS ポリシーとして実装してください。
+
+### 【要確認】スキーマの不一致
+
+要件定義書の本文には「`facility_reservations` の予約主体は CHECK 制約により
+どちらか1つのみが NULL でないことを保証している」とありますが、
+**添付の SQL に該当の CHECK 制約が含まれていません**
+（`events` 側の `events_host_check` のみ存在します）。
+
+排他性を DB で保証するには、以下を追加してください。
+
+```sql
+ALTER TABLE facility_reservations
+  ADD CONSTRAINT reservations_booker_check CHECK (
+    (booked_by_user_id IS NOT NULL AND group_circle_id IS NULL) OR
+    (booked_by_user_id IS NULL AND group_circle_id IS NOT NULL)
+  );
+```
+
+なお TypeScript 側では `ReservationBookerInsert` 型
+（`lib/database.types.ts`）で排他性を表現済みなので、
+アプリ経由の INSERT は型で守られています。
+
+### 型定義について
+
+`lib/database.types.ts` は要件定義書の SQL と手で対応させています。
+スキーマを変更したら必ず追従させてください。将来的には生成に
+切り替えるのが安全です。
+
+```bash
+npx supabase gen types typescript --project-id <ref> > lib/database.types.ts
+```
+
+---
+
+## 実装済みの範囲
+
+- 認証基盤（サインアップ / ログイン / ログアウト、セッション更新）
+- ロール別のプロフィール自動生成（DB トリガー）
+- 認可の集約層（`lib/dal.ts`）とルートガード
+- イベント一覧（ロールに応じた可視範囲の出し分け）
+
+### 未実装
+
+サークル、施設予約、イベント作成 UI、メール確認後のコールバック
+（`/auth/callback`）は未着手です。
