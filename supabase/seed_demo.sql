@@ -197,28 +197,35 @@ END $$;
 
 DO $$
 DECLARE
-  m RECORD;
+  c RECORD;
   v_uid UUID;
+  i INT;
+  n INT;
 BEGIN
-  FOR m IN SELECT * FROM (VALUES
-    ('student1@aozora.test',  'c0000000-0000-4000-8000-000000000011', 'admin'),
-    ('student1@aozora.test',  'c0000000-0000-4000-8000-000000000013', 'member'),
-    ('student2@aozora.test',  'c0000000-0000-4000-8000-000000000012', 'admin'),
-    ('student2@aozora.test',  'c0000000-0000-4000-8000-000000000011', 'member'),
-    ('student3@aozora.test',  'c0000000-0000-4000-8000-000000000014', 'admin'),
-    ('student1@umihara.test', 'c0000000-0000-4000-8000-000000000021', 'admin'),
-    ('student2@umihara.test', 'c0000000-0000-4000-8000-000000000022', 'admin'),
-    ('student3@umihara.test', 'c0000000-0000-4000-8000-000000000023', 'admin'),
-    ('student1@yamate.test',  'c0000000-0000-4000-8000-000000000031', 'admin'),
-    ('student2@yamate.test',  'c0000000-0000-4000-8000-000000000032', 'admin'),
-    ('student3@yamate.test',  'c0000000-0000-4000-8000-000000000033', 'admin')
-  ) AS t(email, circle_id, role) LOOP
-    SELECT id INTO v_uid FROM auth.users WHERE email = m.email;
-    IF v_uid IS NOT NULL AND EXISTS (SELECT 1 FROM public.users WHERE id = v_uid) THEN
+  -- 承認済みサークルごとに、その大学の学生を最大5名まで所属させる。
+  -- 先頭の1名を管理者にする（イベント作成・メンバー承認の確認用）。
+  FOR c IN
+    SELECT id, university_id FROM circles WHERE status = 'approved' ORDER BY id
+  LOOP
+    n := 0;
+    FOR i IN 1..8 LOOP
+      SELECT au.id INTO v_uid
+      FROM auth.users au
+      JOIN public.users pu ON pu.id = au.id
+      JOIN public.student_profiles sp ON sp.user_id = au.id
+      WHERE sp.university_id = c.university_id
+        AND au.email LIKE 'student' || i || '@%'
+      LIMIT 1;
+
+      CONTINUE WHEN v_uid IS NULL;
+
       INSERT INTO circle_members (circle_id, user_id, role, status)
-      VALUES (m.circle_id::uuid, v_uid, m.role, 'active')
+      VALUES (c.id, v_uid, CASE WHEN n = 0 THEN 'admin' ELSE 'member' END, 'active')
       ON CONFLICT (circle_id, user_id) DO NOTHING;
-    END IF;
+
+      n := n + 1;
+      EXIT WHEN n >= 5;
+    END LOOP;
   END LOOP;
 END $$;
 
@@ -233,7 +240,12 @@ DECLARE
   e RECORD;
   v_email TEXT;
 BEGIN
-  FOREACH v_email IN ARRAY ARRAY['student1@aozora.test','student1@umihara.test'] LOOP
+  -- 各大学の student1〜3 に、見えている公開イベントを何件か登録する
+  FOR v_email IN
+    SELECT au.email FROM auth.users au
+    JOIN public.student_profiles sp ON sp.user_id = au.id
+    WHERE au.email ~ '^student[1-3]@'
+  LOOP
     SELECT id INTO v_uid FROM auth.users WHERE email = v_email;
     CONTINUE WHEN v_uid IS NULL;
     CONTINUE WHEN NOT EXISTS (SELECT 1 FROM public.users WHERE id = v_uid);
@@ -242,7 +254,7 @@ BEGIN
     FOR e IN
       SELECT id FROM events
       WHERE event_date >= now() AND visibility = 'public'
-      ORDER BY event_date LIMIT 3
+      ORDER BY event_date LIMIT 4
     LOOP
       INSERT INTO event_participants (event_id, user_id, status)
       VALUES (e.id, v_uid, 'going')

@@ -6,15 +6,16 @@
  * 匿名キーの signUp を使うため service_role キーは不要。
  * users / student_profiles は handle_new_user トリガーが自動生成する。
  *
- * staff はセルフサインアップできない設計なので、いったん general として
- * 作成し、最後に出力される SQL を SQL Editor で実行して昇格させる。
+ * 名簿の定義は lib/dev-users.mjs にある（クイックログインUIと共有）。
  *
- * 何度実行しても安全。既に存在するアカウントはスキップする。
+ * 何度実行しても安全。作成済みのアカウントはスキップするので、
+ * レート制限で途中終了しても、再実行すれば続きから作成される。
  */
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, writeFileSync } from "node:fs";
 
-// .env.local を読む（Next.js を通さず単体で動かすため）
+import { DEV_PASSWORD, buildDevUsers } from "../lib/dev-users.mjs";
+
 const env = Object.fromEntries(
   readFileSync(new URL("../.env.local", import.meta.url), "utf8")
     .split("\n")
@@ -33,133 +34,120 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
   process.exit(1);
 }
 
-/** 全テストユーザー共通のパスワード。開発専用。 */
-export const DEV_PASSWORD = "devpassword123";
+/** 連続作成の間隔(ms)。Supabase 側のレート制限を避けるため空ける。 */
+const BASE_DELAY = 700;
+/** レート制限に当たったときの待機の上限(ms) */
+const MAX_BACKOFF = 60_000;
 
-/** seed.sql の固定 UUID と対応 */
-const UNIVERSITIES = [
-  { key: "aozora", id: "a0000000-0000-4000-8000-000000000001", name: "青空大学" },
-  { key: "umihara", id: "a0000000-0000-4000-8000-000000000002", name: "海原大学" },
-  { key: "yamate", id: "a0000000-0000-4000-8000-000000000003", name: "山手工科大学" },
-];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** 既存ユーザーに合わせた「苗字 + 太郎/次郎/…」の命名 */
-const SURNAMES = ["佐藤", "鈴木", "高橋", "伊藤", "渡辺", "中村", "小林", "加藤"];
-const ORDINALS = ["太郎", "次郎", "三郎", "四郎", "五郎"];
-
-function buildUsers() {
-  const users = [];
-  let n = 0;
-
-  // 各大学に学生3名
-  for (const uni of UNIVERSITIES) {
-    for (let i = 1; i <= 3; i++) {
-      users.push({
-        email: `student${i}@${uni.key}.test`,
-        name: `${SURNAMES[n % SURNAMES.length]}${ORDINALS[(i - 1) % ORDINALS.length]}`,
-        role: "student",
-        university_id: uni.id,
-        universityName: uni.name,
-        enrollment_year: String(2024 + (i % 3)),
-      });
-      n++;
-    }
-  }
-
-  // 各大学に職員1名（作成時は general、あとで昇格）
-  for (const uni of UNIVERSITIES) {
-    users.push({
-      email: `staff1@${uni.key}.test`,
-      name: `職員${ORDINALS[0]}`,
-      role: "general",
-      promoteTo: "staff",
-      university_id: uni.id,
-      universityName: uni.name,
-    });
-  }
-
-  // 一般ユーザー2名（大学に属さない）
-  for (let i = 1; i <= 2; i++) {
-    users.push({
-      email: `general${i}@example.test`,
-      name: `一般${ORDINALS[i - 1]}`,
-      role: "general",
-      universityName: "—",
-    });
-  }
-
-  return users;
-}
+const isAlreadyRegistered = (message) =>
+  /already|registered|exists/i.test(message);
+const isRateLimited = (message, status) =>
+  status === 429 || /rate limit|too many|security purposes/i.test(message);
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const users = buildUsers();
+const users = buildDevUsers();
 
-console.log(`${users.length} 件のテストユーザーを作成します…\n`);
+console.log(`${users.length} 件のテストユーザーを処理します。`);
+console.log("（作成済みのものはスキップします）\n");
 
 const created = [];
 const skipped = [];
 const failed = [];
 
 for (const u of users) {
-  const { data, error } = await supabase.auth.signUp({
-    email: u.email,
-    password: DEV_PASSWORD,
-    options: {
-      data: {
-        name: u.name,
-        role: u.role,
-        university_id: u.role === "student" ? u.university_id : "",
-        enrollment_year: u.enrollment_year ?? "",
-      },
-    },
-  });
+  let backoff = 5_000;
+  let done = false;
 
-  if (error) {
-    // 既に登録済みの場合はエラーになるが、これは正常な結果として扱う
-    if (/already|registered|exists/i.test(error.message)) {
+  // レート制限に当たったら待って再試行する。
+  // 数十件をまとめて作ると Supabase 側の上限に触れるため。
+  while (!done) {
+    const { data, error } = await supabase.auth.signUp({
+      email: u.email,
+      password: DEV_PASSWORD,
+      options: {
+        data: {
+          name: u.name,
+          role: u.role,
+          university_id: u.role === "student" ? u.university_id : "",
+          enrollment_year: u.enrollment_year ?? "",
+        },
+      },
+    });
+
+    if (!error) {
+      if (data.user) {
+        created.push(u);
+        console.log(`  ✓ ${u.email.padEnd(28)} ${u.name}`);
+      }
+      done = true;
+    } else if (isAlreadyRegistered(error.message)) {
       skipped.push(u);
-      console.log(`  - ${u.email} (登録済みのためスキップ)`);
+      done = true;
+    } else if (isRateLimited(error.message, error.status)) {
+      console.log(
+        `  … レート制限のため ${Math.round(backoff / 1000)} 秒待機します (${u.email})`,
+      );
+      await sleep(backoff);
+      backoff = Math.min(backoff * 2, MAX_BACKOFF);
     } else {
       failed.push({ ...u, reason: error.message });
       console.log(`  ✗ ${u.email} — ${error.message}`);
+      done = true;
     }
-  } else if (data.user) {
-    created.push(u);
-    console.log(`  ✓ ${u.email} — ${u.name}`);
   }
 
-  // Supabase のサインアップにはレート制限があるため間隔を空ける
-  await new Promise((r) => setTimeout(r, 600));
+  await sleep(BASE_DELAY);
 }
 
-// サインアップ後は最後のアカウントのセッションが残るのでログアウトしておく
+// 最後に作ったアカウントのセッションが残るのでログアウトしておく
 await supabase.auth.signOut();
 
 console.log(
   `\n作成 ${created.length} / スキップ ${skipped.length} / 失敗 ${failed.length}`,
 );
 
-// --- 職員昇格用の SQL を出力 ---------------------------------------------
+if (failed.length > 0) {
+  console.log(
+    "\n失敗したアカウントがあります。時間をおいて再実行すると続きから作成されます。",
+  );
+}
+
+// --- 職員昇格用の SQL ---------------------------------------------------
 const toPromote = users.filter((u) => u.promoteTo === "staff");
-const promoteSql = [
-  "-- 職員アカウントへの昇格（Supabase SQL Editor で実行してください）",
-  "-- staff はセルフサインアップできない設計のため、この手順が必要です。",
-  ...toPromote.map(
-    (u) => `select public.promote_to_staff('${u.email}', '${u.university_id}');`,
-  ),
-  "",
-].join("\n");
+writeFileSync(
+  new URL("../supabase/promote_staff.sql", import.meta.url),
+  [
+    "-- 職員アカウントへの昇格（Supabase SQL Editor で実行してください）",
+    "-- staff はセルフサインアップできない設計のため、この手順が必要です。",
+    ...toPromote.map(
+      (u) => `select public.promote_to_staff('${u.email}', '${u.university_id}');`,
+    ),
+    "",
+  ].join("\n"),
+);
 
-writeFileSync(new URL("../supabase/promote_staff.sql", import.meta.url), promoteSql);
+// --- 一覧を Markdown で出力 ---------------------------------------------
+const byUniversity = new Map();
+for (const u of users) {
+  const list = byUniversity.get(u.universityName) ?? [];
+  list.push(u);
+  byUniversity.set(u.universityName, list);
+}
 
-// --- 一覧を Markdown で出力 ----------------------------------------------
-const rows = users.map((u) => {
-  const role = u.promoteTo ?? u.role;
-  const label = { student: "学生", staff: "職員", general: "一般" }[role];
-  return `| ${u.email} | ${u.name} | ${label} | ${u.universityName} |`;
+const sections = [...byUniversity.entries()].map(([university, list]) => {
+  const rows = list.map((u) => {
+    const role = u.promoteTo ?? u.role;
+    const label = { student: "学生", staff: "職員", general: "一般" }[role];
+    return `| ${u.email} | ${u.name} | ${label} |`;
+  });
+  return `### ${university}\n\n| メールアドレス | 氏名 | ロール |\n| --- | --- | --- |\n${rows.join("\n")}`;
 });
 
-const doc = `# 開発用テストユーザー
+writeFileSync(
+  new URL("../docs/dev-users.md", import.meta.url),
+  `# 開発用テストユーザー
 
 \`npm run db:users\` で作成される開発専用アカウントの一覧です。
 **パスワードは全員共通で \`${DEV_PASSWORD}\` です。**
@@ -168,9 +156,9 @@ const doc = `# 開発用テストユーザー
 > メールアドレスは \`.test\` ドメイン（RFC 2606 の予約ドメイン）なので、
 > 実在のアドレスに誤送信されることはありません。
 
-| メールアドレス | 氏名 | ロール | 大学 |
-| --- | --- | --- | --- |
-${rows.join("\n")}
+合計 ${users.length} 名。
+
+${sections.join("\n\n")}
 
 ## 職員アカウントについて
 
@@ -182,9 +170,8 @@ ${rows.join("\n")}
 
 開発サーバーではログイン画面に「開発用クイックログイン」パネルが出ます。
 一覧から選ぶだけで切り替わります。\`NODE_ENV=production\` では表示されません。
-`;
-
-writeFileSync(new URL("../docs/dev-users.md", import.meta.url), doc);
+`,
+);
 
 console.log("\n生成しました:");
 console.log("  docs/dev-users.md          … アカウント一覧");
