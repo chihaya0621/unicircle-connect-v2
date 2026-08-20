@@ -277,6 +277,24 @@ export type Database = {
         Args: { p_facility_id: string; p_available: boolean };
         Returns: undefined;
       };
+      /** イベント作成。作成した event の id を返す（0005_events.sql） */
+      create_event: {
+        Args: {
+          p_title: string;
+          p_event_date: string;
+          p_description?: string;
+          p_visibility?: EventVisibility;
+          p_circle_id?: string;
+          p_target_grades?: string[];
+          p_university_ids?: string[];
+        };
+        Returns: string;
+      };
+      /** イベント削除（主催者本人のみ） */
+      delete_event: {
+        Args: { p_event_id: string };
+        Returns: undefined;
+      };
     };
     Enums: Record<never, never>;
     CompositeTypes: Record<never, never>;

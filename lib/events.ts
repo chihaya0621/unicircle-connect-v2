@@ -128,3 +128,71 @@ export async function listVisibleEvents(
 
   return { events, error: null };
 }
+
+/**
+ * 自分がイベントを主催できるサークル。
+ * サークルイベントを作れるのは、承認済みサークルの管理者のみ。
+ */
+export async function listHostableCircles(userId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("circle_members")
+    .select(`circle:circles!circle_members_circle_id_fkey(id, name, status)`)
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .eq("status", "active")
+    .returns<{ circle: { id: string; name: string; status: string } | null }[]>();
+
+  return (data ?? [])
+    .map((m) => m.circle)
+    .filter(
+      (c): c is { id: string; name: string; status: string } =>
+        c !== null && c.status === "approved",
+    );
+}
+
+export type EventDetail = EventListItem & {
+  created_at: string;
+  scoped_university_names: { university: { name: string } | null }[];
+};
+
+export async function getEvent(eventId: string): Promise<EventDetail | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("events")
+    .select(
+      `${EVENT_SELECT},
+       created_at,
+       scoped_university_names:event_universities(
+         university:universities!event_universities_university_id_fkey(name)
+       )`,
+    )
+    .eq("id", eventId)
+    .maybeSingle()
+    .returns<EventDetail>();
+  return data ?? null;
+}
+
+/**
+ * 閲覧者がそのイベントを削除できるか。
+ * 大学主催なら同じ大学の職員、サークル主催ならそのサークルの管理者。
+ * 最終判定は delete_event 側で行うので、ここはボタンの出し分け用。
+ */
+export async function canManageEvent(
+  event: Pick<EventListItem, "host_university_id" | "host_circle_id">,
+  userId: string,
+  universityId: string | null,
+  role: UserRole,
+) {
+  if (event.host_circle_id) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("circle_members")
+      .select("role, status")
+      .eq("circle_id", event.host_circle_id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    return data?.role === "admin" && data.status === "active";
+  }
+  return role === "staff" && event.host_university_id === universityId;
+}
