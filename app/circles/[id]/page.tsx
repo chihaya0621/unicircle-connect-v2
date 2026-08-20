@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
@@ -12,6 +13,9 @@ import { PostComposer } from "@/components/PostComposer";
 import { PostList } from "@/components/PostList";
 import { MemberList } from "@/components/MemberList";
 import { listCirclePosts } from "@/lib/board";
+import { getCircleActivity } from "@/lib/circle-activity";
+import { EventCard } from "@/components/EventCard";
+import { listUpcomingCircleEvents } from "@/lib/events";
 import { imageUrl } from "@/lib/images";
 import {
   getCircle,
@@ -20,6 +24,11 @@ import {
   listMembers,
 } from "@/lib/circles";
 import { requireRole } from "@/lib/dal";
+
+const activityDateFormatter = new Intl.DateTimeFormat("ja-JP", {
+  dateStyle: "medium",
+  timeZone: "Asia/Tokyo",
+});
 
 export async function generateMetadata({
   params,
@@ -56,6 +65,15 @@ export default async function CircleDetailPage({
   const isMember = membership?.status === "active";
   const posts = isMember ? await listCirclePosts(id) : [];
   const image = imageUrl(circle.image_path);
+
+  // 承認済みサークルのみイベントを持ちうる
+  const upcoming =
+    circle.status === "approved" ? await listUpcomingCircleEvents(id, 1) : [];
+
+  // 活動記録はメンバーだけに見せる。外部に活動履歴まで公開する必要はない。
+  const activity = isMember
+    ? await getCircleActivity(id, 10)
+    : { activities: [], total: 0 };
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
@@ -117,6 +135,21 @@ export default async function CircleDetailPage({
         )}
       </header>
 
+      {upcoming.length > 0 && (
+        <section className="mb-10">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-lg font-semibold">次の予定</h2>
+            <Link
+              href="/events"
+              className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              イベントを見る
+            </Link>
+          </div>
+          <EventCard event={upcoming[0]} />
+        </section>
+      )}
+
       {canManage && (
         <section className="mb-10 rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5">
           <h2 className="mb-4 text-lg font-semibold">サークルの画像</h2>
@@ -145,6 +178,53 @@ export default async function CircleDetailPage({
             currentUserName={user.name}
             emptyLabel="まだ投稿がありません。"
           />
+        </section>
+      )}
+
+      {isMember && (
+        <section className="mb-10">
+          <h2 className="mb-1 text-lg font-semibold">
+            活動記録
+            {activity.total > 0 && (
+              <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                直近{activity.total}回
+              </span>
+            )}
+          </h2>
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            開催が終わったイベントを新しい順に表示しています。
+          </p>
+
+          {activity.activities.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-black/15 px-4 py-8 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+              まだ活動の記録がありません。イベントを作成して開催すると、ここに残ります。
+            </p>
+          ) : (
+            <ul className="divide-y divide-black/5 rounded-xl border border-black/10 bg-white dark:divide-white/5 dark:border-white/10 dark:bg-white/5">
+              {activity.activities.map((a) => (
+                <li key={a.id} className="px-4 py-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                    <Link
+                      href={`/events/${a.id}`}
+                      className="min-w-0 truncate text-sm font-medium hover:underline"
+                    >
+                      {a.title}
+                    </Link>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {activityDateFormatter.format(new Date(a.event_date))}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {a.present > 0
+                      ? `出席 ${a.present}人 ／ 参加登録 ${a.registered}人`
+                      : a.registered > 0
+                        ? `参加登録 ${a.registered}人`
+                        : "参加登録なし"}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 

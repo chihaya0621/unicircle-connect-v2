@@ -198,3 +198,39 @@ export async function canManageEvent(
   }
   return role === "staff" && event.host_university_id === universityId;
 }
+
+/**
+ * そのサークルが主催する、これからのイベント。
+ *
+ * サークルのページに「次の予定」を出すために使う。
+ * RLS が効くので、閲覧者に見えないイベントは最初から返らない。
+ */
+export async function listUpcomingCircleEvents(circleId: string, limit = 1) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("events")
+    .select(EVENT_SELECT)
+    .eq("host_circle_id", circleId)
+    .gte("event_date", new Date().toISOString())
+    .order("event_date", { ascending: true })
+    .limit(limit)
+    .returns<EventListItem[]>();
+  return data ?? [];
+}
+
+/**
+ * そのサークルが主催した、終了済みのイベント。
+ * 活動の記録として新しい順に返す。
+ */
+export async function listPastCircleEvents(circleId: string, limit = 20) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("events")
+    .select(EVENT_SELECT)
+    .eq("host_circle_id", circleId)
+    .lt("event_date", new Date().toISOString())
+    .order("event_date", { ascending: false })
+    .limit(limit)
+    .returns<EventListItem[]>();
+  return data ?? [];
+}
