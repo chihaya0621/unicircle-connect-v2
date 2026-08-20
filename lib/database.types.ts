@@ -321,6 +321,16 @@ export type Database = {
         Args: { p_facility_id: string };
         Returns: undefined;
       };
+      /** プロフィール更新（0009_profile.sql。対象は常に自分自身） */
+      update_my_profile: {
+        Args: {
+          p_name: string;
+          p_bio?: string;
+          p_skills?: string[];
+          p_enrollment_year?: number;
+        };
+        Returns: undefined;
+      };
       /** イベント参加登録（0007_event_participants.sql） */
       join_event: { Args: { p_event_id: string }; Returns: string };
       /** イベント参加の取り消し */

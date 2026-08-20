@@ -5,6 +5,7 @@ import { FacilityForm } from "@/components/FacilityForm";
 import { FacilityRow } from "@/components/FacilityRow";
 import { getMyUniversityId, requireRole } from "@/lib/dal";
 import { listFacilities } from "@/lib/facilities";
+import { getPendingCounts } from "@/lib/pending";
 
 export const metadata: Metadata = { title: "施設予約 | UniCircle Connect" };
 
@@ -15,6 +16,10 @@ export default async function FacilitiesPage() {
   const user = await requireRole("student", "staff");
   const universityId = await getMyUniversityId();
   const facilities = await listFacilities(universityId);
+  const { reservations: pendingReservations } = await getPendingCounts(
+    user.id,
+    user.role,
+  );
 
   const isStaff = user.role === "staff";
 
@@ -31,9 +36,14 @@ export default async function FacilitiesPage() {
         </div>
         <Link
           href="/reservations"
-          className="rounded-lg border border-black/15 px-4 py-2 text-sm font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            isStaff && pendingReservations > 0
+              ? "border border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+              : "border border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          }`}
         >
           {isStaff ? "予約の承認" : "自分の予約"}
+          {isStaff && pendingReservations > 0 && ` (${pendingReservations})`}
         </Link>
       </header>
 

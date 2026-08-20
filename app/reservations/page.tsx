@@ -28,6 +28,11 @@ export default async function ReservationsPage() {
               ? "所属大学の施設への予約申請を審査します。"
               : "個人の予約と、参加しているサークルの予約を表示しています。"}
           </p>
+          {user.role === "staff" && pending.length > 0 && (
+            <p className="mt-2 inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-sm font-medium text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+              承認待ちの申請が{pending.length}件あります
+            </p>
+          )}
         </div>
         <Link
           href="/facilities"

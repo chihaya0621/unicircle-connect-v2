@@ -74,8 +74,8 @@ export default async function CirclesPage({
 
       {pending.length > 0 && (
         <section className="mb-10">
-          <h2 className="mb-3 text-sm font-semibold text-amber-700 dark:text-amber-300">
-            設立申請 {pending.length}件（承認待ち）
+          <h2 className="mb-3 inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+            承認待ちの設立申請が{pending.length}件あります
           </h2>
           <ul className="space-y-3">
             {pending.map((circle) => (
