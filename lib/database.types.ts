@@ -36,6 +36,24 @@ export type Database = {
         Insert: { id?: string; name: string; created_at?: string };
         Update: { id?: string; name?: string; created_at?: string };
       };
+      circle_posts: {
+        Row: {
+          id: string;
+          circle_id: string;
+          author_id: string | null;
+          body: string;
+          is_pinned: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          circle_id: string;
+          author_id?: string | null;
+          body: string;
+          is_pinned?: boolean;
+        };
+        Update: { body?: string; is_pinned?: boolean };
+      };
       event_participants: {
         Row: {
           id: string;
@@ -319,6 +337,18 @@ export type Database = {
       /** 施設・備品の削除（大学職員のみ。今後の予約が残る場合は拒否） */
       delete_facility: {
         Args: { p_facility_id: string };
+        Returns: undefined;
+      };
+      /** サークル掲示板への投稿（0011_circle_posts.sql） */
+      create_circle_post: {
+        Args: { p_circle_id: string; p_body: string; p_pinned?: boolean };
+        Returns: string;
+      };
+      /** 投稿の削除（投稿者本人または管理者） */
+      delete_circle_post: { Args: { p_post_id: string }; Returns: undefined };
+      /** お知らせへの固定・解除（管理者のみ） */
+      set_post_pinned: {
+        Args: { p_post_id: string; p_pinned: boolean };
         Returns: undefined;
       };
       /** 職員による学生登録（0010。'registered' | 'updated' を返す） */

@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { JoinCircleButton } from "@/components/JoinCircleButton";
+import { PostComposer } from "@/components/PostComposer";
+import { PostList } from "@/components/PostList";
 import { MemberList } from "@/components/MemberList";
+import { listCirclePosts } from "@/lib/board";
 import {
   getCircle,
   getMyMembership,
@@ -41,6 +44,10 @@ export default async function CircleDetailPage({
   if (circle.status !== "approved" && !isInsider) notFound();
 
   const members = await listMembers(id);
+
+  // 掲示板はメンバーのみ。RLS でも非メンバーには 0 件になる。
+  const isMember = membership?.status === "active";
+  const posts = isMember ? await listCirclePosts(id) : [];
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
@@ -87,6 +94,21 @@ export default async function CircleDetailPage({
           </div>
         )}
       </header>
+
+      {isMember && (
+        <section className="mb-10">
+          <h2 className="mb-3 text-lg font-semibold">掲示板</h2>
+          <div className="mb-4">
+            <PostComposer circleId={circle.id} canPin={canManage} />
+          </div>
+          <PostList
+            posts={posts}
+            isAdmin={canManage}
+            currentUserName={user.name}
+            emptyLabel="まだ投稿がありません。"
+          />
+        </section>
+      )}
 
       <MemberList members={members} circleId={circle.id} canManage={canManage} />
     </div>

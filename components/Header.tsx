@@ -47,6 +47,11 @@ export async function Header() {
           <Link href="/events" className={navLink}>
             イベント
           </Link>
+          {user?.role === "student" && (
+            <Link href="/board" className={navLink}>
+              掲示板
+            </Link>
+          )}
           {user && (
             <Link href="/calendar" className={navLink}>
               カレンダー
