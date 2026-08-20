@@ -48,9 +48,10 @@ export default async function EventDetailPage({
     ? await canManageEvent(event, user.id, universityId, user.role)
     : false;
 
-  // 参加状態（未ログインなら null）
+  // 参加状態。職員は運営側なので参加登録の対象外。
+  const canParticipate = user !== null && user.role !== "staff";
   let isGoing = false;
-  if (user) {
+  if (canParticipate && user) {
     const supabase = await createClient();
     const { data } = await supabase
       .from("event_participants")
@@ -105,7 +106,7 @@ export default async function EventDetailPage({
           )}
       </header>
 
-      {user && !isPast && (
+      {canParticipate && !isPast && (
         <div className="mb-8">
           {isGoing ? (
             <form action={leaveEvent} className="flex items-center gap-3">

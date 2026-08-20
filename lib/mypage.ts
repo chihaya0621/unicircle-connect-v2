@@ -214,3 +214,76 @@ export async function listMyReservationHistory(userId: string) {
     past: rows.filter((r) => new Date(r.end_time).getTime() < now),
   };
 }
+
+// =============================================================================
+// 職員向け
+// =============================================================================
+// 職員はサークルに所属せず、イベントにも参加せず、施設を個人として
+// 予約することもない。代わりに「自大学の状況を把握する」ための情報を出す。
+// =============================================================================
+
+export type StaffSummary = {
+  /** 自大学の施設への、承認済みで今後の予約 */
+  upcomingReservations: MyReservation[];
+  /** 自大学が主催する、今後のイベント */
+  upcomingEvents: MyEvent[];
+  facilities: { total: number; equipment: number; unavailable: number };
+};
+
+export async function getStaffSummary(
+  universityId: string | null,
+): Promise<StaffSummary> {
+  const empty: StaffSummary = {
+    upcomingReservations: [],
+    upcomingEvents: [],
+    facilities: { total: 0, equipment: 0, unavailable: 0 },
+  };
+  if (!universityId) return empty;
+
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+
+  const [reservations, events, facilities] = await Promise.all([
+    supabase
+      .from("facility_reservations")
+      .select(
+        `id, start_time, end_time, purpose, status,
+         facility:facilities!facility_reservations_facility_id_fkey(name),
+         circle:circles!facility_reservations_group_circle_id_fkey(name)`,
+      )
+      .eq("status", "approved")
+      .gte("end_time", now)
+      .order("start_time")
+      .limit(10)
+      .returns<MyReservation[]>(),
+    supabase
+      .from("events")
+      .select(
+        `id, title, event_date,
+         host_university:universities!events_host_university_id_fkey(name),
+         host_circle:circles!events_host_circle_id_fkey(name)`,
+      )
+      .eq("host_university_id", universityId)
+      .gte("event_date", now)
+      .order("event_date")
+      .limit(10)
+      .returns<MyEvent[]>(),
+    supabase
+      .from("facilities")
+      .select("category, is_available")
+      .eq("university_id", universityId),
+  ]);
+
+  const rows = facilities.data ?? [];
+
+  return {
+    // RLS により自大学の施設の予約しか読めないので、追加の絞り込みは不要
+    upcomingReservations: reservations.data ?? [],
+    upcomingEvents: events.data ?? [],
+    facilities: {
+      total: rows.length,
+      equipment: rows.filter((f) => f.category === "equipment").length,
+      unavailable: rows.filter((f) => !f.is_available).length,
+    },
+  };
+}

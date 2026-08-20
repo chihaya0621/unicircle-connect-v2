@@ -4,15 +4,17 @@ import { notFound } from "next/navigation";
 
 import { ProfileForm } from "@/components/ProfileForm";
 import type { UserRole } from "@/lib/database.types";
-import { requireUser } from "@/lib/dal";
+import { getMyUniversityId, requireUser } from "@/lib/dal";
 import {
   getMyProfile,
+  getStaffSummary,
   listMyCircleMemberships,
   listMyEvents,
   listMyReservationHistory,
   type MyEvent,
   type MyReservation,
 } from "@/lib/mypage";
+import { getPendingCounts } from "@/lib/pending";
 
 export const metadata: Metadata = { title: "マイページ | UniCircle Connect" };
 
@@ -33,9 +35,18 @@ const timeFormatter = new Intl.DateTimeFormat("ja-JP", {
 });
 
 const RESERVATION_STATUS = {
-  pending: { label: "承認待ち", className: "text-amber-700 dark:text-amber-300" },
-  approved: { label: "承認済み", className: "text-emerald-700 dark:text-emerald-300" },
-  rejected: { label: "取り消し", className: "text-gray-500 dark:text-gray-400" },
+  pending: {
+    label: "承認待ち",
+    className: "text-amber-700 dark:text-amber-300",
+  },
+  approved: {
+    label: "承認済み",
+    className: "text-emerald-700 dark:text-emerald-300",
+  },
+  rejected: {
+    label: "取り消し",
+    className: "text-gray-500 dark:text-gray-400",
+  },
 } as const;
 
 function EventRow({ event }: { event: MyEvent }) {
@@ -50,7 +61,9 @@ function EventRow({ event }: { event: MyEvent }) {
           {dateFormatter.format(new Date(event.event_date))}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{event.title}</span>
+          <span className="block truncate text-sm font-medium">
+            {event.title}
+          </span>
           <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
             {host}
           </span>
@@ -124,13 +137,28 @@ export default async function MyPage() {
   const profile = await getMyProfile(user.id, user.role, user.email);
   if (!profile) notFound();
 
-  const [events, circles, reservations] = await Promise.all([
-    listMyEvents(user.id),
-    user.role === "general" ? Promise.resolve([]) : listMyCircleMemberships(user.id),
-    user.role === "general"
-      ? Promise.resolve({ upcoming: [], past: [] })
-      : listMyReservationHistory(user.id),
-  ]);
+  const isStaff = user.role === "staff";
+
+  // 職員はサークルに所属せず、イベント参加も個人予約もしない。
+  // 代わりに自大学の状況を出すため、取得するデータ自体を分ける。
+  const [events, circles, reservations, staffSummary, pending] =
+    await Promise.all([
+      isStaff
+        ? Promise.resolve({ upcoming: [], past: [] })
+        : listMyEvents(user.id),
+      user.role === "student"
+        ? listMyCircleMemberships(user.id)
+        : Promise.resolve([]),
+      user.role === "student"
+        ? listMyReservationHistory(user.id)
+        : Promise.resolve({ upcoming: [], past: [] }),
+      isStaff
+        ? getMyUniversityId().then(getStaffSummary)
+        : Promise.resolve(null),
+      isStaff
+        ? getPendingCounts(user.id, user.role)
+        : Promise.resolve({ circles: 0, reservations: 0, members: 0 }),
+    ]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
@@ -148,7 +176,7 @@ export default async function MyPage() {
         <ProfileForm profile={profile} />
       </section>
 
-      {user.role !== "general" && (
+      {user.role === "student" && (
         <Section title="所属サークル" count={circles.length}>
           {circles.length === 0 ? (
             <Empty>
@@ -175,7 +203,8 @@ export default async function MyPage() {
                           {m.circle.university?.name ?? "—"}
                           {m.role === "admin" && " ／ 管理者"}
                           {m.status === "pending" && " ／ 参加申請中"}
-                          {m.status === "rejected" && " ／ 申請が却下されました"}
+                          {m.status === "rejected" &&
+                            " ／ 申請が却下されました"}
                         </p>
                       </Link>
                     </li>
@@ -186,31 +215,133 @@ export default async function MyPage() {
         </Section>
       )}
 
-      <Section title="参加予定のイベント" count={events.upcoming.length}>
-        {events.upcoming.length === 0 ? (
-          <Empty>参加予定のイベントはありません。</Empty>
-        ) : (
-          <ul className="space-y-2">
-            {events.upcoming.map((e) => (
-              <EventRow key={e.id} event={e} />
-            ))}
-          </ul>
-        )}
-      </Section>
+      {!isStaff && (
+        <>
+          <Section title="参加予定のイベント" count={events.upcoming.length}>
+            {events.upcoming.length === 0 ? (
+              <Empty>参加予定のイベントはありません。</Empty>
+            ) : (
+              <ul className="space-y-2">
+                {events.upcoming.map((e) => (
+                  <EventRow key={e.id} event={e} />
+                ))}
+              </ul>
+            )}
+          </Section>
 
-      <Section title="参加したイベント" count={events.past.length}>
-        {events.past.length === 0 ? (
-          <Empty>まだ参加履歴がありません。</Empty>
-        ) : (
-          <ul className="space-y-2">
-            {events.past.map((e) => (
-              <EventRow key={e.id} event={e} />
-            ))}
-          </ul>
-        )}
-      </Section>
+          <Section title="参加したイベント" count={events.past.length}>
+            {events.past.length === 0 ? (
+              <Empty>まだ参加履歴がありません。</Empty>
+            ) : (
+              <ul className="space-y-2">
+                {events.past.map((e) => (
+                  <EventRow key={e.id} event={e} />
+                ))}
+              </ul>
+            )}
+          </Section>
+        </>
+      )}
 
-      {user.role !== "general" && (
+      {isStaff && staffSummary && (
+        <>
+          <Section title="対応が必要なもの">
+            <ul className="grid gap-3 sm:grid-cols-2">
+              <li>
+                <Link
+                  href="/circles"
+                  className={`block rounded-xl border p-4 transition hover:shadow-md ${
+                    pending.circles > 0
+                      ? "border-rose-300 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/30"
+                      : "border-black/10 bg-white dark:border-white/10 dark:bg-white/5"
+                  }`}
+                >
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    サークル設立申請
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">{pending.circles}件</p>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/reservations"
+                  className={`block rounded-xl border p-4 transition hover:shadow-md ${
+                    pending.reservations > 0
+                      ? "border-rose-300 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/30"
+                      : "border-black/10 bg-white dark:border-white/10 dark:bg-white/5"
+                  }`}
+                >
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    施設の予約申請
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {pending.reservations}件
+                  </p>
+                </Link>
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="施設・備品">
+            <Link
+              href="/facilities"
+              className="block rounded-xl border border-black/10 bg-white p-4 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+            >
+              <p className="text-sm">
+                施設・備品 {staffSummary.facilities.total}件
+                <span className="text-gray-500 dark:text-gray-400">
+                  （うち備品 {staffSummary.facilities.equipment}件）
+                </span>
+              </p>
+              {staffSummary.facilities.unavailable > 0 && (
+                <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
+                  利用停止中が{staffSummary.facilities.unavailable}件あります
+                </p>
+              )}
+            </Link>
+          </Section>
+
+          <Section
+            title="今後の利用予定"
+            count={staffSummary.upcomingReservations.length}
+          >
+            {staffSummary.upcomingReservations.length === 0 ? (
+              <Empty>承認済みの予約はありません。</Empty>
+            ) : (
+              <ul className="space-y-2">
+                {staffSummary.upcomingReservations.map((r) => (
+                  <ReservationRow key={r.id} reservation={r} />
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          <Section
+            title="自大学が主催するイベント"
+            count={staffSummary.upcomingEvents.length}
+          >
+            {staffSummary.upcomingEvents.length === 0 ? (
+              <Empty>
+                今後のイベントはありません。
+                <Link
+                  href="/events/new"
+                  className="ml-1 font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                >
+                  イベントを作成する
+                </Link>
+              </Empty>
+            ) : (
+              <ul className="space-y-2">
+                {staffSummary.upcomingEvents.map((e) => (
+                  <EventRow key={e.id} event={e} />
+                ))}
+              </ul>
+            )}
+          </Section>
+        </>
+      )}
+
+      {user.role === "student" && (
         <>
           <Section title="今後の施設予約" count={reservations.upcoming.length}>
             {reservations.upcoming.length === 0 ? (
