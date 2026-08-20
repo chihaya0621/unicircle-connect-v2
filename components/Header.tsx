@@ -21,15 +21,22 @@ export async function Header() {
         </Link>
 
         <nav className="flex items-center gap-4 text-sm">
-          <Link href="/circles" className="text-gray-600 transition hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
-            サークル
-          </Link>
+          {user && user.role !== "general" && (
+            <Link href="/circles" className="text-gray-600 transition hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
+              サークル
+            </Link>
+          )}
           <Link href="/events" className="text-gray-600 transition hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
             イベント
           </Link>
 
           {user ? (
             <>
+              {user.role !== "general" && (
+                <Link href="/facilities" className="text-gray-600 transition hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
+                  施設予約
+                </Link>
+              )}
               <Link href="/dashboard" className="text-gray-600 transition hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
                 ダッシュボード
               </Link>

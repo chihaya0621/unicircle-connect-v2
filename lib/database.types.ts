@@ -246,6 +246,37 @@ export type Database = {
         Args: { p_circle_id: string; p_approve: boolean };
         Returns: undefined;
       };
+      /** 施設予約の申請。予約 id を返す（0004_facilities.sql） */
+      create_reservation: {
+        Args: {
+          p_facility_id: string;
+          p_start: string;
+          p_end: string;
+          p_purpose?: string;
+          p_circle_id?: string;
+        };
+        Returns: string;
+      };
+      /** 予約の承認 / 却下（大学職員のみ） */
+      decide_reservation: {
+        Args: { p_reservation_id: string; p_approve: boolean };
+        Returns: undefined;
+      };
+      /** 予約の取り消し（申請者本人またはサークル管理者） */
+      cancel_reservation: {
+        Args: { p_reservation_id: string };
+        Returns: undefined;
+      };
+      /** 施設の登録（大学職員のみ） */
+      create_facility: {
+        Args: { p_name: string; p_category?: string };
+        Returns: string;
+      };
+      /** 施設の利用可否の切り替え（大学職員のみ） */
+      set_facility_availability: {
+        Args: { p_facility_id: string; p_available: boolean };
+        Returns: undefined;
+      };
     };
     Enums: Record<never, never>;
     CompositeTypes: Record<never, never>;
