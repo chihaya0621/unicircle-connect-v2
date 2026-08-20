@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { toggleFacility } from "@/app/actions/facilities";
 import { FacilityForm } from "@/components/FacilityForm";
+import { FacilityRow } from "@/components/FacilityRow";
 import { getMyUniversityId, requireRole } from "@/lib/dal";
 import { listFacilities } from "@/lib/facilities";
 
@@ -54,61 +54,42 @@ export default async function FacilitiesPage() {
         </p>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2">
-          {facilities.map((f) => (
-            <li
-              key={f.id}
-              className="rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="font-semibold">{f.name}</h3>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    {f.category ? CATEGORY_LABEL[f.category] : "未分類"}
-                  </p>
+          {facilities.map((f) =>
+            // 職員向けは編集・削除のためにクライアント状態が要る
+            isStaff ? (
+              <FacilityRow key={f.id} facility={f} />
+            ) : (
+              <li
+                key={f.id}
+                className="rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold">{f.name}</h3>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {f.category ? CATEGORY_LABEL[f.category] : "未分類"}
+                    </p>
+                  </div>
+                  {!f.is_available && (
+                    <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-gray-400">
+                      利用停止中
+                    </span>
+                  )}
                 </div>
-                {!f.is_available && (
-                  <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-gray-400">
-                    利用停止中
-                  </span>
-                )}
-              </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {f.is_available && !isStaff && (
-                  <Link
-                    href={`/facilities/${f.id}`}
-                    className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500"
-                  >
-                    空き状況・予約
-                  </Link>
-                )}
-                {isStaff && (
-                  <>
+                {f.is_available && (
+                  <div className="mt-4">
                     <Link
                       href={`/facilities/${f.id}`}
-                      className="rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+                      className="inline-block rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500"
                     >
-                      予約状況
+                      空き状況・予約
                     </Link>
-                    <form action={toggleFacility}>
-                      <input type="hidden" name="facility_id" value={f.id} />
-                      <input
-                        type="hidden"
-                        name="available"
-                        value={String(!f.is_available)}
-                      />
-                      <button
-                        type="submit"
-                        className="rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-                      >
-                        {f.is_available ? "利用停止にする" : "利用可能にする"}
-                      </button>
-                    </form>
-                  </>
+                  </div>
                 )}
-              </div>
-            </li>
-          ))}
+              </li>
+            ),
+          )}
         </ul>
       )}
     </div>

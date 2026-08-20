@@ -295,6 +295,16 @@ export type Database = {
         Args: { p_event_id: string };
         Returns: undefined;
       };
+      /** 施設・備品の編集（大学職員のみ・0006_facility_management.sql） */
+      update_facility: {
+        Args: { p_facility_id: string; p_name: string; p_category: string };
+        Returns: undefined;
+      };
+      /** 施設・備品の削除（大学職員のみ。今後の予約が残る場合は拒否） */
+      delete_facility: {
+        Args: { p_facility_id: string };
+        Returns: undefined;
+      };
     };
     Enums: Record<never, never>;
     CompositeTypes: Record<never, never>;

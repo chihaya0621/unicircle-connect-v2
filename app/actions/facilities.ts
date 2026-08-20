@@ -153,3 +153,67 @@ export async function toggleFacility(formData: FormData): Promise<void> {
 
   revalidatePath("/facilities");
 }
+
+/** 施設・備品の編集（大学職員のみ。判定は DB 側） */
+export async function updateFacility(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser();
+  if (user.role !== "staff") {
+    return { error: "施設を編集できるのは大学職員のみです。" };
+  }
+
+  const id = String(formData.get("facility_id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const category = String(formData.get("category") ?? "facility");
+
+  if (!id) return { error: "対象の施設が指定されていません。" };
+  if (!name) return { error: "名称を入力してください。" };
+  if (category !== "facility" && category !== "equipment") {
+    return { error: "区分の指定が不正です。" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_facility", {
+    p_facility_id: id,
+    p_name: name,
+    p_category: category,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/facilities");
+  revalidatePath(`/facilities/${id}`);
+  return { notice: "更新しました。" };
+}
+
+/**
+ * 施設・備品の削除（大学職員のみ。判定は DB 側）。
+ *
+ * 今後の予約が残っている場合は DB 側が拒否する。
+ * facility_reservations は ON DELETE CASCADE なので、
+ * そのまま消すと利用者の予約が予告なく巻き添えになるため。
+ */
+export async function deleteFacility(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser();
+  if (user.role !== "staff") {
+    return { error: "施設を削除できるのは大学職員のみです。" };
+  }
+
+  const id = String(formData.get("facility_id") ?? "");
+  if (!id) return { error: "対象の施設が指定されていません。" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_facility", {
+    p_facility_id: id,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/facilities");
+  return { notice: "削除しました。" };
+}
