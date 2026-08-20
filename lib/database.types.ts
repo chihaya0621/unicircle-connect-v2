@@ -36,6 +36,22 @@ export type Database = {
         Insert: { id?: string; name: string; created_at?: string };
         Update: { id?: string; name?: string; created_at?: string };
       };
+      event_participants: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string;
+          status: "going" | "cancelled";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          user_id: string;
+          status?: "going" | "cancelled";
+        };
+        Update: { status?: "going" | "cancelled" };
+      };
       circle_universities: {
         Row: { circle_id: string; university_id: string };
         Insert: { circle_id: string; university_id: string };
@@ -304,6 +320,15 @@ export type Database = {
       delete_facility: {
         Args: { p_facility_id: string };
         Returns: undefined;
+      };
+      /** イベント参加登録（0007_event_participants.sql） */
+      join_event: { Args: { p_event_id: string }; Returns: string };
+      /** イベント参加の取り消し */
+      leave_event: { Args: { p_event_id: string }; Returns: undefined };
+      /** イベントが指定大学から見えるか */
+      event_visible_to_university: {
+        Args: { p_event_id: string; p_university_id: string | null };
+        Returns: boolean;
       };
     };
     Enums: Record<never, never>;

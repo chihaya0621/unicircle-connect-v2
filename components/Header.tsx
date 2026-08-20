@@ -29,6 +29,11 @@ export async function Header() {
           <Link href="/events" className="text-gray-600 transition hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
             イベント
           </Link>
+          {user && (
+            <Link href="/calendar" className="text-gray-600 transition hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
+              カレンダー
+            </Link>
+          )}
 
           {user ? (
             <>

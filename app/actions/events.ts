@@ -106,3 +106,31 @@ export async function deleteEvent(formData: FormData): Promise<void> {
   revalidatePath("/dashboard");
   redirect("/events");
 }
+
+/** イベント参加登録（可視範囲の判定は DB 側） */
+export async function joinEvent(formData: FormData): Promise<void> {
+  await requireUser();
+  const id = String(formData.get("event_id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("join_event", { p_event_id: id });
+  if (error) console.error("参加登録に失敗しました:", error.message);
+
+  revalidatePath(`/events/${id}`);
+  revalidatePath("/calendar");
+}
+
+/** イベント参加の取り消し */
+export async function leaveEvent(formData: FormData): Promise<void> {
+  await requireUser();
+  const id = String(formData.get("event_id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("leave_event", { p_event_id: id });
+  if (error) console.error("参加取り消しに失敗しました:", error.message);
+
+  revalidatePath(`/events/${id}`);
+  revalidatePath("/calendar");
+}

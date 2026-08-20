@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { deleteEvent } from "@/app/actions/events";
+import { deleteEvent, joinEvent, leaveEvent } from "@/app/actions/events";
 import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
 import { canManageEvent, eventHost, eventVisibleTo, getEvent } from "@/lib/events";
+import { createClient } from "@/lib/supabase-server";
 
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   dateStyle: "full",
@@ -47,6 +48,20 @@ export default async function EventDetailPage({
     ? await canManageEvent(event, user.id, universityId, user.role)
     : false;
 
+  // 参加状態（未ログインなら null）
+  let isGoing = false;
+  if (user) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("event_participants")
+      .select("status")
+      .eq("event_id", event.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    isGoing = data?.status === "going";
+  }
+  const isPast = new Date(event.event_date) < new Date();
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <header className="mb-8">
@@ -89,6 +104,35 @@ export default async function EventDetailPage({
             </p>
           )}
       </header>
+
+      {user && !isPast && (
+        <div className="mb-8">
+          {isGoing ? (
+            <form action={leaveEvent} className="flex items-center gap-3">
+              <input type="hidden" name="event_id" value={event.id} />
+              <span className="text-sm font-medium text-rose-700 dark:text-rose-300">
+                参加予定です
+              </span>
+              <button
+                type="submit"
+                className="rounded-lg border border-black/15 px-3 py-1.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              >
+                参加を取り消す
+              </button>
+            </form>
+          ) : (
+            <form action={joinEvent}>
+              <input type="hidden" name="event_id" value={event.id} />
+              <button
+                type="submit"
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+              >
+                参加する
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
       {event.description && (
         <p className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
