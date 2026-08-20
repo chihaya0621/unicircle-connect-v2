@@ -86,21 +86,79 @@ ON CONFLICT DO NOTHING;
 -- -----------------------------------------------------------------------------
 -- 施設・備品を各大学に追加
 -- -----------------------------------------------------------------------------
+-- 固定UUIDではなく「同じ大学に同じ名前が無ければ追加」という条件にしている。
+-- 基本シード（seed.sql）で既に登録済みのものと重複させないため。
+-- 何度実行しても増えない。
+--
+-- 利用停止中のものを大学ごとに変えて、実運用に近い状態にしている。
+-- -----------------------------------------------------------------------------
 
-INSERT INTO facilities (id, university_id, name, category, is_available)
-SELECT
-  ('f1000000-0000-4000-8000-' || lpad((row_number() over ())::text, 12, '0'))::uuid,
-  u.id, f.name, f.category, true
-FROM universities u
-CROSS JOIN (VALUES
-  ('大講義室', 'facility'),
-  ('多目的ホール', 'facility'),
-  ('グラウンド', 'facility'),
-  ('マイクセット', 'equipment'),
-  ('ノートPC', 'equipment')
-) AS f(name, category)
-WHERE u.id <> 'a0000000-0000-4000-8000-000000000001'  -- 青空は基本シードで登録済み
-ON CONFLICT (id) DO NOTHING;
+DO $$
+DECLARE
+  items TEXT[][] := ARRAY[
+    -- 施設
+    ARRAY['第1講義室',        'facility'],
+    ARRAY['第2講義室',        'facility'],
+    ARRAY['第3講義室',        'facility'],
+    ARRAY['第4講義室',        'facility'],
+    ARRAY['大講義室',          'facility'],
+    ARRAY['小会議室A',         'facility'],
+    ARRAY['小会議室B',         'facility'],
+    ARRAY['多目的ホール',      'facility'],
+    ARRAY['音楽スタジオA',     'facility'],
+    ARRAY['音楽スタジオB',     'facility'],
+    ARRAY['体育館',            'facility'],
+    ARRAY['第2体育館',         'facility'],
+    ARRAY['グラウンド',        'facility'],
+    ARRAY['テニスコート',      'facility'],
+    ARRAY['武道場',            'facility'],
+    ARRAY['情報演習室',        'facility'],
+    ARRAY['実験実習室',        'facility'],
+    ARRAY['和室',              'facility'],
+    ARRAY['部室棟ミーティングルーム', 'facility'],
+    ARRAY['屋外ステージ',      'facility'],
+    -- 備品
+    ARRAY['プロジェクター',    'equipment'],
+    ARRAY['プロジェクター（予備）', 'equipment'],
+    ARRAY['スクリーン',        'equipment'],
+    ARRAY['マイクセット',      'equipment'],
+    ARRAY['PA機材一式',        'equipment'],
+    ARRAY['ノートPC',          'equipment'],
+    ARRAY['ビデオカメラ',      'equipment'],
+    ARRAY['一眼レフカメラ',    'equipment'],
+    ARRAY['三脚',              'equipment'],
+    ARRAY['電子ピアノ',        'equipment'],
+    ARRAY['譜面台セット',      'equipment'],
+    ARRAY['ホワイトボード',    'equipment'],
+    ARRAY['長机（10台）',      'equipment'],
+    ARRAY['パイプ椅子（50脚）', 'equipment'],
+    ARRAY['延長コード一式',    'equipment'],
+    ARRAY['テント（2張）',     'equipment'],
+    ARRAY['クーラーボックス',  'equipment'],
+    ARRAY['メガホン',          'equipment'],
+    ARRAY['救急箱',            'equipment'],
+    ARRAY['ワゴン台車',        'equipment']
+  ];
+  u      RECORD;
+  uni_no INT := 0;
+  i      INT;
+BEGIN
+  FOR u IN SELECT id FROM universities ORDER BY id LOOP
+    uni_no := uni_no + 1;
+
+    FOR i IN 1 .. array_length(items, 1) LOOP
+      INSERT INTO facilities (university_id, name, category, is_available)
+      SELECT
+        u.id, items[i][1], items[i][2],
+        -- 大学ごとに違うものを利用停止にする
+        NOT ((i + uni_no * 7) % 13 = 0)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM facilities f
+        WHERE f.university_id = u.id AND f.name = items[i][1]
+      );
+    END LOOP;
+  END LOOP;
+END $$;
 
 
 -- -----------------------------------------------------------------------------
