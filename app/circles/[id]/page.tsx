@@ -15,7 +15,10 @@ import { MemberList } from "@/components/MemberList";
 import { listCirclePosts } from "@/lib/board";
 import { getCircleActivity } from "@/lib/circle-activity";
 import { EventCard } from "@/components/EventCard";
-import { listUpcomingCircleEvents } from "@/lib/events";
+import {
+  listUpcomingCircleEvents,
+  resolveEventRelations,
+} from "@/lib/events";
 import { imageUrl } from "@/lib/images";
 import {
   getCircle,
@@ -69,6 +72,7 @@ export default async function CircleDetailPage({
   // 承認済みサークルのみイベントを持ちうる
   const upcoming =
     circle.status === "approved" ? await listUpcomingCircleEvents(id, 1) : [];
+  const relations = await resolveEventRelations(user.id, upcoming);
 
   // 活動記録はメンバーだけに見せる。外部に活動履歴まで公開する必要はない。
   const activity = isMember
@@ -146,7 +150,10 @@ export default async function CircleDetailPage({
               イベントを見る
             </Link>
           </div>
-          <EventCard event={upcoming[0]} />
+          <EventCard
+            event={upcoming[0]}
+            relation={relations.get(upcoming[0].id) ?? "other"}
+          />
         </section>
       )}
 
