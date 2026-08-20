@@ -25,6 +25,7 @@ SOURCES=(
   "migrations/0009_profile.sql"
   "migrations/0010_student_registration.sql"
   "migrations/0011_circle_posts.sql"
+  "migrations/0012_activities.sql"
   "seed.sql"
 )
 
@@ -49,7 +50,8 @@ OUT="supabase/setup_all.sql"
 --  10. migrations/0009_profile.sql
 --  11. migrations/0010_student_registration.sql
 --  12. migrations/0011_circle_posts.sql
---  13. seed.sql
+--  13. migrations/0012_activities.sql
+--  14. seed.sql
 --
 -- 再生成: npm run db:bundle
 --

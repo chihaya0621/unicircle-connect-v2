@@ -36,6 +36,51 @@ export type Database = {
         Insert: { id?: string; name: string; created_at?: string };
         Update: { id?: string; name?: string; created_at?: string };
       };
+      circle_activities: {
+        Row: {
+          id: string;
+          circle_id: string;
+          title: string;
+          activity_date: string;
+          location: string | null;
+          note: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          circle_id: string;
+          title: string;
+          activity_date: string;
+          location?: string | null;
+          note?: string | null;
+          created_by?: string | null;
+        };
+        Update: {
+          title?: string;
+          activity_date?: string;
+          location?: string | null;
+          note?: string | null;
+        };
+      };
+      activity_attendances: {
+        Row: {
+          id: string;
+          activity_id: string;
+          user_id: string;
+          status: "present" | "absent";
+          recorded_by: string | null;
+          recorded_at: string;
+        };
+        Insert: {
+          id?: string;
+          activity_id: string;
+          user_id: string;
+          status: "present" | "absent";
+          recorded_by?: string | null;
+        };
+        Update: { status?: "present" | "absent" };
+      };
       circle_posts: {
         Row: {
           id: string;
@@ -337,6 +382,24 @@ export type Database = {
       /** 施設・備品の削除（大学職員のみ。今後の予約が残る場合は拒否） */
       delete_facility: {
         Args: { p_facility_id: string };
+        Returns: undefined;
+      };
+      /** 活動の登録（0012_activities.sql。管理者のみ） */
+      create_activity: {
+        Args: {
+          p_circle_id: string;
+          p_title: string;
+          p_activity_date: string;
+          p_location?: string;
+          p_note?: string;
+        };
+        Returns: string;
+      };
+      /** 活動の削除（管理者のみ） */
+      delete_activity: { Args: { p_activity_id: string }; Returns: undefined };
+      /** 出欠の登録。user_id 省略時は自分自身 */
+      set_attendance: {
+        Args: { p_activity_id: string; p_status: string; p_user_id?: string };
         Returns: undefined;
       };
       /** サークル掲示板への投稿（0011_circle_posts.sql） */
