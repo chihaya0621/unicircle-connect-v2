@@ -19,12 +19,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 
 ### 2. データベース
 
-Supabase の SQL Editor で、以下を**上から順に**実行してください。
-各ファイルの中身をコピーして貼り付けるだけです。
-
-**`supabase/setup_all.sql` の中身を貼って実行するだけです。** 構築に必要な
+**Supabase の SQL Editor で `supabase/setup_all.sql` の中身を貼って実行してください。** 構築に必要な
 3ファイルを連結した生成物なので、1回で完了します。
 
+全マイグレーションとシードを連結した生成物なので、1回で完了します。
 成功すると `universities=3 / circles=4 / events=5 / facilities=5` と表示されます。
 
 シードデータの投入は実質必須です。`universities` が空だとサインアップ画面の
@@ -33,14 +31,19 @@ Supabase の SQL Editor で、以下を**上から順に**実行してくださ�
 <details>
 <summary>個別に実行したい場合</summary>
 
-| 順 | ファイル | 内容 |
-| --- | --- | --- |
-| 1 | `supabase/migrations/0000_initial_schema.sql` | テーブル・制約・インデックス・RLS |
-| 2 | `supabase/migrations/0001_handle_new_user.sql` | サインアップ時の自動プロフィール生成トリガー |
-| 3 | `supabase/seed.sql` | 開発用テストデータ |
+`supabase/migrations/` を番号順に実行し、最後に `supabase/seed.sql` を流します。
 
-2 のトリガーは `auth.users` への INSERT を検知して、`public.users` と
-`student_profiles` を同一トランザクションで生成します。
+| ファイル | 内容 |
+| --- | --- |
+| `0000_initial_schema.sql` | テーブル・制約・インデックス |
+| `0001_handle_new_user.sql` | サインアップ時の自動プロフィール生成トリガー |
+| `0002_circles.sql` | サークルの設立・参加・承認 |
+| `0003_scopes.sql` | 3段階スコープ（自大学 / 指定大学 / 全公開） |
+| `0004_facilities.sql` | 施設予約と二重予約の排他制約 |
+| `0005_events.sql` | イベントの作成・削除 |
+| `0006_facility_management.sql` | 施設の編集・削除 |
+| `0007_event_participants.sql` | イベント参加登録 |
+| `0008_rls.sql` | RLS ポリシー |
 
 </details>
 
@@ -80,11 +83,11 @@ npm run dev
 > プロジェクト URL と anon key は変わらないため、`.env.local` の
 > 変更は不要です。
 
-### 3. 起動
+### 4. デモデータ（任意）
 
-```bash
-npm run dev
-```
+`supabase/seed_demo.sql` を実行すると、6大学・サークル20・イベント83件などが
+入り、カレンダーや一覧の見え方を確かめられます。
+テストアカウントは `npm run db:users` で53名まとめて作成できます。
 
 ---
 
@@ -92,27 +95,36 @@ npm run dev
 
 ```
 app/
-  actions/auth.ts        サインアップ・ログイン・ログアウトの Server Actions
-  (auth)/login           ログイン画面
-  (auth)/signup          新規登録画面
-  dashboard/             ログイン必須のダッシュボード
-  events/                イベント一覧（ロールに応じて可視範囲が変わる）
+  actions/               Server Actions（auth / circles / events / facilities）
+  (auth)/                ログイン・新規登録
+  calendar/              カレンダー（絞り込みは URL クエリ）
+  circles/               サークル一覧・詳細・設立申請
+  dashboard/             ダッシュボード
+  events/                イベント一覧・詳細・作成
+  facilities/            施設一覧・詳細（予約フォーム）
+  reservations/          自分の予約 / 職員の承認キュー
 components/              UI コンポーネント
 lib/
   supabase.ts            接続情報 + ブラウザ用クライアント
   supabase-server.ts     サーバー用クライアント（next/headers 依存）
   dal.ts                 認証・認可の集約層（Data Access Layer）
-  events.ts              イベント取得クエリ
+  circles.ts             サークル取得クエリ
+  events.ts              イベント取得クエリと可視判定
+  calendar.ts            カレンダーの分類ロジック（server-only）
+  event-sources.ts       カレンダーの表示用定数（クライアントからも参照）
+  facilities.ts          施設・予約の取得クエリ
+  dev-users.mjs          開発用テストユーザーの名簿（唯一の定義）
   database.types.ts      スキーマに対応する型定義
 proxy.ts                 セッション更新と楽観的リダイレクト
 supabase/
-  migrations/
-    0000_initial_schema.sql   テーブル・制約・インデックス・RLS
-    0001_handle_new_user.sql  サインアップ時のトリガー
-  seed.sql               開発用テストデータ
-  setup_all.sql          上記3つの連結（生成物・これを貼れば構築完了）
+  migrations/            DB マイグレーション（0000〜0008）
+  seed.sql               基本のテストデータ
+  seed_demo.sql          デモ用の大量データ
+  setup_all.sql          マイグレーション+seed の連結（生成物）
   reset_full.sql         【破壊的】作り直し用の初期化スクリプト
-scripts/bundle-sql.sh    setup_all.sql の生成スクリプト
+scripts/
+  bundle-sql.sh          setup_all.sql の生成
+  seed-users.mjs         テストユーザーの一括作成
 ```
 
 ---
@@ -225,12 +237,18 @@ npx supabase gen types typescript --project-id <ref> > lib/database.types.ts
 
 ## 実装済みの範囲
 
-- 認証基盤（サインアップ / ログイン / ログアウト、セッション更新）
-- ロール別のプロフィール自動生成（DB トリガー）
-- 認可の集約層（`lib/dal.ts`）とルートガード
-- イベント一覧（ロールに応じた可視範囲の出し分け）
+- **認証** — サインアップ / ログイン / ログアウト、セッション更新、ロール別プロフィールの自動生成
+- **サークル** — 設立申請、職員による承認、参加申請、メンバー管理
+- **イベント** — 作成・一覧・詳細・削除、参加登録
+- **施設予約** — 予約申請、職員による承認、備品の日またぎ貸出、施設マスタ管理
+- **スコープ** — サークル・イベントとも 自大学 / 指定大学 / 全公開 の3段階
+- **カレンダー** — 月表示、分類ごとの色分け、絞り込みと検索
+- **RLS** — 読み取りは可視範囲どおり、書き込みは RPC のみ
 
 ### 未実装
 
-サークル、施設予約、イベント作成 UI、メール確認後のコールバック
-（`/auth/callback`）は未着手です。
+- マイページ（プロフィール編集、参加履歴）
+- サークルのお知らせ・掲示板
+- 活動記録と出欠管理
+- メール確認後のコールバック（`/auth/callback`）
+- 通知
