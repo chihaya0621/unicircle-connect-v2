@@ -4,7 +4,7 @@ import Link from "next/link";
 import { decideCircle } from "@/app/actions/circles";
 import { CircleCard } from "@/components/CircleCard";
 import { listApprovedCircles, listPendingCircles } from "@/lib/circles";
-import { requireRole } from "@/lib/dal";
+import { getMyUniversityId, requireRole } from "@/lib/dal";
 
 export const metadata: Metadata = { title: "サークル | UniCircle Connect" };
 
@@ -12,7 +12,11 @@ export default async function CirclesPage() {
   // 一般ユーザーは公開イベントの閲覧のみ可能（要件定義書3章）なので、
   // サークル画面には学生と職員だけを通す。
   const user = await requireRole("student", "staff");
-  const { circles, error } = await listApprovedCircles();
+  const universityId = await getMyUniversityId();
+  const { circles, error } = await listApprovedCircles(
+    universityId,
+    user.role === "staff",
+  );
 
   // 職員には自分の大学の承認待ちキューを見せる
   const pending =
@@ -24,7 +28,7 @@ export default async function CirclesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">サークル</h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            承認済みのサークルを表示しています。
+            あなたの大学から参加できるサークルを表示しています。
           </p>
         </div>
 

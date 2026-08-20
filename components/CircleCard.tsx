@@ -1,10 +1,26 @@
 import Link from "next/link";
 
 import type { CircleListItem } from "@/lib/circles";
+import type { Scope } from "@/lib/database.types";
+
+const SCOPE_BADGE: Record<Scope, { label: string; className: string } | null> = {
+  university: null, // 自大学のみは既定なのでバッジを出さない
+  scoped: {
+    label: "他大学参加可",
+    className:
+      "bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+  },
+  public: {
+    label: "インカレ",
+    className:
+      "bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
+  },
+};
 
 export function CircleCard({ circle }: { circle: CircleListItem }) {
   // Supabase の集約は [{ count: n }] の形で返る
   const memberCount = circle.member_count?.[0]?.count ?? 0;
+  const scopeBadge = SCOPE_BADGE[circle.scope];
 
   return (
     <Link
@@ -13,11 +29,20 @@ export function CircleCard({ circle }: { circle: CircleListItem }) {
     >
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-semibold leading-snug">{circle.name}</h3>
-        {circle.status === "pending" && (
-          <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-            承認待ち
-          </span>
-        )}
+        <span className="flex shrink-0 gap-1.5">
+          {scopeBadge && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs ${scopeBadge.className}`}
+            >
+              {scopeBadge.label}
+            </span>
+          )}
+          {circle.status === "pending" && (
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+              承認待ち
+            </span>
+          )}
+        </span>
       </div>
 
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">

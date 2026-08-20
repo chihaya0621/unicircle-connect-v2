@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import type { Scope } from "@/lib/database.types";
 import { requireUser } from "@/lib/dal";
 import { createClient } from "@/lib/supabase-server";
 
@@ -28,16 +29,30 @@ export async function createCircle(
 
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
+  const scope = String(formData.get("scope") ?? "university") as Scope;
+  // チェックボックスは同名で複数送られてくる
+  const universityIds = formData
+    .getAll("university_ids")
+    .map(String)
+    .filter(Boolean);
 
   if (!name) return { error: "サークル名を入力してください。" };
   if (name.length > 60) {
     return { error: "サークル名は60文字以内で入力してください。" };
+  }
+  if (!["university", "scoped", "public"].includes(scope)) {
+    return { error: "参加できる範囲の指定が不正です。" };
+  }
+  if (scope === "scoped" && universityIds.length === 0) {
+    return { error: "参加を認める大学を1つ以上選んでください。" };
   }
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("create_circle", {
     p_name: name,
     p_description: description || undefined,
+    p_scope: scope,
+    p_university_ids: scope === "scoped" ? universityIds : undefined,
   });
 
   if (error) return { error: error.message };

@@ -10,7 +10,9 @@ export type UserRole = "student" | "staff" | "general";
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type MembershipStatus = "pending" | "active" | "rejected";
 export type CircleRole = "admin" | "member";
-export type EventVisibility = "internal" | "public";
+export type EventVisibility = "internal" | "scoped" | "public";
+/** サークル／イベント共通の可視範囲・参加資格スコープ（0003_scopes.sql） */
+export type Scope = "university" | "scoped" | "public";
 export type FacilityCategory = "facility" | "equipment";
 
 /**
@@ -33,6 +35,16 @@ export type Database = {
         Row: { id: string; name: string; created_at: string };
         Insert: { id?: string; name: string; created_at?: string };
         Update: { id?: string; name?: string; created_at?: string };
+      };
+      circle_universities: {
+        Row: { circle_id: string; university_id: string };
+        Insert: { circle_id: string; university_id: string };
+        Update: { university_id?: string };
+      };
+      event_universities: {
+        Row: { event_id: string; university_id: string };
+        Insert: { event_id: string; university_id: string };
+        Update: { university_id?: string };
       };
       users: {
         Row: { id: string; role: UserRole; name: string; created_at: string };
@@ -78,6 +90,7 @@ export type Database = {
           name: string;
           description: string | null;
           status: ApprovalStatus;
+          scope: Scope;
           created_at: string;
         };
         Insert: {
@@ -86,12 +99,14 @@ export type Database = {
           name: string;
           description?: string | null;
           status?: ApprovalStatus;
+          scope?: Scope;
           created_at?: string;
         };
         Update: {
           name?: string;
           description?: string | null;
           status?: ApprovalStatus;
+          scope?: Scope;
         };
       };
       circle_members: {
@@ -203,8 +218,18 @@ export type Database = {
     Functions: {
       /** サークル設立。作成した circle の id を返す（0002_circles.sql） */
       create_circle: {
-        Args: { p_name: string; p_description?: string };
+        Args: {
+          p_name: string;
+          p_description?: string;
+          p_scope?: Scope;
+          p_university_ids?: string[];
+        };
         Returns: string;
+      };
+      /** ある大学がサークルの対象範囲に入っているか（0003_scopes.sql） */
+      circle_allows_university: {
+        Args: { p_circle_id: string; p_university_id: string | null };
+        Returns: boolean;
       };
       /** 参加申請。'requested' | 'already_requested' | 'already_member' を返す */
       request_join_circle: {

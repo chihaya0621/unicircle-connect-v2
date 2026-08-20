@@ -4,7 +4,7 @@ import Link from "next/link";
 import { EventCard } from "@/components/EventCard";
 import { listMyCircles } from "@/lib/circles";
 import type { UserRole } from "@/lib/database.types";
-import { requireUser } from "@/lib/dal";
+import { getMyUniversityId, requireUser } from "@/lib/dal";
 import { listVisibleEvents } from "@/lib/events";
 
 export const metadata: Metadata = { title: "ダッシュボード | UniCircle Connect" };
@@ -19,7 +19,8 @@ export default async function DashboardPage() {
   // 未ログインならここでログイン画面へリダイレクトされる。
   // proxy.ts の楽観的チェックとは別に、データソース側でも必ず検証する。
   const user = await requireUser();
-  const { events } = await listVisibleEvents(user.role);
+  const universityId = await getMyUniversityId();
+  const { events } = await listVisibleEvents(user.role, universityId);
   // 一般ユーザーはサークルに所属しないので問い合わせ自体を省く
   const myCircles =
     user.role === "general" ? [] : await listMyCircles(user.id);

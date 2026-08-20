@@ -61,6 +61,14 @@ export default async function CircleDetailPage({
 
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           {circle.university?.name ?? "所属大学未設定"}
+          {circle.scope === "public" && " ／ すべての大学から参加できます"}
+          {circle.scope === "scoped" &&
+            ` ／ ${[
+              circle.university?.name,
+              ...circle.scoped_universities.map((u) => u.university?.name),
+            ]
+              .filter(Boolean)
+              .join("・")} の学生が参加できます`}
         </p>
 
         {circle.description && (

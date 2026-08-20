@@ -65,3 +65,28 @@ export async function requireRole(
   if (!allowed.includes(user.role)) redirect("/dashboard");
   return user;
 }
+
+/**
+ * 閲覧者の所属大学。スコープ判定（どのサークル／イベントが見えるか）に使う。
+ *
+ * 学生は student_profiles、職員は staff_profiles から引く。
+ * 一般ユーザーはどちらも持たないため null。
+ */
+export const getMyUniversityId = cache(
+  async (): Promise<string | null> => {
+    const user = await getCurrentUser();
+    if (!user || user.role === "general") return null;
+
+    const supabase = await createClient();
+    const table =
+      user.role === "student" ? "student_profiles" : "staff_profiles";
+
+    const { data } = await supabase
+      .from(table)
+      .select("university_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    return data?.university_id ?? null;
+  },
+);

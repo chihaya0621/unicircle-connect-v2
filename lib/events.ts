@@ -17,7 +17,9 @@ export type EventListItem = {
   host_university_id: string | null;
   host_circle_id: string | null;
   host_university: { name: string } | null;
-  host_circle: { name: string } | null;
+  /** サークル主催の場合、そのサークルの所属大学も併せて取得する */
+  host_circle: { name: string; university_id: string | null } | null;
+  scoped_universities: { university_id: string }[];
 };
 
 export type EventHost =
@@ -49,20 +51,54 @@ const EVENT_SELECT = `
   host_university_id,
   host_circle_id,
   host_university:universities!events_host_university_id_fkey(name),
-  host_circle:circles!events_host_circle_id_fkey(name)
+  host_circle:circles!events_host_circle_id_fkey(name, university_id),
+  scoped_universities:event_universities(university_id)
 ` as const;
 
 /**
- * ロールに応じた可視範囲でイベントを取得する。
+ * SQL 側の考え方と揃えた可視判定。
+ *
+ *   public   … 誰でも
+ *   scoped   … event_universities に列挙された大学、または主催大学
+ *   internal … 主催大学のみ
+ *
+ * サークル主催の internal / scoped イベントは、主催サークルの
+ * 所属大学を主催大学とみなす（host_circle_university_id）。
+ */
+export function eventVisibleTo(
+  event: EventListItem,
+  universityId: string | null,
+) {
+  if (event.visibility === "public") return true;
+  if (!universityId) return false;
+
+  const hostUniversity =
+    event.host_university_id ?? event.host_circle?.university_id ?? null;
+
+  if (hostUniversity === universityId) return true;
+
+  if (event.visibility === "scoped") {
+    return event.scoped_universities.some(
+      (u) => u.university_id === universityId,
+    );
+  }
+  return false;
+}
+
+/**
+ * ロールと所属大学に応じた可視範囲でイベントを取得する。
  *
  * - general / 未ログイン: visibility = 'public' のみ
- * - student / staff:      学内限定を含む全件
+ * - student / staff:      public + 自大学の internal + 対象に含まれる scoped
  *
  * 開発環境の RLS は全許可 (`true`) のため、この絞り込みが実質的な
  * アクセス制御になっている。本番では同等のルールを RLS ポリシー側にも
  * 実装しないと、API を直接叩かれた際に学内限定イベントが漏れる。
  */
-export async function listVisibleEvents(role: UserRole | null) {
+export async function listVisibleEvents(
+  role: UserRole | null,
+  universityId: string | null = null,
+) {
   const supabase = await createClient();
 
   let query = supabase
@@ -84,5 +120,11 @@ export async function listVisibleEvents(role: UserRole | null) {
     return { events: [] as EventListItem[], error: error.message };
   }
 
-  return { events: data ?? [], error: null };
+  const rows = data ?? [];
+  const events =
+    role === null || role === "general"
+      ? rows
+      : rows.filter((e) => eventVisibleTo(e, universityId));
+
+  return { events, error: null };
 }

@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 
 import { EventCard } from "@/components/EventCard";
-import { getCurrentUser } from "@/lib/dal";
+import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
 import { listVisibleEvents } from "@/lib/events";
 
 export const metadata: Metadata = { title: "イベント | UniCircle Connect" };
 
 export default async function EventsPage() {
   const user = await getCurrentUser();
-  const { events, error } = await listVisibleEvents(user?.role ?? null);
+  const universityId = await getMyUniversityId();
+  const { events, error } = await listVisibleEvents(
+    user?.role ?? null,
+    universityId,
+  );
 
   const isLimitedView = !user || user.role === "general";
 
