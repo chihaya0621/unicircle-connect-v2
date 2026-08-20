@@ -84,15 +84,16 @@ export default async function EventDetailPage({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
+      {/* フライヤーは縦長・正方形など比率がまちまちなので、切らずに全体を見せる */}
       {image && (
-        <div className="relative mb-6 aspect-[3/1] w-full overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
+        <div className="relative mb-6 aspect-video w-full overflow-hidden rounded-xl border border-black/10 bg-black/[0.03] dark:border-white/10 dark:bg-white/5">
           <Image
             src={image}
             alt=""
             fill
             sizes="(max-width: 768px) 100vw, 768px"
             priority
-            className="object-cover"
+            className="object-contain"
           />
         </div>
       )}
@@ -199,6 +200,8 @@ export default async function EventDetailPage({
             idValue={event.id}
             currentUrl={image}
             label="イベントの画像"
+            shape="contain"
+            hint="縦長・正方形など、比率はそのままに全体を表示します。一覧では正方形に切り出されます。JPEG / PNG / WebP / GIF、5MBまで。"
           />
         </section>
       )}

@@ -28,20 +28,24 @@ export function CircleCard({ circle }: { circle: CircleListItem }) {
   return (
     <Link
       href={`/circles/${circle.id}`}
-      className="block overflow-hidden rounded-xl border border-black/10 bg-white shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+      className="block rounded-xl border border-black/10 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
     >
-      {image && (
-        <div className="relative aspect-[3/1] w-full">
-          <Image
-            src={image}
-            alt=""
-            fill
-            sizes="(max-width: 640px) 100vw, 400px"
-            className="object-cover"
-          />
-        </div>
-      )}
-      <div className="p-5">
+      <div className="flex items-start gap-3">
+        {/* アイコンとして扱うので正方形に切り出す */}
+        {image ? (
+          <div className="relative size-12 shrink-0 overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
+            <Image src={image} alt="" fill sizes="48px" className="object-cover" />
+          </div>
+        ) : (
+          <div
+            aria-hidden
+            className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-black/5 text-sm font-semibold text-gray-400 dark:bg-white/10 dark:text-gray-500"
+          >
+            {circle.name.slice(0, 1)}
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1">
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-semibold leading-snug">{circle.name}</h3>
         <span className="flex shrink-0 gap-1.5">
@@ -65,10 +69,11 @@ export function CircleCard({ circle }: { circle: CircleListItem }) {
       </p>
 
       {circle.description && (
-        <p className="mt-3 line-clamp-2 text-sm text-gray-700 dark:text-gray-300">
+        <p className="mt-2 line-clamp-2 text-sm text-gray-700 dark:text-gray-300">
           {circle.description}
         </p>
       )}
+        </div>
       </div>
     </Link>
   );

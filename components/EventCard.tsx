@@ -16,19 +16,18 @@ export function EventCard({ event }: { event: EventListItem }) {
   const image = imageUrl(event.image_path);
 
   return (
-    <article className="overflow-hidden rounded-xl border border-black/10 bg-white shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5">
-      {image && (
-        <Link href={`/events/${event.id}`} className="relative block aspect-[3/1] w-full">
-          <Image
-            src={image}
-            alt=""
-            fill
-            sizes="(max-width: 640px) 100vw, 400px"
-            className="object-cover"
-          />
-        </Link>
-      )}
-      <div className="p-5">
+    <article className="rounded-xl border border-black/10 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5">
+      <div className="flex items-start gap-3">
+        {/* 任意の比率が来るので正方形に切り出す。詳細ページでは全体を表示する */}
+        {image && (
+          <Link
+            href={`/events/${event.id}`}
+            className="relative size-12 shrink-0 overflow-hidden rounded-lg border border-black/10 dark:border-white/10"
+          >
+            <Image src={image} alt="" fill sizes="48px" className="object-cover" />
+          </Link>
+        )}
+        <div className="min-w-0 flex-1">
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-semibold leading-snug">
           <Link href={`/events/${event.id}`} className="hover:underline">
@@ -82,6 +81,7 @@ export function EventCard({ event }: { event: EventListItem }) {
           ))}
         </ul>
       )}
+        </div>
       </div>
     </article>
   );

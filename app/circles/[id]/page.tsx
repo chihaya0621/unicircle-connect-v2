@@ -59,22 +59,23 @@ export default async function CircleDetailPage({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      {image && (
-        <div className="relative mb-6 aspect-[3/1] w-full overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
-          <Image
-            src={image}
-            alt=""
-            fill
-            sizes="(max-width: 768px) 100vw, 768px"
-            priority
-            className="object-cover"
-          />
-        </div>
-      )}
-
       <header className="mb-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">{circle.name}</h1>
+          <div className="flex min-w-0 items-center gap-4">
+            {image && (
+              <div className="relative size-20 shrink-0 overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
+                <Image
+                  src={image}
+                  alt=""
+                  fill
+                  sizes="80px"
+                  priority
+                  className="object-cover"
+                />
+              </div>
+            )}
+            <h1 className="text-2xl font-bold tracking-tight">{circle.name}</h1>
+          </div>
           {circle.status === "pending" && (
             <span className="rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
               職員の承認待ち
@@ -126,6 +127,8 @@ export default async function CircleDetailPage({
             idValue={circle.id}
             currentUrl={image}
             label="サークルの画像"
+            shape="square"
+            hint="アイコンとして正方形に切り出して表示します。正方形の画像がきれいに収まります。JPEG / PNG / WebP / GIF、5MBまで。"
           />
         </section>
       )}

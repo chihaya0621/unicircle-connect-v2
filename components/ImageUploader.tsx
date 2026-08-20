@@ -21,6 +21,8 @@ export function ImageUploader({
   idValue,
   currentUrl,
   label,
+  shape = "square",
+  hint,
 }: {
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
   removeAction: (formData: FormData) => Promise<void>;
@@ -29,6 +31,9 @@ export function ImageUploader({
   idValue: string;
   currentUrl: string | null;
   label: string;
+  /** square はアイコン用に切り出す。contain は全体を収める（切れない） */
+  shape?: "square" | "contain";
+  hint?: string;
 }) {
   const [state, formAction] = useActionState<ActionState, FormData>(
     action,
@@ -41,17 +46,28 @@ export function ImageUploader({
       {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
       {state?.notice && <FormMessage tone="notice">{state.notice}</FormMessage>}
 
-      {currentUrl && (
-        <div className="relative aspect-[3/1] w-full overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
-          <Image
-            src={currentUrl}
-            alt={label}
-            fill
-            sizes="(max-width: 768px) 100vw, 640px"
-            className="object-cover"
-          />
-        </div>
-      )}
+      {currentUrl &&
+        (shape === "square" ? (
+          <div className="relative size-32 overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
+            <Image
+              src={currentUrl}
+              alt={label}
+              fill
+              sizes="128px"
+              className="object-cover"
+            />
+          </div>
+        ) : (
+          <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-black/10 bg-black/[0.03] dark:border-white/10 dark:bg-white/5">
+            <Image
+              src={currentUrl}
+              alt={label}
+              fill
+              sizes="(max-width: 768px) 100vw, 640px"
+              className="object-contain"
+            />
+          </div>
+        ))}
 
       <form action={formAction} className="space-y-2">
         <input type="hidden" name={idField} value={idValue} />
@@ -67,7 +83,7 @@ export function ImageUploader({
           />
         </label>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          JPEG / PNG / WebP / GIF、5MBまで。
+          {hint ?? "JPEG / PNG / WebP / GIF、5MBまで。"}
           {fileName && ` 選択中: ${fileName}`}
         </p>
         <SubmitButton pendingLabel="アップロード中…">
