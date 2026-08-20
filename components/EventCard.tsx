@@ -1,7 +1,9 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import type { EventListItem } from "@/lib/events";
 import { eventHost } from "@/lib/events";
+import { imageUrl } from "@/lib/images";
 
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   dateStyle: "medium",
@@ -11,9 +13,22 @@ const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
 
 export function EventCard({ event }: { event: EventListItem }) {
   const host = eventHost(event);
+  const image = imageUrl(event.image_path);
 
   return (
-    <article className="rounded-xl border border-black/10 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5">
+    <article className="overflow-hidden rounded-xl border border-black/10 bg-white shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5">
+      {image && (
+        <Link href={`/events/${event.id}`} className="relative block aspect-[3/1] w-full">
+          <Image
+            src={image}
+            alt=""
+            fill
+            sizes="(max-width: 640px) 100vw, 400px"
+            className="object-cover"
+          />
+        </Link>
+      )}
+      <div className="p-5">
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-semibold leading-snug">
           <Link href={`/events/${event.id}`} className="hover:underline">
@@ -67,6 +82,7 @@ export function EventCard({ event }: { event: EventListItem }) {
           ))}
         </ul>
       )}
+      </div>
     </article>
   );
 }

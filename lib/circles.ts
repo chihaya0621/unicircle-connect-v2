@@ -17,6 +17,7 @@ export type CircleListItem = {
   description: string | null;
   status: ApprovalStatus;
   scope: Scope;
+  image_path: string | null;
   university_id: string | null;
   university: { name: string } | null;
   member_count: { count: number }[];
@@ -37,6 +38,7 @@ export type CircleDetail = {
   description: string | null;
   status: ApprovalStatus;
   scope: Scope;
+  image_path: string | null;
   university_id: string | null;
   created_at: string;
   university: { name: string } | null;
@@ -44,7 +46,7 @@ export type CircleDetail = {
 };
 
 const LIST_SELECT = `
-  id, name, description, status, scope, university_id,
+  id, name, description, status, scope, image_path, university_id,
   university:universities!circles_university_id_fkey(name),
   member_count:circle_members(count),
   scoped_universities:circle_universities(university_id)
@@ -173,7 +175,7 @@ export const getCircle = cache(
     const { data } = await supabase
       .from("circles")
       .select(
-        `id, name, description, status, scope, university_id, created_at,
+        `id, name, description, status, scope, image_path, university_id, created_at,
          university:universities!circles_university_id_fkey(name),
          scoped_universities:circle_universities(
            university:universities!circle_universities_university_id_fkey(name)

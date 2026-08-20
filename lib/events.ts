@@ -14,6 +14,7 @@ export type EventListItem = {
   event_date: string;
   visibility: EventVisibility;
   target_grades: string[] | null;
+  image_path: string | null;
   host_university_id: string | null;
   host_circle_id: string | null;
   host_university: { name: string } | null;
@@ -48,6 +49,7 @@ const EVENT_SELECT = `
   event_date,
   visibility,
   target_grades,
+  image_path,
   host_university_id,
   host_circle_id,
   host_university:universities!events_host_university_id_fkey(name),

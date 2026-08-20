@@ -29,7 +29,7 @@ export const EMPTY_FILTERS: CalendarFilters = {
 };
 
 const CALENDAR_SELECT = `
-  id, title, description, event_date, visibility, target_grades,
+  id, title, description, event_date, visibility, target_grades, image_path,
   host_university_id, host_circle_id,
   host_university:universities!events_host_university_id_fkey(name),
   host_circle:circles!events_host_circle_id_fkey(name, university_id),

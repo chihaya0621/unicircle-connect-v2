@@ -1,10 +1,17 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { deleteEvent, joinEvent, leaveEvent } from "@/app/actions/events";
+import {
+  removeEventImage,
+  uploadEventImage,
+} from "@/app/actions/images";
 import { EventRoster, type RosterEntry } from "@/components/EventRoster";
+import { ImageUploader } from "@/components/ImageUploader";
 import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
 import { canManageEvent, eventHost, eventVisibleTo, getEvent } from "@/lib/events";
+import { imageUrl } from "@/lib/images";
 import { createClient } from "@/lib/supabase-server";
 
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
@@ -63,6 +70,7 @@ export default async function EventDetailPage({
     isGoing = data?.status === "going";
   }
   const isPast = new Date(event.event_date) < new Date();
+  const image = imageUrl(event.image_path);
 
   // 参加名簿は主催者のみ。RPC 側でも主催者判定を行う。
   let roster: RosterEntry[] = [];
@@ -76,6 +84,19 @@ export default async function EventDetailPage({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
+      {image && (
+        <div className="relative mb-6 aspect-[3/1] w-full overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
+          <Image
+            src={image}
+            alt=""
+            fill
+            sizes="(max-width: 768px) 100vw, 768px"
+            priority
+            className="object-cover"
+          />
+        </div>
+      )}
+
       <header className="mb-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight">{event.title}</h1>
@@ -166,6 +187,20 @@ export default async function EventDetailPage({
             ))}
           </ul>
         </div>
+      )}
+
+      {canManage && (
+        <section className="mt-10 border-t border-black/10 pt-6 dark:border-white/10">
+          <h2 className="mb-4 text-lg font-semibold">イベントの画像</h2>
+          <ImageUploader
+            action={uploadEventImage}
+            removeAction={removeEventImage}
+            idField="event_id"
+            idValue={event.id}
+            currentUrl={image}
+            label="イベントの画像"
+          />
+        </section>
       )}
 
       {canManage && (

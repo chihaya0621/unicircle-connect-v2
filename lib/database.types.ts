@@ -173,6 +173,7 @@ export type Database = {
           description: string | null;
           status: ApprovalStatus;
           scope: Scope;
+          image_path: string | null;
           created_at: string;
         };
         Insert: {
@@ -220,6 +221,7 @@ export type Database = {
           event_date: string;
           visibility: EventVisibility;
           target_grades: string[] | null;
+          image_path: string | null;
           created_at: string;
         };
         /**
@@ -385,6 +387,16 @@ export type Database = {
       /** 施設・備品の削除（大学職員のみ。今後の予約が残る場合は拒否） */
       delete_facility: {
         Args: { p_facility_id: string };
+        Returns: undefined;
+      };
+      /** サークル画像のパス登録（0015。管理者のみ） */
+      set_circle_image: {
+        Args: { p_circle_id: string; p_path?: string };
+        Returns: undefined;
+      };
+      /** イベント画像のパス登録（0015。主催者のみ） */
+      set_event_image: {
+        Args: { p_event_id: string; p_path?: string };
         Returns: undefined;
       };
       /** 通知を既読にする（0014。p_ids 省略で全件） */

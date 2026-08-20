@@ -1,7 +1,9 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import type { CircleListItem } from "@/lib/circles";
 import type { Scope } from "@/lib/database.types";
+import { imageUrl } from "@/lib/images";
 
 const SCOPE_BADGE: Record<Scope, { label: string; className: string } | null> = {
   university: null, // 自大学のみは既定なのでバッジを出さない
@@ -21,12 +23,25 @@ export function CircleCard({ circle }: { circle: CircleListItem }) {
   // Supabase の集約は [{ count: n }] の形で返る
   const memberCount = circle.member_count?.[0]?.count ?? 0;
   const scopeBadge = SCOPE_BADGE[circle.scope];
+  const image = imageUrl(circle.image_path);
 
   return (
     <Link
       href={`/circles/${circle.id}`}
-      className="block rounded-xl border border-black/10 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+      className="block overflow-hidden rounded-xl border border-black/10 bg-white shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
     >
+      {image && (
+        <div className="relative aspect-[3/1] w-full">
+          <Image
+            src={image}
+            alt=""
+            fill
+            sizes="(max-width: 640px) 100vw, 400px"
+            className="object-cover"
+          />
+        </div>
+      )}
+      <div className="p-5">
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-semibold leading-snug">{circle.name}</h3>
         <span className="flex shrink-0 gap-1.5">
@@ -54,6 +69,7 @@ export function CircleCard({ circle }: { circle: CircleListItem }) {
           {circle.description}
         </p>
       )}
+      </div>
     </Link>
   );
 }
