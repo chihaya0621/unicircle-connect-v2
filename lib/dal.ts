@@ -3,10 +3,13 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 
-import type { Tables, UserRole } from "@/lib/database.types";
+import type { Tables, Theme, UserRole } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase-server";
 
-export type CurrentUser = Pick<Tables<"users">, "id" | "role" | "name"> & {
+export type CurrentUser = Pick<
+  Tables<"users">,
+  "id" | "role" | "name" | "theme"
+> & {
   email: string | null;
 };
 
@@ -34,7 +37,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   // 呼び出し側が「プロフィール未作成」を判別できるようにしたいので分けて返す。
   const { data: profile } = await supabase
     .from("users")
-    .select("id, role, name")
+    .select("id, role, name, theme")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -90,3 +93,14 @@ export const getMyUniversityId = cache(
     return data?.university_id ?? null;
   },
 );
+
+/**
+ * 適用するテーマ。
+ *
+ * 未ログインや取得失敗時は既定の glass。レイアウトで html に付けるので、
+ * サーバー側で解決してちらつきを防ぐ。
+ */
+export const getTheme = cache(async (): Promise<Theme> => {
+  const user = await getCurrentUser();
+  return user?.theme ?? "glass";
+});

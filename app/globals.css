@@ -10,37 +10,107 @@
    意味のある名前（.glass-card / .btn-primary など）に集約している。
    ============================================================================= */
 
-:root {
+/* -----------------------------------------------------------------------------
+   テーマ
+   -----------------------------------------------------------------------------
+   見た目の差はすべて変数に閉じ込め、コンポーネント側のクラスは変えない。
+   テーマを増やすときはこのブロックを足すだけで済む。
+
+   html[data-theme] はサーバー側で付けるので、切り替え時にちらつかない。
+   ----------------------------------------------------------------------------- */
+
+/* ===== glass: 透明感のあるグラスモーフィズム（既定） ===== */
+:root,
+[data-theme="glass"] {
   --background: #f6f7fb;
   --foreground: #14161f;
 
-  /* 背景オーブの色。淡くして文字の可読性を優先する */
-  --orb-1: 129 140 248; /* indigo  */
-  --orb-2: 244 114 182; /* pink    */
-  --orb-3: 45 212 191;  /* teal    */
-  --orb-4: 251 191 36;  /* amber   */
+  /* 背景オーブ */
+  --orb-1: 129 140 248;
+  --orb-2: 244 114 182;
+  --orb-3: 45 212 191;
+  --orb-4: 251 191 36;
+  --orb-alpha-1: 0.42;
+  --orb-alpha-2: 0.34;
+  --orb-blur: 30px;
+  --grid-opacity: 0.35;
 
-  /* ガラス面 */
+  /* 面 */
   --glass-bg: 255 255 255;
   --glass-bg-alpha: 0.55;
   --glass-border: 255 255 255;
   --glass-border-alpha: 0.7;
+  --surface-blur: 20px;
+  --surface-radius: 1rem;
+  --surface-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --surface-shadow-hover: 0 25px 50px -12px rgb(0 0 0 / 0.28);
+  --surface-lift: -4px;
+
+  /* ボタン */
+  --btn-radius: 0.75rem;
+  --btn-from: 99 102 241;
+  --btn-to: 124 58 237;
+  --accent: 99 102 241;
+}
+
+/* ===== pop: フラットで彩度の高いポップスタイル ===== */
+/* 参考にした採用サイト群のように、有機的な曲線と原色に近い差し色、
+   ピル型のボタン、はっきりした影で構成する。すりガラスは使わない。 */
+[data-theme="pop"] {
+  --background: #ffffff;
+  --foreground: #101828;
+
+  --orb-1: 37 99 235;   /* blue   */
+  --orb-2: 250 204 21;  /* yellow */
+  --orb-3: 236 72 153;  /* pink   */
+  --orb-4: 34 197 94;   /* green  */
+  --orb-alpha-1: 0.16;
+  --orb-alpha-2: 0.14;
+  --orb-blur: 0px;      /* ぼかさず輪郭を残す */
+  --grid-opacity: 0;    /* 格子は使わない */
+
+  --glass-bg: 255 255 255;
+  --glass-bg-alpha: 1;      /* 面は不透明 */
+  --glass-border: 16 24 40;
+  --glass-border-alpha: 0.08;
+  --surface-blur: 0px;
+  --surface-radius: 1.5rem; /* 大きめの角丸 */
+  --surface-shadow: 0 4px 16px -2px rgb(16 24 40 / 0.08);
+  --surface-shadow-hover: 0 18px 36px -8px rgb(16 24 40 / 0.20);
+  --surface-lift: -6px;
+
+  --btn-radius: 9999px;     /* ピル型 */
+  --btn-from: 37 99 235;
+  --btn-to: 29 78 216;
+  --accent: 37 99 235;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root,
+  [data-theme="glass"] {
     --background: #080a12;
     --foreground: #e8eaf2;
-
     --orb-1: 99 102 241;
     --orb-2: 190 24 93;
     --orb-3: 13 148 136;
     --orb-4: 180 83 9;
-
     --glass-bg: 255 255 255;
     --glass-bg-alpha: 0.06;
     --glass-border: 255 255 255;
     --glass-border-alpha: 0.14;
+  }
+
+  [data-theme="pop"] {
+    --background: #0b1220;
+    --foreground: #e8eaf2;
+    --orb-alpha-1: 0.22;
+    --orb-alpha-2: 0.18;
+    --glass-bg: 22 30 46;
+    --glass-bg-alpha: 1;
+    --glass-border: 255 255 255;
+    --glass-border-alpha: 0.10;
+    --surface-shadow: 0 4px 16px -2px rgb(0 0 0 / 0.4);
+    --surface-shadow-hover: 0 18px 36px -8px rgb(0 0 0 / 0.55);
   }
 }
 
@@ -75,11 +145,11 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(38rem 32rem at 12% 8%,  rgb(var(--orb-1) / 0.42), transparent 60%),
-    radial-gradient(34rem 30rem at 88% 12%, rgb(var(--orb-2) / 0.34), transparent 62%),
-    radial-gradient(40rem 34rem at 78% 82%, rgb(var(--orb-3) / 0.32), transparent 60%),
-    radial-gradient(30rem 28rem at 18% 88%, rgb(var(--orb-4) / 0.28), transparent 62%);
-  filter: blur(30px) saturate(120%);
+    radial-gradient(38rem 32rem at 12% 8%,  rgb(var(--orb-1) / var(--orb-alpha-1)), transparent 60%),
+    radial-gradient(34rem 30rem at 88% 12%, rgb(var(--orb-2) / var(--orb-alpha-2)), transparent 62%),
+    radial-gradient(40rem 34rem at 78% 82%, rgb(var(--orb-3) / var(--orb-alpha-2)), transparent 60%),
+    radial-gradient(30rem 28rem at 18% 88%, rgb(var(--orb-4) / var(--orb-alpha-2)), transparent 62%);
+  filter: blur(var(--orb-blur)) saturate(120%);
   animation: orb-drift 28s ease-in-out infinite alternate;
 }
 
@@ -90,7 +160,7 @@ body::after {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.35;
+  opacity: var(--grid-opacity);
   background-image:
     linear-gradient(rgb(var(--glass-border) / 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgb(var(--glass-border) / 0.08) 1px, transparent 1px);
@@ -133,10 +203,10 @@ body::after {
 @utility glass {
   background-color: rgb(var(--glass-bg) / var(--glass-bg-alpha));
   border: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
-  border-radius: calc(var(--spacing) * 4);
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border-radius: var(--surface-radius);
+  box-shadow: var(--surface-shadow);
+  backdrop-filter: blur(var(--surface-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--surface-blur)) saturate(150%);
 }
 
 /** 静的なパネル。浮き上がらせない */
@@ -153,16 +223,16 @@ body::after {
               border-color 300ms ease-out;
 }
 .glass-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.28);
+  transform: translateY(var(--surface-lift));
+  box-shadow: var(--surface-shadow-hover);
 }
 
 /** ヘッダーなど、上端に貼り付く面 */
 @utility glass-header {
   background-color: rgb(var(--glass-bg) / calc(var(--glass-bg-alpha) + 0.2));
   border-bottom: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(var(--surface-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--surface-blur)) saturate(150%);
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 }
 
@@ -170,8 +240,8 @@ body::after {
 @utility glass-empty {
   border: 1px dashed rgb(var(--glass-border) / 0.9);
   background-color: rgb(var(--glass-bg) / calc(var(--glass-bg-alpha) * 0.5));
-  border-radius: calc(var(--spacing) * 4);
-  backdrop-filter: blur(12px);
+  border-radius: var(--surface-radius);
+  backdrop-filter: blur(var(--surface-blur));
   -webkit-backdrop-filter: blur(12px);
   @apply px-4 py-10 text-center text-sm text-gray-600 dark:text-gray-400;
 }
@@ -183,7 +253,8 @@ body::after {
    --------------------------------------------------------------------------- */
 
 @utility btn-base {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-xl font-semibold;
+  border-radius: var(--btn-radius);
+  @apply inline-flex items-center justify-center gap-1.5 font-semibold;
   @apply transition-all duration-300 ease-out;
   @apply active:scale-[0.97] active:duration-100;
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2;
@@ -191,10 +262,13 @@ body::after {
 }
 
 @utility btn-primary {
+  background-image: linear-gradient(135deg, rgb(var(--btn-from)), rgb(var(--btn-to)));
+  box-shadow: 0 10px 15px -3px rgb(var(--btn-from) / 0.28);
   @apply btn-base px-4 py-2.5 text-sm text-white;
-  @apply bg-gradient-to-br from-indigo-500 to-violet-600;
-  @apply shadow-lg shadow-indigo-500/25;
-  @apply hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-500/35 hover:brightness-110;
+  @apply hover:-translate-y-0.5 hover:brightness-110;
+}
+.btn-primary:hover {
+  box-shadow: 0 18px 28px -8px rgb(var(--btn-from) / 0.42);
 }
 
 @utility btn-ghost {
@@ -233,15 +307,17 @@ body::after {
    --------------------------------------------------------------------------- */
 
 @utility field-input {
+  --tw-ring-color: rgb(var(--accent) / 0.25);
   background-color: rgb(var(--glass-bg) / calc(var(--glass-bg-alpha) + 0.15));
   border: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  @apply w-full rounded-xl px-3.5 py-2.5 text-sm shadow-sm outline-none;
+  border-radius: calc(var(--surface-radius) * 0.7);
+  @apply w-full px-3.5 py-2.5 text-sm shadow-sm outline-none;
   @apply transition-all duration-300 ease-out;
   @apply placeholder:text-gray-400 dark:placeholder:text-gray-500;
-  @apply hover:border-indigo-300/80;
-  @apply focus:border-indigo-400 focus:ring-4 focus:ring-indigo-400/25;
+  @apply hover:border-[rgb(var(--accent)/0.5)];
+  @apply focus:ring-4;
 }
 
 /** チェックボックス・ラジオ */
@@ -293,4 +369,117 @@ main > * {
 /* リンクの下線をなめらかに引く */
 a {
   text-underline-offset: 3px;
+}
+
+.field-input:focus {
+  border-color: rgb(var(--accent) / 0.8);
+}
+
+/* -----------------------------------------------------------------------------
+   pop テーマの装飾
+   -----------------------------------------------------------------------------
+   参考にした採用サイト群の特徴を CSS だけで再現する。
+     - 画面を横切る有機的なリボン
+     - 背景に散る原色のドット
+     - 面はぼかさず、はっきりした角丸と影で立たせる
+   ----------------------------------------------------------------------------- */
+
+/* 画面を斜めに横切るリボン。大きな角丸の帯を傾けて重ねている */
+[data-theme="pop"] body::after,
+[data-theme="pop"] .pop-ribbon {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  inset: auto;
+  left: -12%;
+  top: 14%;
+  width: 124%;
+  height: 22rem;
+  opacity: 0.16;
+  background:
+    linear-gradient(100deg,
+      rgb(var(--orb-1)) 0%,
+      rgb(var(--orb-4)) 38%,
+      rgb(var(--orb-2)) 68%,
+      rgb(var(--orb-3)) 100%);
+  border-radius: 50% 50% 46% 54% / 62% 58% 42% 38%;
+  transform: rotate(-6deg);
+  mask-image: none;
+  animation: ribbon-wave 24s ease-in-out infinite alternate;
+}
+
+@keyframes ribbon-wave {
+  from { transform: rotate(-6deg) translateY(0) scaleX(1); }
+  to   { transform: rotate(-3deg) translateY(-3%) scaleX(1.05); }
+}
+
+/* pop ではガラスの格子を使わないので、代わりにドットを散らす */
+[data-theme="pop"] body::before {
+  background-image:
+    radial-gradient(38rem 30rem at 8% 6%,   rgb(var(--orb-1) / var(--orb-alpha-1)), transparent 58%),
+    radial-gradient(30rem 26rem at 92% 10%, rgb(var(--orb-2) / var(--orb-alpha-2)), transparent 60%),
+    radial-gradient(34rem 30rem at 84% 86%, rgb(var(--orb-3) / var(--orb-alpha-2)), transparent 58%),
+    radial-gradient(28rem 24rem at 10% 92%, rgb(var(--orb-4) / var(--orb-alpha-2)), transparent 60%);
+}
+
+/* pop の見出しは太く、詰めて力強く */
+[data-theme="pop"] h1 {
+  letter-spacing: -0.03em;
+  font-weight: 800;
+}
+
+[data-theme="pop"] h2 {
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+/* 見出しの左に差し色のバーを引く。参考サイトの「● 01」のような区切り */
+[data-theme="pop"] main section > h2:first-child::before {
+  content: "";
+  display: inline-block;
+  width: 0.375rem;
+  height: 1.1em;
+  margin-right: 0.6rem;
+  vertical-align: -0.15em;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, rgb(var(--orb-1)), rgb(var(--orb-3)));
+}
+
+/* pop のカードは枠線を細く、影で浮かせる */
+[data-theme="pop"] .glass-card:hover {
+  border-color: rgb(var(--accent) / 0.35);
+}
+
+/* -----------------------------------------------------------------------------
+   ページ見出しの背後に置く大きなゴースト文字
+   -----------------------------------------------------------------------------
+   参考サイトで多用されている、うっすら透けた特大英字。
+   data-ghost 属性に文字を入れると背後に描画される。
+   ----------------------------------------------------------------------------- */
+
+.ghost-heading {
+  position: relative;
+}
+
+.ghost-heading::before {
+  content: attr(data-ghost);
+  position: absolute;
+  left: -0.06em;
+  top: 50%;
+  transform: translateY(-58%);
+  font-size: clamp(3.5rem, 12vw, 8rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: -1;
+  color: rgb(var(--accent) / 0.09);
+}
+
+/* glass テーマではゴースト文字を控えめにする（背景が既に賑やかなため） */
+[data-theme="glass"] .ghost-heading::before,
+:root:not([data-theme]) .ghost-heading::before {
+  color: rgb(var(--accent) / 0.06);
 }

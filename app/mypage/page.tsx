@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { ProfileForm } from "@/components/ProfileForm";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import type { UserRole } from "@/lib/database.types";
 import { getMyUniversityId, requireUser } from "@/lib/dal";
 import {
@@ -177,6 +178,11 @@ export default async function MyPage() {
       <section className="glass-panel">
         <h2 className="mb-4 text-lg font-semibold">プロフィール</h2>
         <ProfileForm profile={profile} />
+      </section>
+
+      <section className="mt-10 glass-panel">
+        <h2 className="mb-4 text-lg font-semibold">表示テーマ</h2>
+        <ThemeSwitcher current={user.theme} />
       </section>
 
       <section

@@ -29,6 +29,7 @@ SOURCES=(
   "migrations/0013_event_attendance.sql"
   "migrations/0014_notifications.sql"
   "migrations/0015_images.sql"
+  "migrations/0016_theme.sql"
   "seed.sql"
 )
 
@@ -57,7 +58,8 @@ OUT="supabase/setup_all.sql"
 --  14. migrations/0013_event_attendance.sql
 --  15. migrations/0014_notifications.sql
 --  16. migrations/0015_images.sql
---  17. seed.sql
+--  17. migrations/0016_theme.sql
+--  18. seed.sql
 --
 -- 再生成: npm run db:bundle
 --

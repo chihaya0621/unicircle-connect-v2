@@ -14,6 +14,8 @@ export type EventVisibility = "internal" | "scoped" | "public";
 /** サークル／イベント共通の可視範囲・参加資格スコープ（0003_scopes.sql） */
 export type Scope = "university" | "scoped" | "public";
 export type FacilityCategory = "facility" | "equipment";
+/** 表示テーマ（0016_theme.sql） */
+export type Theme = "glass" | "pop";
 
 /**
  * postgrest-js は各テーブル定義に `Relationships` があることを前提に
@@ -129,14 +131,20 @@ export type Database = {
         Update: { university_id?: string };
       };
       users: {
-        Row: { id: string; role: UserRole; name: string; created_at: string };
+        Row: {
+          id: string;
+          role: UserRole;
+          name: string;
+          theme: Theme;
+          created_at: string;
+        };
         Insert: {
           id: string;
           role: UserRole;
           name: string;
           created_at?: string;
         };
-        Update: { id?: string; role?: UserRole; name?: string };
+        Update: { id?: string; role?: UserRole; name?: string; theme?: Theme };
       };
       student_profiles: {
         Row: {
@@ -399,6 +407,8 @@ export type Database = {
         Args: { p_event_id: string; p_path?: string };
         Returns: undefined;
       };
+      /** 表示テーマの変更（0016。対象は常に自分自身） */
+      set_my_theme: { Args: { p_theme: Theme }; Returns: undefined };
       /** 通知を既読にする（0014。p_ids 省略で全件） */
       mark_notifications_read: {
         Args: { p_ids?: string[] };

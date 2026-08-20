@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { Header } from "@/components/Header";
+import { getTheme } from "@/lib/dal";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,14 +21,18 @@ export const metadata: Metadata = {
     "大学のサークル活動・イベント告知・施設予約をひとつにするプラットフォーム",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // サーバー側でテーマを決めるので、切り替え時にちらつかない
+  const theme = await getTheme();
+
   return (
     <html
       lang="ja"
+      data-theme={theme}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
