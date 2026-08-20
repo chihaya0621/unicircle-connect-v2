@@ -50,6 +50,7 @@ export default async function CirclesPage({
             {showOtherUniversities
               ? "他大学のインカレ・合同サークルも含めて表示しています。"
               : "自大学のサークルと、所属中のサークルを表示しています。"}
+            {myCircleIds.size > 0 && " 所属中のものを先頭に並べています。"}
           </p>
         </div>
 
@@ -144,7 +145,11 @@ export default async function CirclesPage({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {circles.map((circle) => (
-            <CircleCard key={circle.id} circle={circle} />
+            <CircleCard
+              key={circle.id}
+              circle={circle}
+              isMember={myCircleIds.has(circle.id)}
+            />
           ))}
         </div>
       )}

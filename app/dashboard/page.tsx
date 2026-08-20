@@ -5,7 +5,7 @@ import { EventCard } from "@/components/EventCard";
 import { listMyCircles } from "@/lib/circles";
 import type { UserRole } from "@/lib/database.types";
 import { getMyUniversityId, requireUser } from "@/lib/dal";
-import { listVisibleEvents } from "@/lib/events";
+import { listVisibleEvents, resolveEventRelations } from "@/lib/events";
 
 export const metadata: Metadata = { title: "ダッシュボード | UniCircle Connect" };
 
@@ -21,6 +21,7 @@ export default async function DashboardPage() {
   const user = await requireUser();
   const universityId = await getMyUniversityId();
   const { events } = await listVisibleEvents(user.role, universityId);
+  const relations = await resolveEventRelations(user.id, events);
   // 一般ユーザーはサークルに所属しないので問い合わせ自体を省く
   const myCircles =
     user.role === "general" ? [] : await listMyCircles(user.id);
@@ -92,7 +93,11 @@ export default async function DashboardPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             {events.slice(0, 4).map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard
+                key={event.id}
+                event={event}
+                relation={relations.get(event.id) ?? "other"}
+              />
             ))}
           </div>
         )}

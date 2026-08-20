@@ -3,7 +3,8 @@ import Link from "next/link";
 
 import { EventCard } from "@/components/EventCard";
 import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
-import { listVisibleEvents } from "@/lib/events";
+import { listVisibleEvents, resolveEventRelations } from "@/lib/events";
+import { RELATION_BADGE, RELATION_LABEL } from "@/lib/event-sources";
 
 export const metadata: Metadata = { title: "イベント | UniCircle Connect" };
 
@@ -16,6 +17,12 @@ export default async function EventsPage() {
   );
 
   const isLimitedView = !user || user.role === "general";
+
+  // 一覧は時系列のまま。関係は色分けでのみ示す。
+  const relations = user
+    ? await resolveEventRelations(user.id, events)
+    : new Map<string, "joined" | "my-circle" | "other">();
+  const hasHighlight = [...relations.values()].some((r) => r !== "other");
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -37,6 +44,19 @@ export default async function EventsPage() {
           </Link>
         )}
       </header>
+
+      {hasHighlight && (
+        <ul className="mb-4 flex flex-wrap gap-2">
+          {(["joined", "my-circle"] as const).map((r) => (
+            <li
+              key={r}
+              className={`rounded-full px-2.5 py-0.5 text-xs ${RELATION_BADGE[r]}`}
+            >
+              {RELATION_LABEL[r]}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {error && (
         <p

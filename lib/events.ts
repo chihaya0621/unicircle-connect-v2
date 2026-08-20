@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { EventVisibility, UserRole } from "@/lib/database.types";
+import type { EventRelation } from "@/lib/event-sources";
 import { createClient } from "@/lib/supabase-server";
 
 /**
@@ -233,4 +234,50 @@ export async function listPastCircleEvents(circleId: string, limit = 20) {
     .limit(limit)
     .returns<EventListItem[]>();
   return data ?? [];
+}
+
+/**
+ * 閲覧者から見た各イベントの関係を求める。
+ *
+ * 一覧は時系列で並べたままにして、色分けだけで目立たせる。
+ * 並べ替えると「次に何があるか」が読み取れなくなるため。
+ * 絞り込みはカレンダー側の役割。
+ */
+export async function resolveEventRelations(
+  userId: string,
+  events: Pick<EventListItem, "id" | "host_circle_id">[],
+): Promise<Map<string, EventRelation>> {
+  const relations = new Map<string, EventRelation>();
+  if (events.length === 0) return relations;
+
+  const supabase = await createClient();
+  const [{ data: joined }, { data: memberships }] = await Promise.all([
+    supabase
+      .from("event_participants")
+      .select("event_id")
+      .eq("user_id", userId)
+      .eq("status", "going")
+      .in(
+        "event_id",
+        events.map((e) => e.id),
+      ),
+    supabase
+      .from("circle_members")
+      .select("circle_id")
+      .eq("user_id", userId)
+      .eq("status", "active"),
+  ]);
+
+  const joinedIds = new Set((joined ?? []).map((j) => j.event_id));
+  const myCircles = new Set(
+    (memberships ?? []).map((m) => m.circle_id).filter(Boolean) as string[],
+  );
+
+  for (const e of events) {
+    if (joinedIds.has(e.id)) relations.set(e.id, "joined");
+    else if (e.host_circle_id && myCircles.has(e.host_circle_id))
+      relations.set(e.id, "my-circle");
+    else relations.set(e.id, "other");
+  }
+  return relations;
 }

@@ -42,3 +42,31 @@ export const SOURCE_ORDER: EventSource[] = [
   "unjoined-circle",
   "other-university",
 ];
+
+/**
+ * イベント一覧での閲覧者との関係。
+ *
+ * カレンダーの EventSource より粗い3段階。一覧は時系列で全部を見る場所で、
+ * 絞り込みはカレンダーの役割なので、目立たせるかどうかだけを表す。
+ */
+export type EventRelation = "joined" | "my-circle" | "other";
+
+export const RELATION_LABEL: Record<EventRelation, string | null> = {
+  joined: "参加予定",
+  "my-circle": "所属サークル",
+  other: null,
+};
+
+/** カードの左端に出す帯。その他は色を付けない。 */
+export const RELATION_ACCENT: Record<EventRelation, string> = {
+  joined: "border-l-4 border-l-rose-400 dark:border-l-rose-500",
+  "my-circle": "border-l-4 border-l-indigo-400 dark:border-l-indigo-500",
+  other: "",
+};
+
+export const RELATION_BADGE: Record<EventRelation, string> = {
+  joined: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200",
+  "my-circle":
+    "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200",
+  other: "",
+};

@@ -3,6 +3,12 @@ import Link from "next/link";
 
 import type { EventListItem } from "@/lib/events";
 import { eventHost } from "@/lib/events";
+import {
+  RELATION_ACCENT,
+  RELATION_BADGE,
+  RELATION_LABEL,
+  type EventRelation,
+} from "@/lib/event-sources";
 import { imageUrl } from "@/lib/images";
 
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
@@ -11,12 +17,21 @@ const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   timeZone: "Asia/Tokyo",
 });
 
-export function EventCard({ event }: { event: EventListItem }) {
+export function EventCard({
+  event,
+  relation = "other",
+}: {
+  event: EventListItem;
+  /** 閲覧者との関係。目立たせるかどうかだけに使う */
+  relation?: EventRelation;
+}) {
   const host = eventHost(event);
   const image = imageUrl(event.image_path);
 
   return (
-    <article className="rounded-xl border border-black/10 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5">
+    <article
+      className={`rounded-xl border border-black/10 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5 ${RELATION_ACCENT[relation]}`}
+    >
       <div className="flex items-start gap-3">
         {/* 任意の比率が来るので正方形に切り出す。詳細ページでは全体を表示する */}
         {image && (
@@ -34,6 +49,14 @@ export function EventCard({ event }: { event: EventListItem }) {
             {event.title}
           </Link>
         </h3>
+        <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+        {RELATION_LABEL[relation] && (
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs ${RELATION_BADGE[relation]}`}
+          >
+            {RELATION_LABEL[relation]}
+          </span>
+        )}
         {event.visibility === "public" ? (
           <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
             公開
@@ -47,6 +70,7 @@ export function EventCard({ event }: { event: EventListItem }) {
             学内限定
           </span>
         )}
+        </span>
       </div>
 
       <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">

@@ -19,7 +19,14 @@ const SCOPE_BADGE: Record<Scope, { label: string; className: string } | null> = 
   },
 };
 
-export function CircleCard({ circle }: { circle: CircleListItem }) {
+export function CircleCard({
+  circle,
+  isMember = false,
+}: {
+  circle: CircleListItem;
+  /** 所属中なら目印を出し、左端に帯を引く */
+  isMember?: boolean;
+}) {
   // Supabase の集約は [{ count: n }] の形で返る
   const memberCount = circle.member_count?.[0]?.count ?? 0;
   const scopeBadge = SCOPE_BADGE[circle.scope];
@@ -28,7 +35,11 @@ export function CircleCard({ circle }: { circle: CircleListItem }) {
   return (
     <Link
       href={`/circles/${circle.id}`}
-      className="block rounded-xl border border-black/10 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+      className={`block rounded-xl border border-black/10 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5 ${
+        isMember
+          ? "border-l-4 border-l-indigo-400 dark:border-l-indigo-500"
+          : ""
+      }`}
     >
       <div className="flex items-start gap-3">
         {/* アイコンとして扱うので正方形に切り出す */}
@@ -48,7 +59,12 @@ export function CircleCard({ circle }: { circle: CircleListItem }) {
         <div className="min-w-0 flex-1">
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-semibold leading-snug">{circle.name}</h3>
-        <span className="flex shrink-0 gap-1.5">
+        <span className="flex shrink-0 flex-wrap justify-end gap-1.5">
+          {isMember && (
+            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200">
+              所属中
+            </span>
+          )}
           {scopeBadge && (
             <span
               className={`rounded-full px-2 py-0.5 text-xs ${scopeBadge.className}`}

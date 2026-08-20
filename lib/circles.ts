@@ -106,8 +106,15 @@ export async function listApprovedCircles(
   const isOwn = (c: CircleListItem) =>
     c.university_id === viewerUniversityId || myCircleIds.has(c.id);
 
-  const circles = showOtherUniversities ? eligible : eligible.filter(isOwn);
-  const hiddenCount = eligible.length - circles.length;
+  const visible = showOtherUniversities ? eligible : eligible.filter(isOwn);
+  const hiddenCount = eligible.length - visible.length;
+
+  // 所属中のサークルを先頭に。一覧の並びに元々意味が無いので、
+  // 自分に関係のあるものから読めるようにする。
+  const circles = [...visible].sort((x, y) => {
+    const mine = Number(myCircleIds.has(y.id)) - Number(myCircleIds.has(x.id));
+    return mine !== 0 ? mine : x.name.localeCompare(y.name, "ja");
+  });
 
   return { circles, hiddenCount, error: null };
 }
