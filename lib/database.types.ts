@@ -36,6 +36,50 @@ export type Database = {
         Insert: { id?: string; name: string; created_at?: string };
         Update: { id?: string; name?: string; created_at?: string };
       };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          title: string;
+          body: string | null;
+          link: string | null;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: string;
+          title: string;
+          body?: string | null;
+          link?: string | null;
+        };
+        Update: { read_at?: string | null };
+      };
+      notification_preferences: {
+        Row: {
+          user_id: string;
+          approval_result: boolean;
+          request_received: boolean;
+          board_post: boolean;
+          new_event: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          approval_result?: boolean;
+          request_received?: boolean;
+          board_post?: boolean;
+          new_event?: boolean;
+        };
+        Update: {
+          approval_result?: boolean;
+          request_received?: boolean;
+          board_post?: boolean;
+          new_event?: boolean;
+        };
+      };
       circle_posts: {
         Row: {
           id: string;
@@ -341,6 +385,21 @@ export type Database = {
       /** 施設・備品の削除（大学職員のみ。今後の予約が残る場合は拒否） */
       delete_facility: {
         Args: { p_facility_id: string };
+        Returns: undefined;
+      };
+      /** 通知を既読にする（0014。p_ids 省略で全件） */
+      mark_notifications_read: {
+        Args: { p_ids?: string[] };
+        Returns: undefined;
+      };
+      /** 通知設定の更新（対象は常に自分自身） */
+      update_notification_preferences: {
+        Args: {
+          p_approval_result: boolean;
+          p_request_received: boolean;
+          p_board_post: boolean;
+          p_new_event: boolean;
+        };
         Returns: undefined;
       };
       /** イベントの出欠記録（0013。主催者のみ。null で未記録に戻す） */

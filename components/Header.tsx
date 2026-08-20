@@ -3,6 +3,7 @@ import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
 import type { UserRole } from "@/lib/database.types";
 import { getCurrentUser } from "@/lib/dal";
+import { getUnreadCount } from "@/lib/notifications";
 import { getPendingCounts } from "@/lib/pending";
 
 const ROLE_LABEL: Record<UserRole, string> = {
@@ -29,6 +30,7 @@ export async function Header() {
   const pending = user
     ? await getPendingCounts(user.id, user.role)
     : { circles: 0, reservations: 0, members: 0 };
+  const unread = user ? await getUnreadCount() : 0;
 
   return (
     <header className="border-b border-black/10 bg-white/80 backdrop-blur dark:border-white/10 dark:bg-black/40">
@@ -71,6 +73,18 @@ export async function Header() {
               </Link>
               <Link href="/mypage" className={navLink}>
                 マイページ
+              </Link>
+              <Link
+                href="/notifications"
+                className={`relative ${navLink}`}
+                aria-label={unread > 0 ? `通知 ${unread}件の未読` : "通知"}
+              >
+                <span aria-hidden>🔔</span>
+                {unread > 0 && (
+                  <span className="absolute -right-2 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 py-0.5 text-[10px] font-semibold leading-none text-white">
+                    {unread > 99 ? "99+" : unread}
+                  </span>
+                )}
               </Link>
               <span className="hidden items-center gap-1.5 sm:flex">
                 <span className="font-medium">{user.name}</span>

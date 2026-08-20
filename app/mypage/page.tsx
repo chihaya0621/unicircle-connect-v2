@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { NotificationSettings } from "@/components/NotificationSettings";
 import { ProfileForm } from "@/components/ProfileForm";
 import type { UserRole } from "@/lib/database.types";
 import { getMyUniversityId, requireUser } from "@/lib/dal";
@@ -14,6 +15,7 @@ import {
   type MyEvent,
   type MyReservation,
 } from "@/lib/mypage";
+import { getPreferences } from "@/lib/notifications";
 import { getPendingCounts } from "@/lib/pending";
 
 export const metadata: Metadata = { title: "マイページ | UniCircle Connect" };
@@ -138,6 +140,7 @@ export default async function MyPage() {
   if (!profile) notFound();
 
   const isStaff = user.role === "staff";
+  const preferences = await getPreferences(user.id);
 
   // 職員はサークルに所属せず、イベント参加も個人予約もしない。
   // 代わりに自大学の状況を出すため、取得するデータ自体を分ける。
@@ -174,6 +177,14 @@ export default async function MyPage() {
       <section className="rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5">
         <h2 className="mb-4 text-lg font-semibold">プロフィール</h2>
         <ProfileForm profile={profile} />
+      </section>
+
+      <section
+        id="notification-settings"
+        className="mt-10 scroll-mt-4 rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5"
+      >
+        <h2 className="mb-4 text-lg font-semibold">通知設定</h2>
+        <NotificationSettings preferences={preferences} />
       </section>
 
       {user.role === "student" && (
