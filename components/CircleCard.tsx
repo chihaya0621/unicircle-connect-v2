@@ -36,9 +36,7 @@ export function CircleCard({
     <Link
       href={`/circles/${circle.id}`}
       className={`block glass-card p-5 ${
-        isMember
-          ? "border-l-4 border-l-indigo-400 dark:border-l-indigo-500"
-          : ""
+        isMember ? "tint-indigo" : ""
       }`}
     >
       <div className="flex items-start gap-3">

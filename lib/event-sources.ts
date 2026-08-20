@@ -57,10 +57,16 @@ export const RELATION_LABEL: Record<EventRelation, string | null> = {
   other: null,
 };
 
-/** カードの左端に出す帯。その他は色を付けない。 */
+/**
+ * カードに乗せる色味。その他は色を付けない。
+ *
+ * 左端に帯を引く方法はよく使われるが、面積の割に情報が弱く、
+ * どのカードも同じ形に見えてしまう。面全体をごく淡く染めて
+ * 枠線をそろえる方が、バッジと合わせて読んだときに意味が通る。
+ */
 export const RELATION_ACCENT: Record<EventRelation, string> = {
-  joined: "border-l-4 border-l-rose-400 dark:border-l-rose-500",
-  "my-circle": "border-l-4 border-l-indigo-400 dark:border-l-indigo-500",
+  joined: "tint-rose",
+  "my-circle": "tint-indigo",
   other: "",
 };
 

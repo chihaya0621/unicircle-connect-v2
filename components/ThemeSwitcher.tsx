@@ -10,20 +10,38 @@ const THEMES: {
   value: Theme;
   name: string;
   description: string;
-  /** プレビュー用の配色。実際のテーマ変数と合わせている */
+  /** プレビュー用の配色。CSS 側の変数と同じ値にしている */
   swatch: string[];
 }[] = [
   {
-    value: "glass",
-    name: "グラス",
-    description: "淡いグラデーションの上に、すりガラスの面が浮かぶ落ち着いた見た目。",
-    swatch: ["#818cf8", "#f472b6", "#2dd4bf", "#fbbf24"],
-  },
-  {
     value: "pop",
     name: "ポップ",
-    description: "白地に原色の差し色とピル型のボタン。輪郭のはっきりした元気な見た目。",
+    description: "青を軸に多色を散らした、輪郭のはっきりした配色。",
     swatch: ["#2563eb", "#facc15", "#ec4899", "#22c55e"],
+  },
+  {
+    value: "citrus",
+    name: "シトラス",
+    description: "オレンジと黄色でまとめた、暖かく快活な配色。",
+    swatch: ["#f97316", "#facc15", "#f43f5e", "#d97706"],
+  },
+  {
+    value: "mint",
+    name: "ミント",
+    description: "緑を基調にした、落ち着きのある自然な配色。",
+    swatch: ["#10b981", "#84cc16", "#14b8a6", "#facc15"],
+  },
+  {
+    value: "berry",
+    name: "ベリー",
+    description: "紫とピンクを組み合わせた、落ち着いた華やかさ。",
+    swatch: ["#8b5cf6", "#ec4899", "#6366f1", "#f472b6"],
+  },
+  {
+    value: "glass",
+    name: "グラス",
+    description: "淡いグラデーションの上にすりガラスの面が浮かぶ、質感の違う一枚。",
+    swatch: ["#818cf8", "#f472b6", "#2dd4bf", "#fbbf24"],
   },
 ];
 
@@ -35,7 +53,7 @@ export function ThemeSwitcher({ current }: { current: Theme }) {
       {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
       {state?.notice && <FormMessage tone="notice">{state.notice}</FormMessage>}
 
-      <ul className="grid gap-3 sm:grid-cols-2">
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {THEMES.map((t) => {
           const active = t.value === current;
           return (

@@ -82,7 +82,7 @@ export default async function CirclesPage({
             {pending.map((circle) => (
               <li
                 key={circle.id}
-                className="glass-card flex flex-wrap items-center justify-between gap-3 border-amber-300/60 bg-amber-50/50 p-4 dark:border-amber-800/50 dark:bg-amber-950/20"
+                className="glass-card tint-amber flex flex-wrap items-center justify-between gap-3 p-4"
               >
                 <div className="min-w-0">
                   <p className="font-medium">{circle.name}</p>

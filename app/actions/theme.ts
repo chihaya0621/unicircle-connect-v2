@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase-server";
 
 export type ActionState = { error?: string; notice?: string } | null;
 
-const THEMES: Theme[] = ["glass", "pop"];
+const THEMES: Theme[] = ["pop", "citrus", "mint", "berry", "glass"];
 
 /**
  * 表示テーマの変更。

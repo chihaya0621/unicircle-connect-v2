@@ -15,7 +15,7 @@ export type EventVisibility = "internal" | "scoped" | "public";
 export type Scope = "university" | "scoped" | "public";
 export type FacilityCategory = "facility" | "equipment";
 /** 表示テーマ（0016_theme.sql） */
-export type Theme = "glass" | "pop";
+export type Theme = "pop" | "citrus" | "mint" | "berry" | "glass";
 
 /**
  * postgrest-js は各テーブル定義に `Relationships` があることを前提に

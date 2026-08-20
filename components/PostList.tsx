@@ -41,8 +41,7 @@ export function PostList({
             key={post.id}
             className={`glass-card p-3.5 ${
               post.is_pinned
-                ? "border-amber-300/70 bg-amber-50/55 dark:border-amber-800/60 dark:bg-amber-950/25"
-                : ""
+                ? "tint-amber" : ""
             }`}
           >
             <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">

@@ -97,10 +97,10 @@ export const getMyUniversityId = cache(
 /**
  * 適用するテーマ。
  *
- * 未ログインや取得失敗時は既定の glass。レイアウトで html に付けるので、
+ * 未ログインや取得失敗時は既定の pop。レイアウトで html に付けるので、
  * サーバー側で解決してちらつきを防ぐ。
  */
 export const getTheme = cache(async (): Promise<Theme> => {
   const user = await getCurrentUser();
-  return user?.theme ?? "glass";
+  return user?.theme ?? "pop";
 });

@@ -20,7 +20,6 @@
    ----------------------------------------------------------------------------- */
 
 /* ===== glass: 透明感のあるグラスモーフィズム（既定） ===== */
-:root,
 [data-theme="glass"] {
   --background: #f6f7fb;
   --foreground: #14161f;
@@ -53,17 +52,20 @@
   --accent: 99 102 241;
 }
 
-/* ===== pop: フラットで彩度の高いポップスタイル ===== */
-/* 参考にした採用サイト群のように、有機的な曲線と原色に近い差し色、
-   ピル型のボタン、はっきりした影で構成する。すりガラスは使わない。 */
-[data-theme="pop"] {
+/* ===== pop 系（既定）: フラットで彩度の高いスタイル =====
+   参考にした採用サイト群のように、有機的な曲線と原色に近い差し色、
+   ピル型のボタン、はっきりした影で構成する。すりガラスは使わない。
+
+   構造（角丸・影・ボタン形状）は共通で、配色だけをテーマごとに変える。
+   色を変えたいだけなら --orb-* と --btn-* と --accent を差し替えれば済む。 */
+:root,
+[data-theme="pop"],
+[data-theme="citrus"],
+[data-theme="mint"],
+[data-theme="berry"] {
   --background: #ffffff;
   --foreground: #101828;
 
-  --orb-1: 37 99 235;   /* blue   */
-  --orb-2: 250 204 21;  /* yellow */
-  --orb-3: 236 72 153;  /* pink   */
-  --orb-4: 34 197 94;   /* green  */
   --orb-alpha-1: 0.16;
   --orb-alpha-2: 0.14;
   --orb-blur: 0px;      /* ぼかさず輪郭を残す */
@@ -80,13 +82,56 @@
   --surface-lift: -6px;
 
   --btn-radius: 9999px;     /* ピル型 */
+}
+
+/* --- 配色バリエーション --- */
+
+/* ブルー基調。青・黄・ピンク・緑の多色ポップ（既定） */
+:root,
+[data-theme="pop"] {
+  --orb-1: 37 99 235;
+  --orb-2: 250 204 21;
+  --orb-3: 236 72 153;
+  --orb-4: 34 197 94;
   --btn-from: 37 99 235;
   --btn-to: 29 78 216;
   --accent: 37 99 235;
 }
 
+/* オレンジ基調。暖色でまとめた快活な配色 */
+[data-theme="citrus"] {
+  --orb-1: 249 115 22;
+  --orb-2: 250 204 21;
+  --orb-3: 244 63 94;
+  --orb-4: 217 119 6;
+  --btn-from: 249 115 22;
+  --btn-to: 234 88 12;
+  --accent: 234 88 12;
+}
+
+/* グリーン基調。落ち着いた自然色 */
+[data-theme="mint"] {
+  --orb-1: 16 185 129;
+  --orb-2: 132 204 22;
+  --orb-3: 20 184 166;
+  --orb-4: 250 204 21;
+  --btn-from: 16 185 129;
+  --btn-to: 5 150 105;
+  --accent: 5 150 105;
+}
+
+/* パープル基調。落ち着いた華やかさ */
+[data-theme="berry"] {
+  --orb-1: 139 92 246;
+  --orb-2: 236 72 153;
+  --orb-3: 99 102 241;
+  --orb-4: 244 114 182;
+  --btn-from: 139 92 246;
+  --btn-to: 124 58 237;
+  --accent: 124 58 237;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root,
   [data-theme="glass"] {
     --background: #080a12;
     --foreground: #e8eaf2;
@@ -100,7 +145,11 @@
     --glass-border-alpha: 0.14;
   }
 
-  [data-theme="pop"] {
+  :root,
+  [data-theme="pop"],
+  [data-theme="citrus"],
+  [data-theme="mint"],
+  [data-theme="berry"] {
     --background: #0b1220;
     --foreground: #e8eaf2;
     --orb-alpha-1: 0.22;
@@ -201,7 +250,15 @@ body::after {
 
 /** 基本のすりガラス。他のクラスの土台にもなる */
 @utility glass {
+  /* 色味の重ね。既定は無色で、tint-* を併用したときだけ色が乗る。
+     背景色そのものを差し替えないので、どのテーマでも破綻しない。 */
+  --tint: 0 0 0;
+  --tint-alpha: 0;
   background-color: rgb(var(--glass-bg) / var(--glass-bg-alpha));
+  background-image: linear-gradient(
+    rgb(var(--tint) / var(--tint-alpha)),
+    rgb(var(--tint) / var(--tint-alpha))
+  );
   border: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
   border-radius: var(--surface-radius);
   box-shadow: var(--surface-shadow);
@@ -386,7 +443,10 @@ a {
 
 /* 画面を斜めに横切るリボン。大きな角丸の帯を傾けて重ねている */
 [data-theme="pop"] body::after,
-[data-theme="pop"] .pop-ribbon {
+[data-theme="citrus"] body::after,
+[data-theme="mint"] body::after,
+[data-theme="berry"] body::after,
+:root:not([data-theme]) body::after {
   content: "";
   position: fixed;
   z-index: -1;
@@ -415,7 +475,11 @@ a {
 }
 
 /* pop ではガラスの格子を使わないので、代わりにドットを散らす */
-[data-theme="pop"] body::before {
+[data-theme="pop"] body::before,
+[data-theme="citrus"] body::before,
+[data-theme="mint"] body::before,
+[data-theme="berry"] body::before,
+:root:not([data-theme]) body::before {
   background-image:
     radial-gradient(38rem 30rem at 8% 6%,   rgb(var(--orb-1) / var(--orb-alpha-1)), transparent 58%),
     radial-gradient(30rem 26rem at 92% 10%, rgb(var(--orb-2) / var(--orb-alpha-2)), transparent 60%),
@@ -424,18 +488,27 @@ a {
 }
 
 /* pop の見出しは太く、詰めて力強く */
-[data-theme="pop"] h1 {
+[data-theme="pop"] h1,
+[data-theme="citrus"] h1,
+[data-theme="mint"] h1,
+[data-theme="berry"] h1,
+:root:not([data-theme]) h1 {
   letter-spacing: -0.03em;
   font-weight: 800;
 }
 
-[data-theme="pop"] h2 {
+[data-theme="pop"] h2,
+[data-theme="citrus"] h2,
+[data-theme="mint"] h2,
+[data-theme="berry"] h2,
+:root:not([data-theme]) h2 {
   letter-spacing: -0.02em;
   font-weight: 700;
 }
 
 /* 見出しの左に差し色のバーを引く。参考サイトの「● 01」のような区切り */
-[data-theme="pop"] main section > h2:first-child::before {
+[data-theme]:not([data-theme="glass"]) main section > h2:first-child::before,
+:root:not([data-theme]) main section > h2:first-child::before {
   content: "";
   display: inline-block;
   width: 0.375rem;
@@ -447,7 +520,8 @@ a {
 }
 
 /* pop のカードは枠線を細く、影で浮かせる */
-[data-theme="pop"] .glass-card:hover {
+[data-theme]:not([data-theme="glass"]) .glass-card:hover,
+:root:not([data-theme]) .glass-card:hover {
   border-color: rgb(var(--accent) / 0.35);
 }
 
@@ -479,7 +553,40 @@ a {
 }
 
 /* glass テーマではゴースト文字を控えめにする（背景が既に賑やかなため） */
-[data-theme="glass"] .ghost-heading::before,
-:root:not([data-theme]) .ghost-heading::before {
+[data-theme="glass"] .ghost-heading::before {
   color: rgb(var(--accent) / 0.06);
 }
+
+/* -----------------------------------------------------------------------------
+   カードの色味
+   -----------------------------------------------------------------------------
+   左端に太い線を引く手法はよく見かける割に、情報としては弱い。
+   面全体をごく淡く染めて、枠線をそれに合わせる方が主張が穏やかで、
+   バッジと合わせて読んだときに意味が通りやすい。
+   ----------------------------------------------------------------------------- */
+
+@utility tint-rose {
+  --tint: 244 63 94;
+  --tint-alpha: 0.07;
+  --glass-border: 244 63 94;
+  --glass-border-alpha: 0.28;
+}
+
+@utility tint-indigo {
+  --tint: 99 102 241;
+  --tint-alpha: 0.06;
+  --glass-border: 99 102 241;
+  --glass-border-alpha: 0.26;
+}
+
+@utility tint-amber {
+  --tint: 245 158 11;
+  --tint-alpha: 0.08;
+  --glass-border: 245 158 11;
+  --glass-border-alpha: 0.30;
+}
+
+/* 色味の付いたカードは、ホバー時に枠線をもう少しはっきりさせる */
+.tint-rose:hover   { --glass-border-alpha: 0.45; }
+.tint-indigo:hover { --glass-border-alpha: 0.42; }
+.tint-amber:hover  { --glass-border-alpha: 0.48; }

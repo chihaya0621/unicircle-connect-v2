@@ -21,8 +21,7 @@ function Row({ n }: { n: Notification }) {
     <div
       className={`glass-card p-4 ${
         unread
-          ? "border-indigo-300/70 bg-indigo-50/50 dark:border-indigo-800/60 dark:bg-indigo-950/25"
-          : ""
+          ? "tint-indigo" : ""
       }`}
     >
       <div className="flex flex-wrap items-center gap-2">
