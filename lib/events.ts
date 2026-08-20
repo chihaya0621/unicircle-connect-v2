@@ -1,0 +1,198 @@
+import "server-only";
+
+import type { EventVisibility, UserRole } from "@/lib/database.types";
+import { createClient } from "@/lib/supabase-server";
+
+/**
+ * 一覧表示に必要なイベント項目。
+ * 主催者名は埋め込みリソースとして1クエリで取得する。
+ */
+export type EventListItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  event_date: string;
+  visibility: EventVisibility;
+  target_grades: string[] | null;
+  host_university_id: string | null;
+  host_circle_id: string | null;
+  host_university: { name: string } | null;
+  /** サークル主催の場合、そのサークルの所属大学も併せて取得する */
+  host_circle: { name: string; university_id: string | null } | null;
+  scoped_universities: { university_id: string }[];
+};
+
+export type EventHost =
+  | { kind: "university"; name: string }
+  | { kind: "circle"; name: string };
+
+/**
+ * 排他的関連 (Exclusive Arc) を安全に解決する。
+ *
+ * events_host_check により host_university_id と host_circle_id は
+ * ちょうど片方だけが NOT NULL であることが DB 側で保証されている。
+ * ただし埋め込みリソース側は参照先が消えていれば null になり得るため、
+ * 名前が取れないケースにもフォールバックを用意している。
+ */
+export function eventHost(event: EventListItem): EventHost {
+  if (event.host_university_id) {
+    return { kind: "university", name: event.host_university?.name ?? "大学" };
+  }
+  return { kind: "circle", name: event.host_circle?.name ?? "サークル" };
+}
+
+const EVENT_SELECT = `
+  id,
+  title,
+  description,
+  event_date,
+  visibility,
+  target_grades,
+  host_university_id,
+  host_circle_id,
+  host_university:universities!events_host_university_id_fkey(name),
+  host_circle:circles!events_host_circle_id_fkey(name, university_id),
+  scoped_universities:event_universities(university_id)
+` as const;
+
+/**
+ * SQL 側の考え方と揃えた可視判定。
+ *
+ *   public   … 誰でも
+ *   scoped   … event_universities に列挙された大学、または主催大学
+ *   internal … 主催大学のみ
+ *
+ * サークル主催の internal / scoped イベントは、主催サークルの
+ * 所属大学を主催大学とみなす（host_circle_university_id）。
+ */
+export function eventVisibleTo(
+  event: EventListItem,
+  universityId: string | null,
+) {
+  if (event.visibility === "public") return true;
+  if (!universityId) return false;
+
+  const hostUniversity =
+    event.host_university_id ?? event.host_circle?.university_id ?? null;
+
+  if (hostUniversity === universityId) return true;
+
+  if (event.visibility === "scoped") {
+    return event.scoped_universities.some(
+      (u) => u.university_id === universityId,
+    );
+  }
+  return false;
+}
+
+/**
+ * ロールと所属大学に応じた可視範囲でイベントを取得する。
+ *
+ * - general / 未ログイン: visibility = 'public' のみ
+ * - student / staff:      public + 自大学の internal + 対象に含まれる scoped
+ *
+ * 開発環境の RLS は全許可 (`true`) のため、この絞り込みが実質的な
+ * アクセス制御になっている。本番では同等のルールを RLS ポリシー側にも
+ * 実装しないと、API を直接叩かれた際に学内限定イベントが漏れる。
+ */
+export async function listVisibleEvents(
+  role: UserRole | null,
+  universityId: string | null = null,
+) {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("events")
+    .select(EVENT_SELECT)
+    .gte("event_date", new Date().toISOString())
+    .order("event_date", { ascending: true })
+    .limit(50);
+
+  if (role === null || role === "general") {
+    query = query.eq("visibility", "public");
+  }
+
+  const { data, error } = await query.returns<EventListItem[]>();
+
+  if (error) {
+    // 画面全体を落とさず、空一覧＋エラー表示にフォールバックする
+    console.error("イベント取得に失敗しました:", error.message);
+    return { events: [] as EventListItem[], error: error.message };
+  }
+
+  const rows = data ?? [];
+  const events =
+    role === null || role === "general"
+      ? rows
+      : rows.filter((e) => eventVisibleTo(e, universityId));
+
+  return { events, error: null };
+}
+
+/**
+ * 自分がイベントを主催できるサークル。
+ * サークルイベントを作れるのは、承認済みサークルの管理者のみ。
+ */
+export async function listHostableCircles(userId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("circle_members")
+    .select(`circle:circles!circle_members_circle_id_fkey(id, name, status)`)
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .eq("status", "active")
+    .returns<{ circle: { id: string; name: string; status: string } | null }[]>();
+
+  return (data ?? [])
+    .map((m) => m.circle)
+    .filter(
+      (c): c is { id: string; name: string; status: string } =>
+        c !== null && c.status === "approved",
+    );
+}
+
+export type EventDetail = EventListItem & {
+  created_at: string;
+  scoped_university_names: { university: { name: string } | null }[];
+};
+
+export async function getEvent(eventId: string): Promise<EventDetail | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("events")
+    .select(
+      `${EVENT_SELECT},
+       created_at,
+       scoped_university_names:event_universities(
+         university:universities!event_universities_university_id_fkey(name)
+       )`,
+    )
+    .eq("id", eventId)
+    .maybeSingle()
+    .returns<EventDetail>();
+  return data ?? null;
+}
+
+/**
+ * 閲覧者がそのイベントを削除できるか。
+ * 大学主催なら同じ大学の職員、サークル主催ならそのサークルの管理者。
+ * 最終判定は delete_event 側で行うので、ここはボタンの出し分け用。
+ */
+export async function canManageEvent(
+  event: Pick<EventListItem, "host_university_id" | "host_circle_id">,
+  userId: string,
+  universityId: string | null,
+  role: UserRole,
+) {
+  if (event.host_circle_id) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("circle_members")
+      .select("role, status")
+      .eq("circle_id", event.host_circle_id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    return data?.role === "admin" && data.status === "active";
+  }
+  return role === "staff" && event.host_university_id === universityId;
+}
