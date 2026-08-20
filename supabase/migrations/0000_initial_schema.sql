@@ -2,7 +2,7 @@
 -- UniCircle Connect 基本スキーマ
 -- =============================================================================
 -- 実行順:
---   1. (作り直す場合のみ) supabase/reset.sql
+--   1. (作り直す場合のみ) supabase/reset_full.sql
 --   2. このファイル
 --   3. supabase/migrations/0001_handle_new_user.sql
 --   4. (任意) supabase/seed.sql

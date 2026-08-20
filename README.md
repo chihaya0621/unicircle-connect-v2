@@ -22,23 +22,49 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 Supabase の SQL Editor で、以下を**上から順に**実行してください。
 各ファイルの中身をコピーして貼り付けるだけです。
 
-| 順 | ファイル | 内容 | 必須 |
-| --- | --- | --- | --- |
-| 1 | `supabase/reset.sql` | 既存テーブルの全削除 | 作り直す場合のみ |
-| 2 | `supabase/migrations/0000_initial_schema.sql` | テーブル・制約・インデックス・RLS | ✅ |
-| 3 | `supabase/migrations/0001_handle_new_user.sql` | サインアップ時の自動プロフィール生成トリガー | ✅ |
-| 4 | `supabase/seed.sql` | 開発用テストデータ | 推奨 |
+**`supabase/setup_all.sql` の中身を貼って実行するだけです。** 構築に必要な
+3ファイルを連結した生成物なので、1回で完了します。
 
-**4 は実質必須です。** `universities` が空だとサインアップ画面の大学選択肢が
-空になり、学生アカウントを作成できません。
+成功すると `universities=3 / circles=4 / events=5 / facilities=5` と表示されます。
 
-3 のトリガーは `auth.users` への INSERT を検知して、`public.users` と
+シードデータの投入は実質必須です。`universities` が空だとサインアップ画面の
+大学選択肢が空になり、学生アカウントを作成できません。
+
+<details>
+<summary>個別に実行したい場合</summary>
+
+| 順 | ファイル | 内容 |
+| --- | --- | --- |
+| 1 | `supabase/migrations/0000_initial_schema.sql` | テーブル・制約・インデックス・RLS |
+| 2 | `supabase/migrations/0001_handle_new_user.sql` | サインアップ時の自動プロフィール生成トリガー |
+| 3 | `supabase/seed.sql` | 開発用テストデータ |
+
+2 のトリガーは `auth.users` への INSERT を検知して、`public.users` と
 `student_profiles` を同一トランザクションで生成します。
 
-> `supabase/reset.sql` は public スキーマのテーブルをすべて削除します。
+</details>
+
+### 作り直したいとき
+
+`supabase/reset_full.sql` を実行してから、上の手順をやり直します。
+
+> このスクリプトは public スキーマを丸ごと削除して作り直します。
+> テーブル名に依存しないため、旧スキーマの残骸も確実に消えます。
 > 元に戻せないので、作り直す意図があるときだけ実行してください。
 > 登録済みアカウント（`auth.users`）の削除はスクリプト内で
 > コメントアウトしてあり、外すかどうかは利用者が判断します。
+
+### SQL の正はこのリポジトリです
+
+Supabase Studio の「保存済みスニペット」は使い捨ての作業場として扱い、
+恒久的な定義は必ず `supabase/` 配下に置いてください。Studio 側に
+ためていくと、どれが最新か分からなくなります。
+
+マイグレーションを編集したら、バンドルを再生成します。
+
+```bash
+npm run db:bundle
+```
 
 ### 3. 起動
 
@@ -84,7 +110,9 @@ supabase/
     0000_initial_schema.sql   テーブル・制約・インデックス・RLS
     0001_handle_new_user.sql  サインアップ時のトリガー
   seed.sql               開発用テストデータ
-  reset.sql              【破壊的】作り直し用の初期化スクリプト
+  setup_all.sql          上記3つの連結（生成物・これを貼れば構築完了）
+  reset_full.sql         【破壊的】作り直し用の初期化スクリプト
+scripts/bundle-sql.sh    setup_all.sql の生成スクリプト
 ```
 
 ---
