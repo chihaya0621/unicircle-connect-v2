@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { JoinCircleButton } from "@/components/JoinCircleButton";
@@ -95,17 +94,6 @@ export default async function CircleDetailPage({
           </div>
         )}
       </header>
-
-      {isMember && (
-        <div className="mb-8">
-          <Link
-            href={`/circles/${circle.id}/activities`}
-            className="inline-block rounded-lg border border-black/15 px-4 py-2 text-sm font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-          >
-            活動記録・出欠を見る
-          </Link>
-        </div>
-      )}
 
       {isMember && (
         <section className="mb-10">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { deleteEvent, joinEvent, leaveEvent } from "@/app/actions/events";
+import { EventRoster, type RosterEntry } from "@/components/EventRoster";
 import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
 import { canManageEvent, eventHost, eventVisibleTo, getEvent } from "@/lib/events";
 import { createClient } from "@/lib/supabase-server";
@@ -62,6 +63,16 @@ export default async function EventDetailPage({
     isGoing = data?.status === "going";
   }
   const isPast = new Date(event.event_date) < new Date();
+
+  // 参加名簿は主催者のみ。RPC 側でも主催者判定を行う。
+  let roster: RosterEntry[] = [];
+  if (canManage) {
+    const supabase = await createClient();
+    const { data } = await supabase.rpc("list_event_roster", {
+      p_event_id: event.id,
+    });
+    roster = (data ?? []) as RosterEntry[];
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
@@ -155,6 +166,13 @@ export default async function EventDetailPage({
             ))}
           </ul>
         </div>
+      )}
+
+      {canManage && (
+        <section className="mt-10 border-t border-black/10 pt-6 dark:border-white/10">
+          <h2 className="mb-3 text-lg font-semibold">参加名簿</h2>
+          <EventRoster eventId={event.id} roster={roster} />
+        </section>
       )}
 
       {canManage && (

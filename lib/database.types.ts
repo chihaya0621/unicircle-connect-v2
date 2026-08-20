@@ -36,51 +36,6 @@ export type Database = {
         Insert: { id?: string; name: string; created_at?: string };
         Update: { id?: string; name?: string; created_at?: string };
       };
-      circle_activities: {
-        Row: {
-          id: string;
-          circle_id: string;
-          title: string;
-          activity_date: string;
-          location: string | null;
-          note: string | null;
-          created_by: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          circle_id: string;
-          title: string;
-          activity_date: string;
-          location?: string | null;
-          note?: string | null;
-          created_by?: string | null;
-        };
-        Update: {
-          title?: string;
-          activity_date?: string;
-          location?: string | null;
-          note?: string | null;
-        };
-      };
-      activity_attendances: {
-        Row: {
-          id: string;
-          activity_id: string;
-          user_id: string;
-          status: "present" | "absent";
-          recorded_by: string | null;
-          recorded_at: string;
-        };
-        Insert: {
-          id?: string;
-          activity_id: string;
-          user_id: string;
-          status: "present" | "absent";
-          recorded_by?: string | null;
-        };
-        Update: { status?: "present" | "absent" };
-      };
       circle_posts: {
         Row: {
           id: string;
@@ -105,6 +60,10 @@ export type Database = {
           event_id: string;
           user_id: string;
           status: "going" | "cancelled";
+          /** null=未記録 / true=出席 / false=欠席 */
+          attended: boolean | null;
+          attendance_recorded_by: string | null;
+          attendance_recorded_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -113,7 +72,7 @@ export type Database = {
           user_id: string;
           status?: "going" | "cancelled";
         };
-        Update: { status?: "going" | "cancelled" };
+        Update: { status?: "going" | "cancelled"; attended?: boolean | null };
       };
       circle_universities: {
         Row: { circle_id: string; university_id: string };
@@ -384,23 +343,20 @@ export type Database = {
         Args: { p_facility_id: string };
         Returns: undefined;
       };
-      /** 活動の登録（0012_activities.sql。管理者のみ） */
-      create_activity: {
-        Args: {
-          p_circle_id: string;
-          p_title: string;
-          p_activity_date: string;
-          p_location?: string;
-          p_note?: string;
-        };
-        Returns: string;
-      };
-      /** 活動の削除（管理者のみ） */
-      delete_activity: { Args: { p_activity_id: string }; Returns: undefined };
-      /** 出欠の登録。user_id 省略時は自分自身 */
-      set_attendance: {
-        Args: { p_activity_id: string; p_status: string; p_user_id?: string };
+      /** イベントの出欠記録（0013。主催者のみ。null で未記録に戻す） */
+      record_event_attendance: {
+        Args: { p_event_id: string; p_user_id: string; p_attended: boolean | null };
         Returns: undefined;
+      };
+      /** 参加名簿の取得（主催者のみ） */
+      list_event_roster: {
+        Args: { p_event_id: string };
+        Returns: {
+          roster_user_id: string;
+          roster_name: string;
+          roster_attended: boolean | null;
+          roster_joined_at: string;
+        }[];
       };
       /** サークル掲示板への投稿（0011_circle_posts.sql） */
       create_circle_post: {
