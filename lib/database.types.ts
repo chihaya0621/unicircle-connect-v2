@@ -321,6 +321,27 @@ export type Database = {
         Args: { p_facility_id: string };
         Returns: undefined;
       };
+      /** 職員による学生登録（0010。'registered' | 'updated' を返す） */
+      register_student: {
+        Args: { p_email: string; p_name: string; p_enrollment_year?: number };
+        Returns: string;
+      };
+      /** 職員による学生情報の修正 */
+      update_student_info: {
+        Args: { p_user_id: string; p_name: string; p_enrollment_year?: number };
+        Returns: undefined;
+      };
+      /** 職員が自大学の学生を一覧する */
+      list_university_students: {
+        Args: Record<string, never>;
+        Returns: {
+          student_id: string;
+          student_name: string;
+          student_email: string | null;
+          student_enrollment: number | null;
+          student_created_at: string;
+        }[];
+      };
       /** プロフィール更新（0009_profile.sql。対象は常に自分自身） */
       update_my_profile: {
         Args: {

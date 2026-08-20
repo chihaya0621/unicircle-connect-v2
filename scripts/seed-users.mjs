@@ -66,14 +66,9 @@ for (const u of users) {
     const { data, error } = await supabase.auth.signUp({
       email: u.email,
       password: DEV_PASSWORD,
-      options: {
-        data: {
-          name: u.name,
-          role: u.role,
-          university_id: u.role === "student" ? u.university_id : "",
-          enrollment_year: u.enrollment_year ?? "",
-        },
-      },
+      // 0010 以降、サインアップで作れるのは一般ユーザーのみ。
+      // 学生・職員への切り替えは、下で出力する SQL で行う。
+      options: { data: { name: u.name } },
     });
 
     if (!error) {
@@ -114,16 +109,47 @@ if (failed.length > 0) {
   );
 }
 
-// --- 職員昇格用の SQL ---------------------------------------------------
+// --- ロール付与用の SQL -------------------------------------------------
+// 学生も職員もセルフサインアップできない設計なので、作成後に
+// このSQLでロールと公式情報（氏名・所属大学・入学年度）を与える。
+//
+// 学生の登録は本来 register_student（職員として実行）で行うが、
+// 開発シードでは職員のセッションが無いので、同じ結果になる SQL を直接書く。
 const toPromote = users.filter((u) => u.promoteTo === "staff");
+const students = users.filter((u) => u.role === "student");
+
 writeFileSync(
   new URL("../supabase/promote_staff.sql", import.meta.url),
   [
-    "-- 職員アカウントへの昇格（Supabase SQL Editor で実行してください）",
-    "-- staff はセルフサインアップできない設計のため、この手順が必要です。",
+    "-- 開発用: テストアカウントにロールと公式情報を与える",
+    "-- （Supabase SQL Editor で実行してください）",
+    "--",
+    "-- 学生・職員はセルフサインアップできない設計のため、この手順が必要です。",
+    "-- 何度実行しても同じ結果になります。",
+    "",
+    "-- ▼ 職員",
     ...toPromote.map(
       (u) => `select public.promote_to_staff('${u.email}', '${u.university_id}');`,
     ),
+    "",
+    "-- ▼ 学生",
+    "do $$",
+    "declare v_uid uuid;",
+    "begin",
+    ...students.flatMap((u) => [
+      `  select id into v_uid from auth.users where email = '${u.email}';`,
+      "  if v_uid is not null then",
+      `    update public.users set role = 'student', name = '${u.name}' where id = v_uid;`,
+      "    insert into public.student_profiles (user_id, university_id, enrollment_year)",
+      `    values (v_uid, '${u.university_id}', ${u.enrollment_year ?? "null"})`,
+      "    on conflict (user_id) do update",
+      "      set university_id = excluded.university_id,",
+      "          enrollment_year = excluded.enrollment_year;",
+      "  end if;",
+    ]),
+    "end $$;",
+    "",
+    "select role, count(*) from public.users group by role order by role;",
     "",
   ].join("\n"),
 );

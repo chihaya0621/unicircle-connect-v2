@@ -22,6 +22,13 @@ function safeRedirect(next: FormDataEntryValue | null): string {
   return next;
 }
 
+/**
+ * 新規登録。
+ *
+ * ここで作れるのは一般ユーザーのみ。role を引数で受け取らないので、
+ * リクエストを改変しても学生・職員にはなれない。
+ * DB のトリガー側でも 'general' 固定にしてあり、二重に守っている。
+ */
 export async function signUp(
   _prevState: AuthFormState,
   formData: FormData,
@@ -29,23 +36,12 @@ export async function signUp(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const name = String(formData.get("name") ?? "").trim();
-  const role = String(formData.get("role") ?? "general");
-  const universityId = String(formData.get("university_id") ?? "");
-  const enrollmentYear = String(formData.get("enrollment_year") ?? "");
 
   if (!email || !password || !name) {
-    return { error: "氏名・メールアドレス・パスワードは必須です。" };
+    return { error: "表示名・メールアドレス・パスワードは必須です。" };
   }
   if (password.length < 8) {
     return { error: "パスワードは8文字以上で入力してください。" };
-  }
-  // staff はセルフサインアップ不可（DB トリガー側でも general に落とされる）。
-  // ここで弾くのは UI 上の親切であって、防御の本体はトリガー側。
-  if (role !== "student" && role !== "general") {
-    return { error: "選択できないアカウント種別です。" };
-  }
-  if (role === "student" && !universityId) {
-    return { error: "学生アカウントには大学の選択が必要です。" };
   }
 
   const supabase = await createClient();
@@ -53,16 +49,8 @@ export async function signUp(
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      // ここに渡した値が raw_user_meta_data として保存され、
-      // handle_new_user() トリガーが読み取って users / student_profiles を作る。
-      data: {
-        name,
-        role,
-        university_id: role === "student" ? universityId : "",
-        enrollment_year: role === "student" ? enrollmentYear : "",
-      },
-    },
+    // 渡すのは表示名だけ。role や所属大学は受け付けない。
+    options: { data: { name } },
   });
 
   if (error) {

@@ -282,6 +282,18 @@ export default async function MyPage() {
             </ul>
           </Section>
 
+          <Section title="学生の登録">
+            <Link
+              href="/staff/students"
+              className="block rounded-xl border border-black/10 bg-white p-4 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+            >
+              <p className="text-sm font-medium">学生の登録・情報の修正</p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                本人が新規登録したあと、氏名を登録すると学生として利用できるようになります
+              </p>
+            </Link>
+          </Section>
+
           <Section title="施設・備品">
             <Link
               href="/facilities"
