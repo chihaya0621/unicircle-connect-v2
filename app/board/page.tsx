@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PageHero } from "@/components/PageHero";
 import { PostComposer } from "@/components/PostComposer";
 import { PostList } from "@/components/PostList";
 import { listMyBoards } from "@/lib/board";
@@ -15,12 +16,12 @@ export default async function BoardPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">掲示板</h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          所属しているサークルごとの連絡です。メンバー以外には見えません。
-        </p>
-      </header>
+      <PageHero
+        variant="blobs"
+        eyebrow="BOARD"
+        title="掲示板"
+        description="所属しているサークルごとの連絡です。メンバー以外には見えません。"
+      />
 
       {boards.length === 0 ? (
         <p className="glass-empty py-12">

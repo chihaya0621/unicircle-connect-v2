@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PageHero } from "@/components/PageHero";
 import { FacilityForm } from "@/components/FacilityForm";
 import { FacilityRow } from "@/components/FacilityRow";
 import { getMyUniversityId, requireRole } from "@/lib/dal";
@@ -25,27 +26,29 @@ export default async function FacilitiesPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">施設・備品</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {isStaff
-              ? "所属大学の施設マスタを管理できます。"
-              : "所属大学の施設を予約できます。"}
-          </p>
-        </div>
-        <Link
-          href="/reservations"
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-            isStaff && pendingReservations > 0
-              ? "border border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
-              : "border border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-          }`}
-        >
-          {isStaff ? "予約の承認" : "自分の予約"}
-          {isStaff && pendingReservations > 0 && ` (${pendingReservations})`}
-        </Link>
-      </header>
+      <PageHero
+        variant="stack"
+        eyebrow="FACILITIES"
+        title="施設・備品"
+        description={
+          isStaff
+            ? "所属大学の施設マスタを管理できます。"
+            : "所属大学の施設を予約できます。"
+        }
+        action={
+          <Link
+            href="/reservations"
+            className={
+              isStaff && pendingReservations > 0
+                ? "btn-primary"
+                : "btn-ghost py-2"
+            }
+          >
+            {isStaff ? "予約の承認" : "自分の予約"}
+            {isStaff && pendingReservations > 0 && ` (${pendingReservations})`}
+          </Link>
+        }
+      />
 
       {isStaff && (
         <section className="mb-10 glass-panel">

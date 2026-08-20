@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PageHero } from "@/components/PageHero";
 import { EventCard } from "@/components/EventCard";
 import { listMyCircles } from "@/lib/circles";
 import type { UserRole } from "@/lib/database.types";
@@ -28,14 +29,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <header className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">
-          こんにちは、{user.name} さん
-        </h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          {ROLE_SUMMARY[user.role]}
-        </p>
-      </header>
+      <PageHero
+        variant="blobs"
+        eyebrow="DASHBOARD"
+        title={`こんにちは、${user.name} さん`}
+        description={ROLE_SUMMARY[user.role]}
+      />
 
       {myCircles.length > 0 && (
         <section className="mb-10">

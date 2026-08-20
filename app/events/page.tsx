@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PageHero } from "@/components/PageHero";
 import { EventCard } from "@/components/EventCard";
 import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
 import { listVisibleEvents, resolveEventRelations } from "@/lib/events";
@@ -26,24 +27,23 @@ export default async function EventsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">イベント</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {isLimitedView
-              ? "公開イベントを表示しています。学内限定イベントは学生・職員アカウントで閲覧できます。"
-              : "あなたが閲覧できる、開催予定のイベントを表示しています。"}
-          </p>
-        </div>
-        {user && user.role !== "general" && (
-          <Link
-            href="/events/new"
-            className="btn-primary"
-          >
-            イベントを作成
-          </Link>
-        )}
-      </header>
+      <PageHero
+        variant="ribbon"
+        eyebrow="EVENTS"
+        title="イベント"
+        description={
+          isLimitedView
+            ? "公開イベントを表示しています。学内限定イベントは学生・職員アカウントで閲覧できます。"
+            : "あなたが閲覧できる、開催予定のイベントを表示しています。"
+        }
+        action={
+          user && user.role !== "general" ? (
+            <Link href="/events/new" className="btn-primary">
+              イベントを作成
+            </Link>
+          ) : null
+        }
+      />
 
       {hasHighlight && (
         <ul className="mb-4 flex flex-wrap gap-2">

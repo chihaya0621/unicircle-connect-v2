@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PageHero } from "@/components/PageHero";
 import { ReservationList } from "@/components/ReservationList";
 import { getMyUniversityId, requireRole } from "@/lib/dal";
 import { listMyReservations, listPendingReservations } from "@/lib/facilities";
@@ -18,29 +19,28 @@ export default async function ReservationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {user.role === "staff" ? "予約の承認" : "自分の予約"}
-          </h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+      <PageHero
+        variant="wave"
+        eyebrow="RESERVATIONS"
+        title={user.role === "staff" ? "予約の承認" : "自分の予約"}
+        description={
+          <>
             {user.role === "staff"
               ? "所属大学の施設への予約申請を審査します。"
               : "個人の予約と、参加しているサークルの予約を表示しています。"}
-          </p>
-          {user.role === "staff" && pending.length > 0 && (
-            <p className="mt-2 inline-flex items-center gap-2 rounded-xl border border-rose-300/70 bg-rose-50/70 px-3 py-1.5 text-sm font-medium text-rose-800 backdrop-blur-md dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
-              承認待ちの申請が{pending.length}件あります
-            </p>
-          )}
-        </div>
-        <Link
-          href="/facilities"
-          className="btn-ghost py-2"
-        >
-          施設一覧
-        </Link>
-      </header>
+            {user.role === "staff" && pending.length > 0 && (
+              <span className="mt-2 block font-medium text-rose-700 dark:text-rose-300">
+                承認待ちの申請が{pending.length}件あります
+              </span>
+            )}
+          </>
+        }
+        action={
+          <Link href="/facilities" className="btn-ghost py-2">
+            施設一覧
+          </Link>
+        }
+      />
 
       {user.role === "staff" ? (
         <ReservationList

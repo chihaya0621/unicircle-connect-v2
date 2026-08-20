@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { decideCircle } from "@/app/actions/circles";
+import { PageHero } from "@/components/PageHero";
 import { CircleCard } from "@/components/CircleCard";
 import {
   getMyCircleIds,
@@ -43,26 +44,26 @@ export default async function CirclesPage({
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">サークル</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+      <PageHero
+        variant="arc"
+        eyebrow="CIRCLES"
+        title="サークル"
+        description={
+          <>
             {showOtherUniversities
               ? "他大学のインカレ・合同サークルも含めて表示しています。"
               : "自大学のサークルと、所属中のサークルを表示しています。"}
             {myCircleIds.size > 0 && " 所属中のものを先頭に並べています。"}
-          </p>
-        </div>
-
-        {user.role === "student" && (
-          <Link
-            href="/circles/new"
-            className="btn-primary"
-          >
-            サークルを設立する
-          </Link>
-        )}
-      </header>
+          </>
+        }
+        action={
+          user.role === "student" ? (
+            <Link href="/circles/new" className="btn-primary">
+              サークルを設立する
+            </Link>
+          ) : null
+        }
+      />
 
       {error && (
         <p

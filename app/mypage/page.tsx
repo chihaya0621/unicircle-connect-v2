@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PageHero } from "@/components/PageHero";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { ProfileForm } from "@/components/ProfileForm";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -166,14 +167,18 @@ export default async function MyPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <header className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">マイページ</h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          {ROLE_LABEL[profile.role]}
-          {profile.university && ` ／ ${profile.university}`}
-          {profile.email && ` ／ ${profile.email}`}
-        </p>
-      </header>
+      <PageHero
+        variant="stack"
+        eyebrow="MY PAGE"
+        title="マイページ"
+        description={
+          <>
+            {ROLE_LABEL[profile.role]}
+            {profile.university && ` ／ ${profile.university}`}
+            {profile.email && ` ／ ${profile.email}`}
+          </>
+        }
+      />
 
       <section className="glass-panel">
         <h2 className="mb-4 text-lg font-semibold">プロフィール</h2>

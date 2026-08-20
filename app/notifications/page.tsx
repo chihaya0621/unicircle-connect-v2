@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { markRead } from "@/app/actions/notifications";
+import { PageHero } from "@/components/PageHero";
 import { requireUser } from "@/lib/dal";
 import { TYPE_LABEL, TYPE_STYLE } from "@/lib/notification-types";
 import { listNotifications, type Notification } from "@/lib/notifications";
@@ -73,32 +74,31 @@ export default async function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">通知</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {unread > 0 ? `未読が${unread}件あります。` : "未読はありません。"}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {unread > 0 && (
-            <form action={markRead}>
-              <button
-                type="submit"
-                className="btn-ghost py-2"
-              >
-                すべて既読にする
-              </button>
-            </form>
-          )}
-          <Link
-            href="/mypage#notification-settings"
-            className="btn-ghost py-2"
-          >
-            通知設定
-          </Link>
-        </div>
-      </header>
+      <PageHero
+        variant="arc"
+        eyebrow="NOTIFICATIONS"
+        title="通知"
+        description={
+          unread > 0 ? `未読が${unread}件あります。` : "未読はありません。"
+        }
+        action={
+          <>
+            {unread > 0 && (
+              <form action={markRead}>
+                <button type="submit" className="btn-ghost py-2">
+                  すべて既読にする
+                </button>
+              </form>
+            )}
+            <Link
+              href="/mypage#notification-settings"
+              className="btn-ghost py-2"
+            >
+              通知設定
+            </Link>
+          </>
+        }
+      />
 
       {notifications.length === 0 ? (
         <p className="glass-empty py-12">

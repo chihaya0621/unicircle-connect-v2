@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CalendarFilterPanel } from "@/components/CalendarFilterPanel";
+import { PageHero } from "@/components/PageHero";
 import { CalendarGrid } from "@/components/CalendarGrid";
 import { listCalendarEvents } from "@/lib/calendar";
 import { SOURCE_COLOR, SOURCE_LABEL } from "@/lib/event-sources";
@@ -101,50 +102,23 @@ export default async function CalendarPage({
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      {/* 卓上カレンダー風の見出し。大きな月番号と装飾の円で構成する。
-          色はテーマ変数に追従するので、テーマを変えると一緒に変わる。 */}
-      <header className="glass-panel relative mb-6 overflow-hidden p-0">
-        {/* 装飾の円。右上に大きく、左下に小さく重ねる */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -right-12 -top-16 size-56 rounded-full opacity-90"
-          style={{
-            background:
-              "radial-gradient(circle at 30% 30%, rgb(var(--orb-2)), rgb(var(--orb-2) / 0.55))",
-          }}
-        />
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -bottom-10 left-24 size-28 rounded-full opacity-70"
-          style={{
-            background:
-              "radial-gradient(circle at 35% 35%, rgb(var(--orb-1)), rgb(var(--orb-1) / 0.5))",
-          }}
-        />
-
-        <div className="relative flex flex-wrap items-end justify-between gap-6 p-6">
-          <div className="flex items-end gap-5">
-            {/* 月番号。2桁ゼロ埋めで大きく見せる */}
-            <span
-              className="text-7xl font-extrabold leading-none tracking-tighter tabular-nums sm:text-8xl"
-              style={{ color: "rgb(var(--accent))" }}
-            >
-              {String(month + 1).padStart(2, "0")}
-            </span>
-            <div className="pb-2">
-              <p
-                className="text-2xl font-extrabold uppercase tracking-wide"
-                style={{ color: "rgb(var(--accent))" }}
-              >
-                {MONTH_EN[month]}
-              </p>
-              <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
-                {year}年{month + 1}月 ／ {thisMonth.length}件の予定
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 pb-2">
+      {/* 卓上カレンダー風の見出し。月番号を lead に渡して大きく見せる。
+          図形の配置はページごとに変えているので、ここは circles を使う。 */}
+      <PageHero
+        variant="circles"
+        eyebrow={MONTH_EN[month]}
+        title={`${year}年${month + 1}月`}
+        description={`${thisMonth.length}件の予定`}
+        lead={
+          <span
+            className="text-7xl font-extrabold leading-none tracking-tighter tabular-nums sm:text-8xl"
+            style={{ color: "rgb(var(--accent))" }}
+          >
+            {String(month + 1).padStart(2, "0")}
+          </span>
+        }
+        action={
+          <>
             <Link
               href={`/calendar?ym=${ymString(prev.getFullYear(), prev.getMonth())}`}
               className="btn-ghost-sm px-3 py-1.5"
@@ -165,9 +139,9 @@ export default async function CalendarPage({
             <Link href="/events" className="btn-ghost-sm px-3 py-1.5">
               一覧で見る
             </Link>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <CalendarFilterPanel
         universities={universities ?? []}
