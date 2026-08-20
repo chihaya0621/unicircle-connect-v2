@@ -41,6 +41,8 @@
   --glass-border-alpha: 0.7;
   --surface-blur: 20px;
   --surface-radius: 1rem;
+  --surface-radius-2: 1rem;
+  --surface-border-width: 1px;
   --surface-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   --surface-shadow-hover: 0 25px 50px -12px rgb(0 0 0 / 0.28);
   --surface-lift: -4px;
@@ -76,19 +78,24 @@
   --glass-border: 16 24 40;
   --glass-border-alpha: 0.08;
   --surface-blur: 0px;
-  --surface-radius: 1.5rem; /* 大きめの角丸 */
+  --surface-lift: -6px;
+  /* 角丸は「左上右下 / 右上左下」で指定できるようにしておく。
+     左右非対称にすると葉のような有機的な形になる。 */
+  --surface-radius: 1.5rem;
+  --surface-radius-2: var(--surface-radius);
+  --surface-border-width: 1px;
   --surface-shadow: 0 4px 16px -2px rgb(16 24 40 / 0.08);
   --surface-shadow-hover: 0 18px 36px -8px rgb(16 24 40 / 0.20);
-  --surface-lift: -6px;
-
-  --btn-radius: 9999px;     /* ピル型 */
+  --btn-radius: 9999px;
 }
 
 /* --- 配色バリエーション --- */
 
-/* ブルー基調。青・黄・ピンク・緑の多色ポップ（既定） */
+/* ブルー基調・大きめの角丸・ピル型ボタン（既定） */
 :root,
 [data-theme="pop"] {
+  --surface-radius: 1.5rem;
+  --btn-radius: 9999px;
   --orb-1: 37 99 235;
   --orb-2: 250 204 21;
   --orb-3: 236 72 153;
@@ -98,8 +105,18 @@
   --accent: 37 99 235;
 }
 
-/* オレンジ基調。暖色でまとめた快活な配色 */
+/* オレンジ基調・角ばった輪郭・太い枠線・影なし。
+   平面的で紙のような見た目にする */
 [data-theme="citrus"] {
+  --surface-radius: 0.5rem;
+  --surface-radius-2: 0.5rem;
+  --btn-radius: 0.5rem;
+  --surface-border-width: 2px;
+  --glass-border: 16 24 40;
+  --glass-border-alpha: 0.16;
+  --surface-shadow: none;
+  --surface-shadow-hover: 0 6px 0 0 rgb(16 24 40 / 0.14);
+  --surface-lift: -3px;
   --orb-1: 249 115 22;
   --orb-2: 250 204 21;
   --orb-3: 244 63 94;
@@ -109,8 +126,13 @@
   --accent: 234 88 12;
 }
 
-/* グリーン基調。落ち着いた自然色 */
+/* グリーン基調・左右非対称の角丸。葉のような有機的な輪郭 */
 [data-theme="mint"] {
+  --surface-radius: 1.75rem;
+  --surface-radius-2: 0.375rem;
+  --btn-radius: 1.25rem 0.375rem;
+  --surface-shadow: 0 6px 20px -6px rgb(5 150 105 / 0.22);
+  --surface-shadow-hover: 0 20px 36px -10px rgb(5 150 105 / 0.32);
   --orb-1: 16 185 129;
   --orb-2: 132 204 22;
   --orb-3: 20 184 166;
@@ -120,8 +142,13 @@
   --accent: 5 150 105;
 }
 
-/* パープル基調。落ち着いた華やかさ */
+/* パープル基調・全体に強い丸み。やわらかい印象 */
 [data-theme="berry"] {
+  --surface-radius: 2rem;
+  --btn-radius: 9999px;
+  --surface-shadow: 0 10px 30px -8px rgb(124 58 237 / 0.28);
+  --surface-shadow-hover: 0 24px 48px -12px rgb(124 58 237 / 0.40);
+  --surface-lift: -8px;
   --orb-1: 139 92 246;
   --orb-2: 236 72 153;
   --orb-3: 99 102 241;
@@ -259,8 +286,11 @@ body::after {
     rgb(var(--tint) / var(--tint-alpha)),
     rgb(var(--tint) / var(--tint-alpha))
   );
-  border: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
-  border-radius: var(--surface-radius);
+  border: var(--surface-border-width) solid
+    rgb(var(--glass-border) / var(--glass-border-alpha));
+  /* 左上・右下と 右上・左下 を別に指定できるようにしている */
+  border-radius: var(--surface-radius) var(--surface-radius-2)
+                 var(--surface-radius) var(--surface-radius-2);
   box-shadow: var(--surface-shadow);
   backdrop-filter: blur(var(--surface-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--surface-blur)) saturate(150%);
@@ -295,9 +325,10 @@ body::after {
 
 /** 空状態のプレースホルダ */
 @utility glass-empty {
-  border: 1px dashed rgb(var(--glass-border) / 0.9);
+  border: var(--surface-border-width) dashed rgb(var(--glass-border) / 0.9);
   background-color: rgb(var(--glass-bg) / calc(var(--glass-bg-alpha) * 0.5));
-  border-radius: var(--surface-radius);
+  border-radius: var(--surface-radius) var(--surface-radius-2)
+                 var(--surface-radius) var(--surface-radius-2);
   backdrop-filter: blur(var(--surface-blur));
   -webkit-backdrop-filter: blur(12px);
   @apply px-4 py-10 text-center text-sm text-gray-600 dark:text-gray-400;

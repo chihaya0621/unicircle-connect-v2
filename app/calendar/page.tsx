@@ -10,6 +10,12 @@ import { createClient } from "@/lib/supabase-server";
 
 export const metadata: Metadata = { title: "カレンダー | UniCircle Connect" };
 
+/** 見出しに出す英語の月名。参考にした卓上カレンダーの体裁に合わせている */
+const MONTH_EN = [
+  "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+  "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
+];
+
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   month: "short",
   day: "numeric",
@@ -87,7 +93,7 @@ export default async function CalendarPage({
   const prev = new Date(year, month - 1, 1);
   const next = new Date(year, month + 1, 1);
 
-  // 当月ぶんだけを下の一覧に出す（前後の月のはみ出しは除く）
+  // 当月ぶんだけを見出しの件数と下の一覧に使う（前後の月のはみ出しは除く）
   const thisMonth = events.filter((e) => {
     const d = new Date(e.event_date);
     return d.getFullYear() === year && d.getMonth() === month;
@@ -95,41 +101,72 @@ export default async function CalendarPage({
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">
-            {year}年{month + 1}月
-          </h1>
-          <div className="flex gap-1">
+      {/* 卓上カレンダー風の見出し。大きな月番号と装飾の円で構成する。
+          色はテーマ変数に追従するので、テーマを変えると一緒に変わる。 */}
+      <header className="glass-panel relative mb-6 overflow-hidden p-0">
+        {/* 装飾の円。右上に大きく、左下に小さく重ねる */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-12 -top-16 size-56 rounded-full opacity-90"
+          style={{
+            background:
+              "radial-gradient(circle at 30% 30%, rgb(var(--orb-2)), rgb(var(--orb-2) / 0.55))",
+          }}
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -bottom-10 left-24 size-28 rounded-full opacity-70"
+          style={{
+            background:
+              "radial-gradient(circle at 35% 35%, rgb(var(--orb-1)), rgb(var(--orb-1) / 0.5))",
+          }}
+        />
+
+        <div className="relative flex flex-wrap items-end justify-between gap-6 p-6">
+          <div className="flex items-end gap-5">
+            {/* 月番号。2桁ゼロ埋めで大きく見せる */}
+            <span
+              className="text-7xl font-extrabold leading-none tracking-tighter tabular-nums sm:text-8xl"
+              style={{ color: "rgb(var(--accent))" }}
+            >
+              {String(month + 1).padStart(2, "0")}
+            </span>
+            <div className="pb-2">
+              <p
+                className="text-2xl font-extrabold uppercase tracking-wide"
+                style={{ color: "rgb(var(--accent))" }}
+              >
+                {MONTH_EN[month]}
+              </p>
+              <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
+                {year}年{month + 1}月 ／ {thisMonth.length}件の予定
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pb-2">
             <Link
               href={`/calendar?ym=${ymString(prev.getFullYear(), prev.getMonth())}`}
-              className="btn-ghost-sm px-2.5 py-1 text-sm"
+              className="btn-ghost-sm px-3 py-1.5"
               aria-label="前の月"
             >
               ←
             </Link>
-            <Link
-              href="/calendar"
-              className="btn-ghost-sm px-2.5 py-1 text-sm"
-            >
+            <Link href="/calendar" className="btn-ghost-sm px-3 py-1.5">
               今月
             </Link>
             <Link
               href={`/calendar?ym=${ymString(next.getFullYear(), next.getMonth())}`}
-              className="btn-ghost-sm px-2.5 py-1 text-sm"
+              className="btn-ghost-sm px-3 py-1.5"
               aria-label="次の月"
             >
               →
             </Link>
+            <Link href="/events" className="btn-ghost-sm px-3 py-1.5">
+              一覧で見る
+            </Link>
           </div>
         </div>
-
-        <Link
-          href="/events"
-          className="btn-ghost py-2"
-        >
-          一覧で見る
-        </Link>
       </header>
 
       <CalendarFilterPanel
@@ -149,7 +186,9 @@ export default async function CalendarPage({
         </p>
       )}
 
-      <CalendarGrid year={year} month={month} events={events} />
+      <div className="glass-panel">
+        <CalendarGrid year={year} month={month} events={events} />
+      </div>
 
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-semibold">

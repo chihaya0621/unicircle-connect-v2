@@ -3,7 +3,8 @@ import Link from "next/link";
 import type { CalendarEvent } from "@/lib/calendar";
 import { SOURCE_COLOR, SOURCE_LABEL } from "@/lib/event-sources";
 
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
 
 const timeFormatter = new Intl.DateTimeFormat("ja-JP", {
   timeStyle: "short",
@@ -36,6 +37,15 @@ function groupByDate(events: CalendarEvent[]) {
   return map;
 }
 
+/**
+ * 卓上カレンダー風のグリッド。
+ *
+ * 曜日は S M T W T F S の頭文字で、日曜と土曜だけ色を変える。
+ * 日付そのものにも同じ色を回して、週末が一目で分かるようにしている。
+ *
+ * 配色はテーマ変数（--accent）に追従するので、テーマを変えると
+ * カレンダーの色も一緒に変わる。
+ */
 export function CalendarGrid({
   year,
   month,
@@ -53,45 +63,59 @@ export function CalendarGrid({
     return `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`;
   })();
 
+  /** 曜日ごとの文字色。日曜は赤、土曜は青系 */
+  const weekdayTone = (i: number) =>
+    i === 0
+      ? "text-rose-500"
+      : i === 6
+        ? "text-sky-500"
+        : "text-gray-400 dark:text-gray-500";
+
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[42rem]">
-        <div className="glass grid grid-cols-7 overflow-hidden rounded-2xl border-l-0 border-t-0">
+      <div className="min-w-[44rem]">
+        {/* 曜日 */}
+        <div className="mb-1 grid grid-cols-7">
           {WEEKDAYS.map((w, i) => (
             <div
-              key={w}
-              className={`border-b border-r border-black/10 px-2 py-1.5 text-center text-xs font-medium dark:border-white/10 ${
-                i === 0
-                  ? "text-red-600 dark:text-red-400"
-                  : i === 6
-                    ? "text-blue-600 dark:text-blue-400"
-                    : "text-gray-600 dark:text-gray-400"
-              }`}
+              key={`${w}-${i}`}
+              className={`px-2 pb-2 text-center text-sm font-bold tracking-widest ${weekdayTone(i)}`}
             >
               {w}
+              <span className="ml-1 text-[10px] font-normal opacity-70">
+                {WEEKDAYS_JA[i]}
+              </span>
             </div>
           ))}
+        </div>
 
-          {days.map((d) => {
+        {/* 日付 */}
+        <div className="grid grid-cols-7 gap-1.5">
+          {days.map((d, i) => {
             const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
             const dayEvents = byDate.get(key) ?? [];
             const isCurrentMonth = d.getMonth() === month;
             const isToday = key === todayKey;
+            const dow = i % 7;
 
             return (
               <div
                 key={key}
-                className={`min-h-24 border-b border-r border-black/10 p-1.5 dark:border-white/10 ${
-                  isCurrentMonth ? "" : "bg-black/[0.02] dark:bg-white/[0.02]"
+                className={`min-h-24 rounded-xl p-1.5 transition-colors duration-200 ${
+                  isCurrentMonth
+                    ? "bg-black/[0.02] dark:bg-white/[0.04]"
+                    : "opacity-45"
                 }`}
               >
                 <div
-                  className={`mb-1 text-xs ${
+                  className={`mb-1 text-center text-sm font-semibold tabular-nums ${
                     isToday
-                      ? "inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 font-semibold text-white"
-                      : isCurrentMonth
-                        ? "text-gray-700 dark:text-gray-300"
-                        : "text-gray-400 dark:text-gray-600"
+                      ? "mx-auto inline-flex size-6 items-center justify-center rounded-full bg-[rgb(var(--accent))] text-white shadow-md"
+                      : dow === 0
+                        ? "text-rose-500"
+                        : dow === 6
+                          ? "text-sky-500"
+                          : "text-gray-700 dark:text-gray-300"
                   }`}
                 >
                   {d.getDate()}
