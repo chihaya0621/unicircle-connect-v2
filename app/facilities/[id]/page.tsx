@@ -57,8 +57,14 @@ export default async function FacilityDetailPage({
 
       {user.role === "student" && facility.is_available && (
         <section className="mb-10 rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5">
-          <h2 className="mb-4 text-sm font-semibold">予約を申請する</h2>
-          <ReservationForm facilityId={facility.id} circles={circles} />
+          <h2 className="mb-4 text-sm font-semibold">
+            {facility.category === "equipment" ? "貸出を申請する" : "予約を申請する"}
+          </h2>
+          <ReservationForm
+            facilityId={facility.id}
+            category={facility.category}
+            circles={circles}
+          />
         </section>
       )}
 

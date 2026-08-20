@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:bundle": "bash scripts/bundle-sql.sh"
+    "db:bundle": "bash scripts/bundle-sql.sh",
+    "db:users": "node scripts/seed-users.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

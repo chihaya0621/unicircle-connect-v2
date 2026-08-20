@@ -25,26 +25,33 @@ export async function createReservation(
   }
 
   const facilityId = String(formData.get("facility_id") ?? "");
-  const date = String(formData.get("date") ?? "");
+  const startDate = String(formData.get("start_date") ?? "");
+  const endDate = String(formData.get("end_date") ?? "");
   const startTime = String(formData.get("start_time") ?? "");
   const endTime = String(formData.get("end_time") ?? "");
   const purpose = String(formData.get("purpose") ?? "").trim();
   const circleId = String(formData.get("circle_id") ?? "");
 
-  if (!facilityId || !date || !startTime || !endTime) {
+  if (!facilityId || !startDate || !endDate || !startTime || !endTime) {
     return { error: "日付と時間を入力してください。" };
   }
 
-  // datetime-local ではなく date + time に分けているのは、
-  // 「同じ日の中で時間帯を選ぶ」という実際の使い方に合うため。
-  const start = new Date(`${date}T${startTime}`);
-  const end = new Date(`${date}T${endTime}`);
+  // 備品の貸し出しは日をまたぐため、開始日と終了日を別々に受け取る。
+  // 施設の場合はフォーム側で end_date に start_date を入れている。
+  const start = new Date(`${startDate}T${startTime}`);
+  const end = new Date(`${endDate}T${endTime}`);
 
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
     return { error: "日時の形式が正しくありません。" };
   }
   if (end <= start) {
-    return { error: "終了時刻は開始時刻より後にしてください。" };
+    return { error: "終了日時は開始日時より後にしてください。" };
+  }
+
+  // 極端に長い占有を防ぐ。備品の長期貸し出しを想定して90日を上限にする。
+  const MAX_DAYS = 90;
+  if (end.getTime() - start.getTime() > MAX_DAYS * 86_400_000) {
+    return { error: `予約期間は最長${MAX_DAYS}日までです。` };
   }
 
   const supabase = await createClient();

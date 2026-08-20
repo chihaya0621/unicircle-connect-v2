@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { DEV_PASSWORD, DEV_USERS, IS_DEV } from "@/lib/dev-users";
 import { createClient } from "@/lib/supabase-server";
 
 export type AuthFormState = {
@@ -111,4 +112,44 @@ export async function signOut() {
 
   revalidatePath("/", "layout");
   redirect("/login");
+}
+
+/**
+ * 開発用クイックログイン。
+ *
+ * 【安全性】本番では絶対に動かないよう、ここで環境を再チェックする。
+ * 画面を出すかどうかの判断（ページ側）とは独立に、Server Action 自体が
+ * 拒否するので、万一 UI が本番に混入しても呼び出せない。
+ *
+ * さらに、渡されたメールアドレスが DEV_USERS に載っているものだけを
+ * 受け付ける。任意のアドレスに共通パスワードでログインを試せる
+ * 踏み台にしないため。
+ */
+export async function devQuickLogin(formData: FormData): Promise<void> {
+  if (!IS_DEV) {
+    throw new Error("この機能は開発環境でのみ利用できます。");
+  }
+
+  const email = String(formData.get("email") ?? "");
+  if (!DEV_USERS.some((u) => u.email === email)) {
+    throw new Error("開発用ユーザーとして登録されていないアドレスです。");
+  }
+
+  const next = safeRedirect(formData.get("next"));
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password: DEV_PASSWORD,
+  });
+
+  if (error) {
+    throw new Error(
+      `ログインできませんでした（${error.message}）。` +
+        "`npm run db:users` でテストユーザーを作成してください。",
+    );
+  }
+
+  revalidatePath("/", "layout");
+  redirect(next);
 }

@@ -42,3 +42,6 @@ next-env.d.ts
 
 # txt
 password.txt
+# 開発用テストユーザーの生成物（認証情報を含むためコミットしない）
+docs/dev-users.md
+supabase/promote_staff.sql

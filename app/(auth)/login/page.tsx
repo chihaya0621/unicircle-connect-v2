@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
+import { DevQuickLogin } from "@/components/DevQuickLogin";
 import { LoginForm } from "@/components/LoginForm";
+import { IS_DEV } from "@/lib/dev-users";
 
 export const metadata: Metadata = { title: "ログイン | UniCircle Connect" };
 
@@ -19,6 +21,7 @@ export default async function LoginPage({
         登録済みのアカウントでサインインしてください。
       </p>
       <LoginForm next={next} />
+      {IS_DEV && <DevQuickLogin next={next} />}
     </div>
   );
 }
