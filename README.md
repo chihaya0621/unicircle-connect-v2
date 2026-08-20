@@ -19,11 +19,40 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 
 ### 2. データベース
 
-Supabase の SQL Editor で、要件定義書のスキーマ定義を実行したあと、
-`supabase/migrations/0001_handle_new_user.sql` を実行してください。
+Supabase の SQL Editor で、以下を**上から順に**実行してください。
+各ファイルの中身をコピーして貼り付けるだけです。
 
-このマイグレーションは、`auth.users` への INSERT を検知して
-`public.users` と `student_profiles` を自動生成するトリガーを作ります。
+| 順 | ファイル | 内容 | 必須 |
+| --- | --- | --- | --- |
+| 1 | `supabase/reset.sql` | 既存テーブルの全削除 | 作り直す場合のみ |
+| 2 | `supabase/migrations/0000_initial_schema.sql` | テーブル・制約・インデックス・RLS | ✅ |
+| 3 | `supabase/migrations/0001_handle_new_user.sql` | サインアップ時の自動プロフィール生成トリガー | ✅ |
+| 4 | `supabase/seed.sql` | 開発用テストデータ | 推奨 |
+
+**4 は実質必須です。** `universities` が空だとサインアップ画面の大学選択肢が
+空になり、学生アカウントを作成できません。
+
+3 のトリガーは `auth.users` への INSERT を検知して、`public.users` と
+`student_profiles` を同一トランザクションで生成します。
+
+> `supabase/reset.sql` は public スキーマのテーブルをすべて削除します。
+> 元に戻せないので、作り直す意図があるときだけ実行してください。
+> 登録済みアカウント（`auth.users`）の削除はスクリプト内で
+> コメントアウトしてあり、外すかどうかは利用者が判断します。
+
+### 3. 起動
+
+```bash
+npm run dev
+```
+
+`/signup` から学生アカウントを作成すると、ダッシュボードまで到達できます。
+
+> **Supabase の無料プランは、一定期間アクセスが無いとプロジェクトが
+> 自動的に一時停止（pause）されます。** データは保持されており、
+> ダッシュボードの `Resume project` で再開できます。再開すれば
+> プロジェクト URL と anon key は変わらないため、`.env.local` の
+> 変更は不要です。
 
 ### 3. 起動
 
@@ -50,7 +79,12 @@ lib/
   events.ts              イベント取得クエリ
   database.types.ts      スキーマに対応する型定義
 proxy.ts                 セッション更新と楽観的リダイレクト
-supabase/migrations/     DB マイグレーション
+supabase/
+  migrations/
+    0000_initial_schema.sql   テーブル・制約・インデックス・RLS
+    0001_handle_new_user.sql  サインアップ時のトリガー
+  seed.sql               開発用テストデータ
+  reset.sql              【破壊的】作り直し用の初期化スクリプト
 ```
 
 ---
@@ -113,26 +147,20 @@ select public.promote_to_staff('staff@univ.ac.jp', '<university_id>');
 Supabase の REST API を直接叩かれれば学内限定イベントは読めてしまいます。
 本番前に、同等のルールを必ず RLS ポリシーとして実装してください。
 
-### 【要確認】スキーマの不一致
+### スキーマの不一致を補っています（対応済み）
 
 要件定義書の本文には「`facility_reservations` の予約主体は CHECK 制約により
 どちらか1つのみが NULL でないことを保証している」とありますが、
-**添付の SQL に該当の CHECK 制約が含まれていません**
-（`events` 側の `events_host_check` のみ存在します）。
+**添付の SQL に該当の CHECK 制約が含まれていませんでした**
+（`events` 側の `events_host_check` のみ存在）。
 
-排他性を DB で保証するには、以下を追加してください。
+`0000_initial_schema.sql` では `reservations_booker_check` として
+この制約を補っています。あわせて、終了時刻が開始時刻より後であることを
+保証する `reservations_time_check` も追加しました。
 
-```sql
-ALTER TABLE facility_reservations
-  ADD CONSTRAINT reservations_booker_check CHECK (
-    (booked_by_user_id IS NOT NULL AND group_circle_id IS NULL) OR
-    (booked_by_user_id IS NULL AND group_circle_id IS NOT NULL)
-  );
-```
-
-なお TypeScript 側では `ReservationBookerInsert` 型
-（`lib/database.types.ts`）で排他性を表現済みなので、
-アプリ経由の INSERT は型で守られています。
+TypeScript 側でも `ReservationBookerInsert` 型
+（`lib/database.types.ts`）で排他性を表現しているため、
+アプリ経由の INSERT は型と DB 制約の両方で守られています。
 
 ### 型定義について
 
