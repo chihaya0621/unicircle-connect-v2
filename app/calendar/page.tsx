@@ -175,8 +175,14 @@ export default async function CalendarPage({
                   <span className="w-14 shrink-0 text-xs text-gray-500 dark:text-gray-400">
                     {timeFormatter.format(new Date(e.event_date))}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {e.title}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">
+                      {e.title}
+                    </span>
+                    <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
+                      {e.host_kind === "university" ? "大学主催" : "サークル"} ／{" "}
+                      {e.host_name}
+                    </span>
                   </span>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${SOURCE_COLOR[e.source]}`}

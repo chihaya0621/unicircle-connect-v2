@@ -3,11 +3,14 @@ import "server-only";
 import type { UserRole } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase-server";
 import type { EventSource } from "@/lib/event-sources";
-import { eventVisibleTo, type EventListItem } from "@/lib/events";
+import { eventHost, eventVisibleTo, type EventListItem } from "@/lib/events";
 
 export type CalendarEvent = EventListItem & {
   source: EventSource;
   host_circle_university_id: string | null;
+  /** 主催団体の表示名。どの団体のイベントか一目で分かるようにする。 */
+  host_name: string;
+  host_kind: "university" | "circle";
 };
 
 export type CalendarFilters = {
@@ -150,7 +153,14 @@ export async function listCalendarEvents({
     // 検索語があるときは一致しないものを落とす
     if (search.length > 0 && !matchesSearch) continue;
 
-    events.push({ ...e, source, host_circle_university_id: hostCircleUniversity });
+    const host = eventHost(e);
+    events.push({
+      ...e,
+      source,
+      host_circle_university_id: hostCircleUniversity,
+      host_name: host.name,
+      host_kind: host.kind,
+    });
   }
 
   return { events, error: null };
