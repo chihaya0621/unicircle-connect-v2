@@ -13,13 +13,15 @@ const ROLE_LABEL: Record<UserRole, string> = {
 };
 
 const navLink =
-  "text-gray-600 transition hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100";
+  "relative rounded-lg px-2 py-1 text-gray-600 transition-all duration-300 ease-out " +
+  "hover:-translate-y-0.5 hover:text-gray-900 hover:bg-white/40 " +
+  "dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-white/10";
 
 /** 対応が必要な件数を示すバッジ。0件のときは何も出さない。 */
 function PendingBadge({ count }: { count: number }) {
   if (count === 0) return null;
   return (
-    <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 py-0.5 text-xs font-semibold leading-none text-white">
+    <span className="ml-1 inline-flex min-w-5 animate-[pop-in_300ms_cubic-bezier(0.34,1.56,0.64,1)] items-center justify-center rounded-full bg-rose-600 px-1.5 py-0.5 text-xs font-semibold leading-none text-white shadow-md shadow-rose-500/40">
       {count}
     </span>
   );
@@ -33,9 +35,12 @@ export async function Header() {
   const unread = user ? await getUnreadCount() : 0;
 
   return (
-    <header className="border-b border-black/10 bg-white/80 backdrop-blur dark:border-white/10 dark:bg-black/40">
+    <header className="glass-header sticky top-0 z-40">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
-        <Link href="/" className="font-semibold tracking-tight">
+        <Link
+          href="/"
+          className="font-semibold tracking-tight transition-transform duration-300 ease-out hover:scale-[1.03]"
+        >
           UniCircle <span className="text-indigo-600 dark:text-indigo-400">Connect</span>
         </Link>
 
@@ -81,21 +86,21 @@ export async function Header() {
               >
                 <span aria-hidden>🔔</span>
                 {unread > 0 && (
-                  <span className="absolute -right-2 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 py-0.5 text-[10px] font-semibold leading-none text-white">
+                  <span className="absolute -right-2 -top-1 inline-flex min-w-4 animate-[pop-in_300ms_cubic-bezier(0.34,1.56,0.64,1)] items-center justify-center rounded-full bg-rose-600 px-1 py-0.5 text-[10px] font-semibold leading-none text-white shadow-md shadow-rose-500/40">
                     {unread > 99 ? "99+" : unread}
                   </span>
                 )}
               </Link>
               <span className="hidden items-center gap-1.5 sm:flex">
                 <span className="font-medium">{user.name}</span>
-                <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                <span className="badge bg-indigo-500/15 text-indigo-700 dark:text-indigo-300">
                   {ROLE_LABEL[user.role]}
                 </span>
               </span>
               <form action={signOut}>
                 <button
                   type="submit"
-                  className="rounded-lg border border-black/10 px-3 py-1.5 text-gray-700 transition hover:bg-black/5 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/10"
+                  className="btn-ghost-sm"
                 >
                   ログアウト
                 </button>
@@ -108,7 +113,7 @@ export async function Header() {
               </Link>
               <Link
                 href="/signup"
-                className="rounded-lg bg-indigo-600 px-3 py-1.5 font-medium text-white transition hover:bg-indigo-500"
+                className="btn-primary px-3 py-1.5 text-xs"
               >
                 新規登録
               </Link>

@@ -35,7 +35,7 @@ export function CircleCard({
   return (
     <Link
       href={`/circles/${circle.id}`}
-      className={`block rounded-xl border border-black/10 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5 ${
+      className={`block glass-card p-5 ${
         isMember
           ? "border-l-4 border-l-indigo-400 dark:border-l-indigo-500"
           : ""
@@ -44,13 +44,13 @@ export function CircleCard({
       <div className="flex items-start gap-3">
         {/* アイコンとして扱うので正方形に切り出す */}
         {image ? (
-          <div className="relative size-12 shrink-0 overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
+          <div className="relative size-12 shrink-0 overflow-hidden rounded-xl border border-white/60 shadow-md transition-transform duration-300 ease-out hover:scale-105 dark:border-white/15">
             <Image src={image} alt="" fill sizes="48px" className="object-cover" />
           </div>
         ) : (
           <div
             aria-hidden
-            className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-black/5 text-sm font-semibold text-gray-400 dark:bg-white/10 dark:text-gray-500"
+            className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white/30 text-sm font-semibold text-gray-500 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-400"
           >
             {circle.name.slice(0, 1)}
           </div>
@@ -73,7 +73,7 @@ export function CircleCard({
             </span>
           )}
           {circle.status === "pending" && (
-            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+            <span className="badge bg-amber-500/15 text-amber-700 dark:text-amber-300">
               承認待ち
             </span>
           )}

@@ -24,7 +24,7 @@ export function PostList({
 }) {
   if (posts.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-black/15 px-4 py-6 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+      <p className="glass-empty py-6">
         {emptyLabel}
       </p>
     );
@@ -39,15 +39,15 @@ export function PostList({
         return (
           <li
             key={post.id}
-            className={`rounded-lg border p-3 ${
+            className={`glass-card p-3.5 ${
               post.is_pinned
-                ? "border-amber-300 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/20"
-                : "border-black/10 bg-white dark:border-white/10 dark:bg-white/5"
+                ? "border-amber-300/70 bg-amber-50/55 dark:border-amber-800/60 dark:bg-amber-950/25"
+                : ""
             }`}
           >
             <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               {post.is_pinned && (
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                <span className="badge bg-amber-500/20 font-medium text-amber-800 dark:text-amber-200">
                   お知らせ
                 </span>
               )}
@@ -76,7 +76,7 @@ export function PostList({
                     />
                     <button
                       type="submit"
-                      className="rounded border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+                      className="btn-ghost-sm px-2 py-1"
                     >
                       {post.is_pinned ? "固定を解除" : "お知らせにする"}
                     </button>
@@ -88,7 +88,7 @@ export function PostList({
                     <input type="hidden" name="circle_id" value={post.circle_id} />
                     <button
                       type="submit"
-                      className="rounded border border-red-200 px-2 py-1 text-xs text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/40"
+                      className="btn-danger-sm px-2 py-1"
                     >
                       削除
                     </button>

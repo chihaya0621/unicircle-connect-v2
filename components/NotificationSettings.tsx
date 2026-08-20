@@ -35,7 +35,7 @@ export function NotificationSettings({
                 type="checkbox"
                 name={type}
                 defaultChecked={preferences[type]}
-                className="mt-1 rounded border-black/20 text-indigo-600 focus:ring-indigo-500"
+                className="mt-1 field-check"
               />
               <span>
                 <span className="block text-sm font-medium">

@@ -48,7 +48,7 @@ export function ImageUploader({
 
       {currentUrl &&
         (shape === "square" ? (
-          <div className="relative size-32 overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
+          <div className="relative size-32 overflow-hidden rounded-2xl border border-white/60 shadow-lg dark:border-white/15">
             <Image
               src={currentUrl}
               alt={label}
@@ -58,7 +58,7 @@ export function ImageUploader({
             />
           </div>
         ) : (
-          <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-black/10 bg-black/[0.03] dark:border-white/10 dark:bg-white/5">
+          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/60 bg-white/30 shadow-md backdrop-blur-sm dark:border-white/15 dark:bg-white/5">
             <Image
               src={currentUrl}
               alt={label}
@@ -79,7 +79,7 @@ export function ImageUploader({
             accept="image/jpeg,image/png,image/webp,image/gif"
             required
             onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
-            className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-indigo-500 dark:text-gray-400"
+            className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-xl file:border-0 file:bg-gradient-to-br file:from-indigo-500 file:to-violet-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white file:transition-all file:duration-300 hover:file:brightness-110 dark:text-gray-400"
           />
         </label>
         <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -96,7 +96,7 @@ export function ImageUploader({
           <input type="hidden" name={idField} value={idValue} />
           <button
             type="submit"
-            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/40"
+            className="btn-danger-sm"
           >
             画像を削除する
           </button>

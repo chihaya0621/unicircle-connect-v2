@@ -19,11 +19,11 @@ function Row({ n }: { n: Notification }) {
 
   const inner = (
     <div
-      className={`rounded-xl border p-4 transition ${
+      className={`glass-card p-4 ${
         unread
-          ? "border-indigo-200 bg-indigo-50/40 dark:border-indigo-900/60 dark:bg-indigo-950/20"
-          : "border-black/10 bg-white dark:border-white/10 dark:bg-white/5"
-      } ${n.link ? "hover:shadow-md" : ""}`}
+          ? "border-indigo-300/70 bg-indigo-50/50 dark:border-indigo-800/60 dark:bg-indigo-950/25"
+          : ""
+      }`}
     >
       <div className="flex flex-wrap items-center gap-2">
         <span
@@ -32,7 +32,7 @@ function Row({ n }: { n: Notification }) {
           {TYPE_LABEL[n.type]}
         </span>
         {unread && (
-          <span className="h-2 w-2 rounded-full bg-indigo-600" aria-label="未読" />
+          <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-500 shadow-[0_0_8px_2px_rgb(99_102_241/0.5)]" aria-label="未読" />
         )}
         <time
           dateTime={n.created_at}
@@ -86,7 +86,7 @@ export default async function NotificationsPage() {
             <form action={markRead}>
               <button
                 type="submit"
-                className="rounded-lg border border-black/15 px-4 py-2 text-sm font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                className="btn-ghost py-2"
               >
                 すべて既読にする
               </button>
@@ -94,7 +94,7 @@ export default async function NotificationsPage() {
           )}
           <Link
             href="/mypage#notification-settings"
-            className="rounded-lg border border-black/15 px-4 py-2 text-sm font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className="btn-ghost py-2"
           >
             通知設定
           </Link>
@@ -102,7 +102,7 @@ export default async function NotificationsPage() {
       </header>
 
       {notifications.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-black/15 px-4 py-12 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+        <p className="glass-empty py-12">
           通知はまだありません。
         </p>
       ) : (

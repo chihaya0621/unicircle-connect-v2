@@ -41,7 +41,7 @@ function MemberRow({
             <input type="hidden" name="approve" value="true" />
             <button
               type="submit"
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500"
+              className="btn-primary px-3 py-1.5 text-xs"
             >
               承認
             </button>
@@ -52,7 +52,7 @@ function MemberRow({
             <input type="hidden" name="approve" value="false" />
             <button
               type="submit"
-              className="rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-black/5 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/10"
+              className="btn-ghost-sm"
             >
               却下
             </button>

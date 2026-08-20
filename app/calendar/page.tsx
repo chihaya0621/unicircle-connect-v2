@@ -103,20 +103,20 @@ export default async function CalendarPage({
           <div className="flex gap-1">
             <Link
               href={`/calendar?ym=${ymString(prev.getFullYear(), prev.getMonth())}`}
-              className="rounded-lg border border-black/15 px-2.5 py-1 text-sm transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              className="btn-ghost-sm px-2.5 py-1 text-sm"
               aria-label="前の月"
             >
               ←
             </Link>
             <Link
               href="/calendar"
-              className="rounded-lg border border-black/15 px-2.5 py-1 text-sm transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              className="btn-ghost-sm px-2.5 py-1 text-sm"
             >
               今月
             </Link>
             <Link
               href={`/calendar?ym=${ymString(next.getFullYear(), next.getMonth())}`}
-              className="rounded-lg border border-black/15 px-2.5 py-1 text-sm transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              className="btn-ghost-sm px-2.5 py-1 text-sm"
               aria-label="次の月"
             >
               →
@@ -126,7 +126,7 @@ export default async function CalendarPage({
 
         <Link
           href="/events"
-          className="rounded-lg border border-black/15 px-4 py-2 text-sm font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          className="btn-ghost py-2"
         >
           一覧で見る
         </Link>
@@ -143,7 +143,7 @@ export default async function CalendarPage({
       {error && (
         <p
           role="alert"
-          className="mb-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+          className="mb-6 rounded-xl border border-rose-300/70 bg-rose-50/70 px-3.5 py-2.5 text-sm text-rose-800 backdrop-blur-md dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200"
         >
           カレンダーの取得に失敗しました: {error}
         </p>
@@ -156,7 +156,7 @@ export default async function CalendarPage({
           {month + 1}月の予定 {thisMonth.length}件
         </h2>
         {thisMonth.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-black/15 px-4 py-10 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+          <p className="glass-empty">
             {filters.search
               ? "検索条件に一致するイベントはありません。"
               : "表示できるイベントはありません。「表示する範囲」から他大学を追加できます。"}
@@ -167,7 +167,7 @@ export default async function CalendarPage({
               <li key={e.id}>
                 <Link
                   href={`/events/${e.id}`}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-black/10 bg-white px-4 py-3 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 glass-card px-4 py-3"
                 >
                   <span className="w-24 shrink-0 text-xs text-gray-500 dark:text-gray-400">
                     {dateFormatter.format(new Date(e.event_date))}

@@ -69,11 +69,11 @@ export function CalendarFilterPanel({
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           placeholder="イベント名・内容で検索（他大学のサークルも対象）"
-          className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-white/15 dark:bg-white/5 dark:focus:ring-indigo-900"
+          className="field-input"
         />
         <button
           type="submit"
-          className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+          className="shrink-0 btn-primary"
         >
           検索
         </button>
@@ -84,14 +84,14 @@ export function CalendarFilterPanel({
               setKeyword("");
               apply({ search: null });
             }}
-            className="shrink-0 rounded-lg border border-black/15 px-3 py-2 text-sm transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+            className="btn-ghost-sm shrink-0 py-2 text-sm"
           >
             クリア
           </button>
         )}
       </form>
 
-      <div className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-white/5">
+      <div className="glass-panel p-4">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -122,7 +122,7 @@ export function CalendarFilterPanel({
                   onChange={(e) =>
                     apply({ unjoined: e.target.checked ? "1" : null })
                   }
-                  className="rounded border-black/20 text-indigo-600 focus:ring-indigo-500"
+                  className="field-check"
                 />
                 自大学の未所属サークルの公開イベントも表示する
               </label>
@@ -140,7 +140,7 @@ export function CalendarFilterPanel({
                         type="checkbox"
                         checked={selectedUniversities.includes(u.id)}
                         onChange={() => toggleUniversity(u.id)}
-                        className="rounded border-black/20 text-indigo-600 focus:ring-indigo-500"
+                        className="field-check"
                       />
                       {u.name}
                     </label>

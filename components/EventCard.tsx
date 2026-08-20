@@ -30,14 +30,14 @@ export function EventCard({
 
   return (
     <article
-      className={`rounded-xl border border-black/10 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-white/5 ${RELATION_ACCENT[relation]}`}
+      className={`glass-card p-5 ${RELATION_ACCENT[relation]}`}
     >
       <div className="flex items-start gap-3">
         {/* 任意の比率が来るので正方形に切り出す。詳細ページでは全体を表示する */}
         {image && (
           <Link
             href={`/events/${event.id}`}
-            className="relative size-12 shrink-0 overflow-hidden rounded-lg border border-black/10 dark:border-white/10"
+            className="relative size-12 shrink-0 overflow-hidden rounded-xl border border-white/60 shadow-md transition-transform duration-300 ease-out hover:scale-105 dark:border-white/15"
           >
             <Image src={image} alt="" fill sizes="48px" className="object-cover" />
           </Link>
@@ -58,15 +58,15 @@ export function EventCard({
           </span>
         )}
         {event.visibility === "public" ? (
-          <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+          <span className="shrink-0 badge bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
             公開
           </span>
         ) : event.visibility === "scoped" ? (
-          <span className="shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-xs text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+          <span className="shrink-0 badge bg-sky-500/15 text-sky-700 dark:text-sky-300">
             指定大学のみ
           </span>
         ) : (
-          <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+          <span className="shrink-0 badge bg-amber-500/15 text-amber-700 dark:text-amber-300">
             学内限定
           </span>
         )}
@@ -98,7 +98,7 @@ export function EventCard({
           {event.target_grades.map((grade) => (
             <li
               key={grade}
-              className="rounded-md bg-black/5 px-2 py-0.5 text-xs text-gray-700 dark:bg-white/10 dark:text-gray-300"
+              className="rounded-md bg-black/[0.06] px-2 py-0.5 text-xs text-gray-700 backdrop-blur-sm dark:bg-white/10 dark:text-gray-300"
             >
               {grade}
             </li>

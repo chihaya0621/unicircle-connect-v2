@@ -23,7 +23,7 @@ export default async function BoardPage() {
       </header>
 
       {boards.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-black/15 px-4 py-12 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+        <p className="glass-empty py-12">
           参加中のサークルがありません。
           <Link
             href="/circles"
@@ -37,7 +37,7 @@ export default async function BoardPage() {
           {boards.map((board) => (
             <section
               key={board.circle.id}
-              className="rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5"
+              className="glass-panel"
             >
               <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-semibold">

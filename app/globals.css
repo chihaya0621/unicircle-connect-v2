@@ -1,8 +1,47 @@
 @import "tailwindcss";
 
+/* =============================================================================
+   デザインシステム: グラスモーフィズム
+   =============================================================================
+   すりガラスは「背後に色がある」ことで初めて成立するので、
+   まず body に色のあるメッシュ背景を敷き、その上に半透明の面を重ねる。
+
+   同じクラス列が各所に散らばると調整が効かなくなるため、
+   意味のある名前（.glass-card / .btn-primary など）に集約している。
+   ============================================================================= */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f6f7fb;
+  --foreground: #14161f;
+
+  /* 背景オーブの色。淡くして文字の可読性を優先する */
+  --orb-1: 129 140 248; /* indigo  */
+  --orb-2: 244 114 182; /* pink    */
+  --orb-3: 45 212 191;  /* teal    */
+  --orb-4: 251 191 36;  /* amber   */
+
+  /* ガラス面 */
+  --glass-bg: 255 255 255;
+  --glass-bg-alpha: 0.55;
+  --glass-border: 255 255 255;
+  --glass-border-alpha: 0.7;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #080a12;
+    --foreground: #e8eaf2;
+
+    --orb-1: 99 102 241;
+    --orb-2: 190 24 93;
+    --orb-3: 13 148 136;
+    --orb-4: 180 83 9;
+
+    --glass-bg: 255 255 255;
+    --glass-bg-alpha: 0.06;
+    --glass-border: 255 255 255;
+    --glass-border-alpha: 0.14;
+  }
 }
 
 @theme inline {
@@ -12,15 +51,246 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  /* html 側で読み込んだ Geist を実際に使う */
+  font-family: var(--font-sans), system-ui, sans-serif;
+  min-height: 100dvh;
+}
+
+/* -----------------------------------------------------------------------------
+   背景のオーブ
+   -----------------------------------------------------------------------------
+   固定配置の擬似要素に大きくぼかした放射グラデーションを重ね、
+   奥行きのあるメッシュ背景を作る。スクロールしても動かないので、
+   ガラス面が背景の上を滑るように見える。
+   pointer-events を切って操作の邪魔をしないようにしている。
+   ----------------------------------------------------------------------------- */
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38rem 32rem at 12% 8%,  rgb(var(--orb-1) / 0.42), transparent 60%),
+    radial-gradient(34rem 30rem at 88% 12%, rgb(var(--orb-2) / 0.34), transparent 62%),
+    radial-gradient(40rem 34rem at 78% 82%, rgb(var(--orb-3) / 0.32), transparent 60%),
+    radial-gradient(30rem 28rem at 18% 88%, rgb(var(--orb-4) / 0.28), transparent 62%);
+  filter: blur(30px) saturate(120%);
+  animation: orb-drift 28s ease-in-out infinite alternate;
+}
+
+/* うっすらとした格子。ガラスの質感を出すための下地 */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgb(var(--glass-border) / 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--glass-border) / 0.08) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(70% 60% at 50% 40%, black, transparent);
+}
+
+/* マイクロインタラクション用のキーフレーム */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 通知バッジなどが「ポンッ」と現れる動き */
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(0.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ページの中身がふわっと立ち上がる */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes orb-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(2%, -2%, 0) scale(1.06); }
+}
+
+/* -----------------------------------------------------------------------------
+   コンポーネントクラス
+   -----------------------------------------------------------------------------
+   Tailwind v4 では @layer components の中で定義したクラスを @apply で
+   参照できない（@apply が扱えるのは「ユーティリティ」だけ）。
+   合成して使いたいものは @utility で登録する。
+   ----------------------------------------------------------------------------- */
+
+/** 基本のすりガラス。他のクラスの土台にもなる */
+@utility glass {
+  background-color: rgb(var(--glass-bg) / var(--glass-bg-alpha));
+  border: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
+  border-radius: calc(var(--spacing) * 4);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+}
+
+/** 静的なパネル。浮き上がらせない */
+@utility glass-panel {
+  @apply glass;
+  padding: calc(var(--spacing) * 5);
+}
+
+/** 触れると浮き上がるカード */
+@utility glass-card {
+  @apply glass;
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 300ms ease-out,
+              border-color 300ms ease-out;
+}
+.glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.28);
+}
+
+/** ヘッダーなど、上端に貼り付く面 */
+@utility glass-header {
+  background-color: rgb(var(--glass-bg) / calc(var(--glass-bg-alpha) + 0.2));
+  border-bottom: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+/** 空状態のプレースホルダ */
+@utility glass-empty {
+  border: 1px dashed rgb(var(--glass-border) / 0.9);
+  background-color: rgb(var(--glass-bg) / calc(var(--glass-bg-alpha) * 0.5));
+  border-radius: calc(var(--spacing) * 4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  @apply px-4 py-10 text-center text-sm text-gray-600 dark:text-gray-400;
+}
+
+/* ---------------------------------------------------------------------------
+   ボタン
+   -----------------------------------------------------------------------------
+   押したときに沈み込む active:scale を全ボタン共通で入れている。
+   --------------------------------------------------------------------------- */
+
+@utility btn-base {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-xl font-semibold;
+  @apply transition-all duration-300 ease-out;
+  @apply active:scale-[0.97] active:duration-100;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2;
+  @apply disabled:pointer-events-none disabled:opacity-55;
+}
+
+@utility btn-primary {
+  @apply btn-base px-4 py-2.5 text-sm text-white;
+  @apply bg-gradient-to-br from-indigo-500 to-violet-600;
+  @apply shadow-lg shadow-indigo-500/25;
+  @apply hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-500/35 hover:brightness-110;
+}
+
+@utility btn-ghost {
+  background-color: rgb(var(--glass-bg) / calc(var(--glass-bg-alpha) * 0.7));
+  border: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  @apply btn-base px-4 py-2.5 text-sm;
+  @apply hover:-translate-y-0.5 hover:shadow-lg hover:brightness-105;
+}
+
+/** 一覧の中に並べる小さめのボタン */
+@utility btn-ghost-sm {
+  @apply btn-ghost;
+  @apply px-3 py-1.5 text-xs font-medium;
+}
+
+@utility btn-danger {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  @apply btn-base px-4 py-2 text-sm;
+  @apply border border-rose-300/70 text-rose-700;
+  @apply hover:-translate-y-0.5 hover:bg-rose-50/70 hover:shadow-lg;
+  @apply dark:border-rose-800/70 dark:text-rose-300 dark:hover:bg-rose-950/40;
+}
+
+@utility btn-danger-sm {
+  @apply btn-danger;
+  @apply px-3 py-1.5 text-xs font-medium;
+}
+
+/* ---------------------------------------------------------------------------
+   フォーム
+   -----------------------------------------------------------------------------
+   フォーカス時にリングが滑らかに広がるよう transition を効かせている。
+   --------------------------------------------------------------------------- */
+
+@utility field-input {
+  background-color: rgb(var(--glass-bg) / calc(var(--glass-bg-alpha) + 0.15));
+  border: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  @apply w-full rounded-xl px-3.5 py-2.5 text-sm shadow-sm outline-none;
+  @apply transition-all duration-300 ease-out;
+  @apply placeholder:text-gray-400 dark:placeholder:text-gray-500;
+  @apply hover:border-indigo-300/80;
+  @apply focus:border-indigo-400 focus:ring-4 focus:ring-indigo-400/25;
+}
+
+/** チェックボックス・ラジオ */
+@utility field-check {
+  @apply rounded-md border-black/25 text-indigo-600 transition-all duration-200;
+  @apply focus:ring-2 focus:ring-indigo-400/40 dark:border-white/25;
+}
+
+/** バッジ */
+@utility badge {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs backdrop-blur-sm;
+}
+
+/* -----------------------------------------------------------------------------
+   動きを減らす設定への配慮
+   -----------------------------------------------------------------------------
+   OS 側で「視差効果を減らす」を有効にしている人には、
+   浮遊やオーブの動きを止める。演出より読みやすさを優先する。
+   ----------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .glass-card:hover,
+  .btn-primary:hover,
+  .btn-ghost:hover,
+  .btn-danger:hover {
+    transform: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* -----------------------------------------------------------------------------
+   ページの立ち上がり
+   -----------------------------------------------------------------------------
+   ルート遷移のたびに main の中身がふわっと現れる。
+   派手にしすぎると毎回待たされる感じになるので、短く浅い動きに留めている。
+   ----------------------------------------------------------------------------- */
+
+main > * {
+  animation: rise-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* リンクの下線をなめらかに引く */
+a {
+  text-underline-offset: 3px;
 }

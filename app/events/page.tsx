@@ -38,7 +38,7 @@ export default async function EventsPage() {
         {user && user.role !== "general" && (
           <Link
             href="/events/new"
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+            className="btn-primary"
           >
             イベントを作成
           </Link>
@@ -61,14 +61,14 @@ export default async function EventsPage() {
       {error && (
         <p
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+          className="rounded-xl border border-rose-300/70 bg-rose-50/70 px-3.5 py-2.5 text-sm text-rose-800 backdrop-blur-md dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200"
         >
           イベントの取得に失敗しました: {error}
         </p>
       )}
 
       {!error && events.length === 0 && (
-        <p className="rounded-xl border border-dashed border-black/15 px-4 py-12 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+        <p className="glass-empty py-12">
           開催予定のイベントはまだありません。
         </p>
       )}

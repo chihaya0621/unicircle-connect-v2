@@ -159,7 +159,7 @@ export default async function EventDetailPage({
               <input type="hidden" name="event_id" value={event.id} />
               <button
                 type="submit"
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                className="btn-primary"
               >
                 参加する
               </button>
@@ -181,7 +181,7 @@ export default async function EventDetailPage({
             {event.target_grades.map((g) => (
               <li
                 key={g}
-                className="rounded-md bg-black/5 px-2 py-0.5 text-xs text-gray-700 dark:bg-white/10 dark:text-gray-300"
+                className="rounded-md bg-black/[0.06] px-2 py-0.5 text-xs text-gray-700 backdrop-blur-sm dark:bg-white/10 dark:text-gray-300"
               >
                 {g}
               </li>
@@ -219,7 +219,7 @@ export default async function EventDetailPage({
             <input type="hidden" name="event_id" value={event.id} />
             <button
               type="submit"
-              className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/40"
+              className="btn-danger"
             >
               このイベントを削除する
             </button>

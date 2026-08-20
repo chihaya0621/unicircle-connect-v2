@@ -21,7 +21,7 @@ export function StudentRow({ student }: { student: Student }) {
   );
 
   return (
-    <li className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-white/5">
+    <li className="glass-panel p-4">
       {editing ? (
         <form action={action} className="space-y-3">
           {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
@@ -52,7 +52,7 @@ export function StudentRow({ student }: { student: Student }) {
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="w-full rounded-lg border border-black/15 px-4 py-2.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              className="btn-ghost w-full"
             >
               やめる
             </button>
@@ -75,7 +75,7 @@ export function StudentRow({ student }: { student: Student }) {
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="shrink-0 rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+            className="shrink-0 btn-ghost-sm"
           >
             編集
           </button>

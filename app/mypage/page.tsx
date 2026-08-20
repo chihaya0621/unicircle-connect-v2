@@ -57,7 +57,7 @@ function EventRow({ event }: { event: MyEvent }) {
     <li>
       <Link
         href={`/events/${event.id}`}
-        className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-black/10 bg-white px-4 py-3 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 glass-card px-4 py-3"
       >
         <span className="w-40 shrink-0 text-xs text-gray-500 dark:text-gray-400">
           {dateFormatter.format(new Date(event.event_date))}
@@ -78,7 +78,7 @@ function EventRow({ event }: { event: MyEvent }) {
 function ReservationRow({ reservation }: { reservation: MyReservation }) {
   const status = RESERVATION_STATUS[reservation.status];
   return (
-    <li className="rounded-xl border border-black/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/5">
+    <li className="glass-panel px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="w-40 shrink-0 text-xs text-gray-500 dark:text-gray-400">
           {dateFormatter.format(new Date(reservation.start_time))}
@@ -128,7 +128,7 @@ function Section({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-xl border border-dashed border-black/15 px-4 py-8 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+    <p className="glass-empty py-8">
       {children}
     </p>
   );
@@ -174,14 +174,14 @@ export default async function MyPage() {
         </p>
       </header>
 
-      <section className="rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+      <section className="glass-panel">
         <h2 className="mb-4 text-lg font-semibold">プロフィール</h2>
         <ProfileForm profile={profile} />
       </section>
 
       <section
         id="notification-settings"
-        className="mt-10 scroll-mt-4 rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5"
+        className="mt-10 scroll-mt-4 glass-panel"
       >
         <h2 className="mb-4 text-lg font-semibold">通知設定</h2>
         <NotificationSettings preferences={preferences} />
@@ -207,7 +207,7 @@ export default async function MyPage() {
                     <li key={m.circle.id}>
                       <Link
                         href={`/circles/${m.circle.id}`}
-                        className="block rounded-xl border border-black/10 bg-white p-4 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+                        className="glass-card block p-4"
                       >
                         <p className="font-medium">{m.circle.name}</p>
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -296,7 +296,7 @@ export default async function MyPage() {
           <Section title="学生の登録">
             <Link
               href="/staff/students"
-              className="block rounded-xl border border-black/10 bg-white p-4 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+              className="glass-card block p-4"
             >
               <p className="text-sm font-medium">学生の登録・情報の修正</p>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -308,7 +308,7 @@ export default async function MyPage() {
           <Section title="施設・備品">
             <Link
               href="/facilities"
-              className="block rounded-xl border border-black/10 bg-white p-4 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+              className="glass-card block p-4"
             >
               <p className="text-sm">
                 施設・備品 {staffSummary.facilities.total}件

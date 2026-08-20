@@ -36,13 +36,13 @@ export default async function Home() {
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href={user ? "/dashboard" : "/signup"}
-            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
+            className="btn-primary px-5"
           >
             {user ? "ダッシュボードへ" : "はじめる"}
           </Link>
           <Link
             href="/events"
-            className="rounded-lg border border-black/15 px-5 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className="btn-ghost px-5"
           >
             公開イベントを見る
           </Link>
@@ -53,7 +53,7 @@ export default async function Home() {
         {FEATURES.map((feature) => (
           <div
             key={feature.title}
-            className="rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5"
+            className="glass-panel"
           >
             <h2 className="font-semibold">{feature.title}</h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">

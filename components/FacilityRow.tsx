@@ -35,7 +35,7 @@ export function FacilityRow({ facility }: { facility: Facility }) {
   );
 
   return (
-    <li className="rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+    <li className="glass-panel">
       {editing ? (
         <form action={update} className="space-y-3">
           {updateState?.error && (
@@ -58,7 +58,7 @@ export function FacilityRow({ facility }: { facility: Facility }) {
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="w-full rounded-lg border border-black/15 px-4 py-2.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              className="btn-ghost w-full"
             >
               やめる
             </button>
@@ -74,7 +74,7 @@ export function FacilityRow({ facility }: { facility: Facility }) {
               </p>
             </div>
             {!facility.is_available && (
-              <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-gray-400">
+              <span className="shrink-0 badge bg-gray-500/15 text-gray-600 dark:text-gray-400">
                 利用停止中
               </span>
             )}
@@ -97,7 +97,7 @@ export function FacilityRow({ facility }: { facility: Facility }) {
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
               href={`/facilities/${facility.id}`}
-              className="rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              className="btn-ghost-sm"
             >
               予約状況
             </Link>
@@ -105,7 +105,7 @@ export function FacilityRow({ facility }: { facility: Facility }) {
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              className="btn-ghost-sm"
             >
               編集
             </button>
@@ -119,7 +119,7 @@ export function FacilityRow({ facility }: { facility: Facility }) {
               />
               <button
                 type="submit"
-                className="rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+                className="btn-ghost-sm"
               >
                 {facility.is_available ? "利用停止にする" : "利用可能にする"}
               </button>
@@ -130,14 +130,14 @@ export function FacilityRow({ facility }: { facility: Facility }) {
                 <input type="hidden" name="facility_id" value={facility.id} />
                 <button
                   type="submit"
-                  className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-500"
+                  className="btn-base bg-gradient-to-br from-rose-500 to-red-600 px-3 py-1.5 text-xs text-white shadow-lg shadow-rose-500/25 hover:-translate-y-0.5 hover:shadow-xl"
                 >
                   本当に削除する
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirming(false)}
-                  className="rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+                  className="btn-ghost-sm"
                 >
                   やめる
                 </button>
@@ -146,7 +146,7 @@ export function FacilityRow({ facility }: { facility: Facility }) {
               <button
                 type="button"
                 onClick={() => setConfirming(true)}
-                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/40"
+                className="btn-danger-sm"
               >
                 削除
               </button>

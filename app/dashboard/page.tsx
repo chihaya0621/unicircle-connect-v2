@@ -55,7 +55,7 @@ export default async function DashboardPage() {
                   <li key={m.circle.id}>
                     <Link
                       href={`/circles/${m.circle.id}`}
-                      className="block rounded-xl border border-black/10 bg-white p-4 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+                      className="glass-card block p-4"
                     >
                       <p className="font-medium">{m.circle.name}</p>
                       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -87,7 +87,7 @@ export default async function DashboardPage() {
         </div>
 
         {events.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-black/15 px-4 py-12 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+          <p className="glass-empty py-12">
             開催予定のイベントはまだありません。
           </p>
         ) : (

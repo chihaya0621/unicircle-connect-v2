@@ -85,7 +85,7 @@ export default async function CircleDetailPage({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-4">
             {image && (
-              <div className="relative size-20 shrink-0 overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
+              <div className="relative size-20 shrink-0 overflow-hidden rounded-2xl border border-white/60 shadow-lg dark:border-white/15">
                 <Image
                   src={image}
                   alt=""
@@ -99,12 +99,12 @@ export default async function CircleDetailPage({
             <h1 className="text-2xl font-bold tracking-tight">{circle.name}</h1>
           </div>
           {circle.status === "pending" && (
-            <span className="rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+            <span className="badge bg-amber-500/15 px-3 py-1 text-amber-700 dark:text-amber-300">
               職員の承認待ち
             </span>
           )}
           {circle.status === "rejected" && (
-            <span className="rounded-full bg-red-50 px-3 py-1 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
+            <span className="badge bg-rose-500/15 px-3 py-1 text-rose-700 dark:text-rose-300">
               却下されました
             </span>
           )}
@@ -158,7 +158,7 @@ export default async function CircleDetailPage({
       )}
 
       {canManage && (
-        <section className="mb-10 rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+        <section className="mb-10 glass-panel">
           <h2 className="mb-4 text-lg font-semibold">サークルの画像</h2>
           <ImageUploader
             action={uploadCircleImage}
@@ -203,11 +203,11 @@ export default async function CircleDetailPage({
           </p>
 
           {activity.activities.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-black/15 px-4 py-8 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+            <p className="glass-empty py-8">
               まだ活動の記録がありません。イベントを作成して開催すると、ここに残ります。
             </p>
           ) : (
-            <ul className="divide-y divide-black/5 rounded-xl border border-black/10 bg-white dark:divide-white/5 dark:border-white/10 dark:bg-white/5">
+            <ul className="glass divide-y divide-black/5 dark:divide-white/5">
               {activity.activities.map((a) => (
                 <li key={a.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">

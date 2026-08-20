@@ -46,7 +46,7 @@ export function CircleForm({
           rows={5}
           maxLength={1000}
           placeholder="週2回、大学のコートで活動しています。初心者歓迎です。"
-          className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-white/15 dark:bg-white/5 dark:text-gray-100 dark:focus:ring-indigo-900"
+          className="field-input"
         />
       </Field>
 
@@ -79,7 +79,7 @@ export function CircleForm({
                     type="checkbox"
                     name="university_ids"
                     value={u.id}
-                    className="rounded border-black/20 text-indigo-600 focus:ring-indigo-500"
+                    className="field-check"
                   />
                   {u.name}
                 </label>

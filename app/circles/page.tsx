@@ -57,7 +57,7 @@ export default async function CirclesPage({
         {user.role === "student" && (
           <Link
             href="/circles/new"
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+            className="btn-primary"
           >
             サークルを設立する
           </Link>
@@ -67,7 +67,7 @@ export default async function CirclesPage({
       {error && (
         <p
           role="alert"
-          className="mb-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+          className="mb-6 rounded-xl border border-rose-300/70 bg-rose-50/70 px-3.5 py-2.5 text-sm text-rose-800 backdrop-blur-md dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200"
         >
           サークルの取得に失敗しました: {error}
         </p>
@@ -75,14 +75,14 @@ export default async function CirclesPage({
 
       {pending.length > 0 && (
         <section className="mb-10">
-          <h2 className="mb-3 inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+          <h2 className="mb-3 inline-flex items-center gap-2 rounded-xl border border-rose-300/70 bg-rose-50/70 px-3 py-1.5 text-sm font-semibold text-rose-800 backdrop-blur-md dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
             承認待ちの設立申請が{pending.length}件あります
           </h2>
           <ul className="space-y-3">
             {pending.map((circle) => (
               <li
                 key={circle.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20"
+                className="glass-card flex flex-wrap items-center justify-between gap-3 border-amber-300/60 bg-amber-50/50 p-4 dark:border-amber-800/50 dark:bg-amber-950/20"
               >
                 <div className="min-w-0">
                   <p className="font-medium">{circle.name}</p>
@@ -98,7 +98,7 @@ export default async function CirclesPage({
                     <input type="hidden" name="approve" value="true" />
                     <button
                       type="submit"
-                      className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500"
+                      className="btn-primary px-3 py-1.5 text-xs"
                     >
                       承認
                     </button>
@@ -108,7 +108,7 @@ export default async function CirclesPage({
                     <input type="hidden" name="approve" value="false" />
                     <button
                       type="submit"
-                      className="rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-black/5 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/10"
+                      className="btn-ghost-sm"
                     >
                       却下
                     </button>
@@ -137,7 +137,7 @@ export default async function CirclesPage({
       </div>
 
       {circles.length === 0 && !error ? (
-        <p className="rounded-xl border border-dashed border-black/15 px-4 py-12 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+        <p className="glass-empty py-12">
           {showOtherUniversities
             ? "参加できるサークルはまだありません。"
             : "自大学のサークルはまだありません。「他大学のサークルも表示する」で範囲を広げられます。"}

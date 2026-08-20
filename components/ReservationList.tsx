@@ -45,7 +45,7 @@ export function ReservationList({
 }) {
   if (reservations.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-black/15 px-4 py-10 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+      <p className="glass-empty">
         {emptyLabel}
       </p>
     );
@@ -60,7 +60,7 @@ export function ReservationList({
         return (
           <li
             key={r.id}
-            className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-white/5"
+            className="flex flex-wrap items-start justify-between gap-3 glass-panel p-4"
           >
             <div className="min-w-0">
               <p className="text-sm font-medium">
@@ -89,7 +89,7 @@ export function ReservationList({
                     <input type="hidden" name="approve" value="true" />
                     <button
                       type="submit"
-                      className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500"
+                      className="btn-primary px-3 py-1.5 text-xs"
                     >
                       承認
                     </button>
@@ -99,7 +99,7 @@ export function ReservationList({
                     <input type="hidden" name="approve" value="false" />
                     <button
                       type="submit"
-                      className="rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-black/5 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/10"
+                      className="btn-ghost-sm"
                     >
                       却下
                     </button>
@@ -112,7 +112,7 @@ export function ReservationList({
                   <input type="hidden" name="reservation_id" value={r.id} />
                   <button
                     type="submit"
-                    className="rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-black/5 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/10"
+                    className="btn-ghost-sm"
                   >
                     取り消す
                   </button>

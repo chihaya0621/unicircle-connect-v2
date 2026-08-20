@@ -25,7 +25,7 @@ export default async function StaffStudentsPage() {
         </p>
       </header>
 
-      <section className="mb-10 rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+      <section className="mb-10 glass-panel">
         <h2 className="mb-4 text-sm font-semibold">学生を登録する</h2>
         <StudentRegisterForm />
       </section>
@@ -48,7 +48,7 @@ export default async function StaffStudentsPage() {
         )}
 
         {students.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-black/15 px-4 py-10 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+          <p className="glass-empty">
             まだ学生が登録されていません。
           </p>
         ) : (

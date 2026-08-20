@@ -48,7 +48,7 @@ export function JoinCircleButton({
       <input type="hidden" name="circle_id" value={circleId} />
       <button
         type="submit"
-        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+        className="btn-primary"
       >
         {membership?.status === "rejected" ? "再度申請する" : "参加を申請する"}
       </button>

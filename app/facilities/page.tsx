@@ -48,18 +48,18 @@ export default async function FacilitiesPage() {
       </header>
 
       {isStaff && (
-        <section className="mb-10 rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+        <section className="mb-10 glass-panel">
           <h2 className="mb-4 text-sm font-semibold">施設・備品を登録</h2>
           <FacilityForm />
         </section>
       )}
 
       {!universityId ? (
-        <p className="rounded-xl border border-dashed border-black/15 px-4 py-12 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+        <p className="glass-empty py-12">
           所属大学が設定されていないため、施設を表示できません。
         </p>
       ) : facilities.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-black/15 px-4 py-12 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+        <p className="glass-empty py-12">
           登録されている施設がありません。
         </p>
       ) : (
@@ -71,7 +71,7 @@ export default async function FacilitiesPage() {
             ) : (
               <li
                 key={f.id}
-                className="rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5"
+                className="glass-panel"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -81,7 +81,7 @@ export default async function FacilitiesPage() {
                     </p>
                   </div>
                   {!f.is_available && (
-                    <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-gray-400">
+                    <span className="shrink-0 badge bg-gray-500/15 text-gray-600 dark:text-gray-400">
                       利用停止中
                     </span>
                   )}
@@ -91,7 +91,7 @@ export default async function FacilitiesPage() {
                   <div className="mt-4">
                     <Link
                       href={`/facilities/${f.id}`}
-                      className="inline-block rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500"
+                      className="inline-block btn-primary px-3 py-1.5 text-xs"
                     >
                       空き状況・予約
                     </Link>
