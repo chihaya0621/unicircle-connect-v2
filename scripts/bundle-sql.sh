@@ -15,6 +15,7 @@ cd "$(dirname "$0")/.."
 SOURCES=(
   "migrations/0000_initial_schema.sql"
   "migrations/0001_handle_new_user.sql"
+  "migrations/0002_circles.sql"
   "seed.sql"
 )
 
@@ -29,7 +30,8 @@ OUT="supabase/setup_all.sql"
 -- このファイルは以下を連結した生成物です。直接編集しないでください。
 --   1. migrations/0000_initial_schema.sql
 --   2. migrations/0001_handle_new_user.sql
---   3. seed.sql
+--   3. migrations/0002_circles.sql
+--   4. seed.sql
 --
 -- 再生成: npm run db:bundle
 --

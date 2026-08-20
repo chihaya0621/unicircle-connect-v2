@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { EventCard } from "@/components/EventCard";
+import { listMyCircles } from "@/lib/circles";
 import type { UserRole } from "@/lib/database.types";
 import { requireUser } from "@/lib/dal";
 import { listVisibleEvents } from "@/lib/events";
@@ -19,6 +20,9 @@ export default async function DashboardPage() {
   // proxy.ts の楽観的チェックとは別に、データソース側でも必ず検証する。
   const user = await requireUser();
   const { events } = await listVisibleEvents(user.role);
+  // 一般ユーザーはサークルに所属しないので問い合わせ自体を省く
+  const myCircles =
+    user.role === "general" ? [] : await listMyCircles(user.id);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -30,6 +34,44 @@ export default async function DashboardPage() {
           {ROLE_SUMMARY[user.role]}
         </p>
       </header>
+
+      {myCircles.length > 0 && (
+        <section className="mb-10">
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="text-lg font-semibold">参加中のサークル</h2>
+            <Link
+              href="/circles"
+              className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              サークルを探す
+            </Link>
+          </div>
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {myCircles.map(
+              (m) =>
+                m.circle && (
+                  <li key={m.circle.id}>
+                    <Link
+                      href={`/circles/${m.circle.id}`}
+                      className="block rounded-xl border border-black/10 bg-white p-4 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+                    >
+                      <p className="font-medium">{m.circle.name}</p>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {m.role === "admin" && "管理者 ／ "}
+                        {m.status === "pending" && "参加申請中"}
+                        {m.status === "active" &&
+                          (m.circle.status === "pending"
+                            ? "職員の承認待ち"
+                            : "参加中")}
+                        {m.status === "rejected" && "申請が却下されました"}
+                      </p>
+                    </Link>
+                  </li>
+                ),
+            )}
+          </ul>
+        </section>
+      )}
 
       <section>
         <div className="mb-4 flex items-baseline justify-between">

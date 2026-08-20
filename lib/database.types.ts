@@ -200,7 +200,28 @@ export type Database = {
       };
     }>;
     Views: Record<never, never>;
-    Functions: Record<never, never>;
+    Functions: {
+      /** サークル設立。作成した circle の id を返す（0002_circles.sql） */
+      create_circle: {
+        Args: { p_name: string; p_description?: string };
+        Returns: string;
+      };
+      /** 参加申請。'requested' | 'already_requested' | 'already_member' を返す */
+      request_join_circle: {
+        Args: { p_circle_id: string };
+        Returns: string;
+      };
+      /** メンバーの承認 / 却下（サークル管理者のみ） */
+      decide_circle_member: {
+        Args: { p_circle_id: string; p_user_id: string; p_approve: boolean };
+        Returns: undefined;
+      };
+      /** サークル設立の承認 / 却下（大学職員のみ） */
+      decide_circle: {
+        Args: { p_circle_id: string; p_approve: boolean };
+        Returns: undefined;
+      };
+    };
     Enums: Record<never, never>;
     CompositeTypes: Record<never, never>;
   };
