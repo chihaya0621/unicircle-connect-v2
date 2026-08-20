@@ -3,19 +3,38 @@ import Link from "next/link";
 
 import { decideCircle } from "@/app/actions/circles";
 import { CircleCard } from "@/components/CircleCard";
-import { listApprovedCircles, listPendingCircles } from "@/lib/circles";
+import {
+  getMyCircleIds,
+  listApprovedCircles,
+  listPendingCircles,
+} from "@/lib/circles";
 import { getMyUniversityId, requireRole } from "@/lib/dal";
 
 export const metadata: Metadata = { title: "サークル | UniCircle Connect" };
 
-export default async function CirclesPage() {
+export default async function CirclesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ others?: string }>;
+}) {
   // 一般ユーザーは公開イベントの閲覧のみ可能（要件定義書3章）なので、
   // サークル画面には学生と職員だけを通す。
   const user = await requireRole("student", "staff");
   const universityId = await getMyUniversityId();
-  const { circles, error } = await listApprovedCircles(
+
+  // 他大学のサークル（インカレ・合同）を出すかは URL クエリで持つ。
+  // 既定は非表示。インカレが増えるほど自大学の一覧が埋もれるため。
+  const { others } = await searchParams;
+  const showOtherUniversities = others === "1";
+
+  const myCircleIds = await getMyCircleIds(user.id);
+  const { circles, hiddenCount, error } = await listApprovedCircles(
     universityId,
-    user.role === "staff",
+    {
+      isStaff: user.role === "staff",
+      showOtherUniversities,
+      myCircleIds,
+    },
   );
 
   // 職員には自分の大学の承認待ちキューを見せる
@@ -28,7 +47,9 @@ export default async function CirclesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">サークル</h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            あなたの大学から参加できるサークルを表示しています。
+            {showOtherUniversities
+              ? "他大学のインカレ・合同サークルも含めて表示しています。"
+              : "自大学のサークルと、所属中のサークルを表示しています。"}
           </p>
         </div>
 
@@ -98,9 +119,27 @@ export default async function CirclesPage() {
         </section>
       )}
 
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Link
+          href={showOtherUniversities ? "/circles" : "/circles?others=1"}
+          className="rounded-lg border border-black/15 px-3 py-1.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+        >
+          {showOtherUniversities
+            ? "自大学のみ表示する"
+            : "他大学のサークルも表示する"}
+        </Link>
+        {!showOtherUniversities && hiddenCount > 0 && (
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            他大学のインカレ・合同サークルを{hiddenCount}件隠しています
+          </span>
+        )}
+      </div>
+
       {circles.length === 0 && !error ? (
         <p className="rounded-xl border border-dashed border-black/15 px-4 py-12 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
-          承認済みのサークルはまだありません。
+          {showOtherUniversities
+            ? "参加できるサークルはまだありません。"
+            : "自大学のサークルはまだありません。「他大学のサークルも表示する」で範囲を広げられます。"}
         </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">

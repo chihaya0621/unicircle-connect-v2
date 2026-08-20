@@ -51,16 +51,31 @@ const LIST_SELECT = `
 ` as const;
 
 /**
- * 閲覧者の所属大学が対象範囲に入っているサークルだけを返す。
+ * 閲覧者が参加できるサークルを、既定では自大学のものに絞って返す。
  *
- * 絞り込みはアプリ側で行う。PostgREST では
- * 「scope 別に条件を変える」複合条件を1クエリで表現しづらいうえ、
- * 判定ロジックが circle_allows_university() と二重管理になるため、
- * 取得後に同じ規則で filter する。
+ * インカレ（scope='public'）は大学を問わず参加できるため、増えるほど
+ * 一覧を圧迫する。既定では他大学のサークルを畳み、必要なときだけ
+ * showOtherUniversities で開く。
  *
- * 職員は承認業務のため自大学のサークルをすべて見られる。
+ * ただし所属中のサークルは常に表示する。設定によって自分の所属先が
+ * 一覧から消えるのは分かりにくいため。
+ *
+ * 絞り込みはアプリ側で行う。PostgREST では「scope 別に条件を変える」
+ * 複合条件を1クエリで表現しづらいうえ、判定ロジックが
+ * circle_allows_university() と二重管理になるため。
  */
-export async function listApprovedCircles(viewerUniversityId: string | null, isStaff = false) {
+export async function listApprovedCircles(
+  viewerUniversityId: string | null,
+  {
+    isStaff = false,
+    showOtherUniversities = false,
+    myCircleIds = new Set<string>(),
+  }: {
+    isStaff?: boolean;
+    showOtherUniversities?: boolean;
+    myCircleIds?: Set<string>;
+  } = {},
+) {
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -72,16 +87,40 @@ export async function listApprovedCircles(viewerUniversityId: string | null, isS
 
   if (error) {
     console.error("サークル取得に失敗しました:", error.message);
-    return { circles: [] as CircleListItem[], error: error.message };
+    return {
+      circles: [] as CircleListItem[],
+      hiddenCount: 0,
+      error: error.message,
+    };
   }
 
-  const visible = (data ?? []).filter((c) =>
+  // 参加資格のあるものだけに絞る（職員は承認業務のため自大学を全件見る）
+  const eligible = (data ?? []).filter((c) =>
     isStaff
       ? c.university_id === viewerUniversityId || c.scope === "public"
       : circleAllowsUniversity(c, viewerUniversityId),
   );
 
-  return { circles: visible, error: null };
+  const isOwn = (c: CircleListItem) =>
+    c.university_id === viewerUniversityId || myCircleIds.has(c.id);
+
+  const circles = showOtherUniversities ? eligible : eligible.filter(isOwn);
+  const hiddenCount = eligible.length - circles.length;
+
+  return { circles, hiddenCount, error: null };
+}
+
+/** 自分が所属（active）しているサークルのID */
+export async function getMyCircleIds(userId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("circle_members")
+    .select("circle_id")
+    .eq("user_id", userId)
+    .eq("status", "active");
+  return new Set(
+    (data ?? []).map((m) => m.circle_id).filter(Boolean) as string[],
+  );
 }
 
 /**
