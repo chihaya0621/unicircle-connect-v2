@@ -84,26 +84,37 @@ export async function listApprovedCircles(
     isStaff = false,
     showOtherUniversities = false,
     myCircleIds = new Set<string>(),
+    search = "",
   }: {
     isStaff?: boolean;
     showOtherUniversities?: boolean;
     myCircleIds?: Set<string>;
+    search?: string;
   } = {},
 ) {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("circles")
     .select(LIST_SELECT)
     .eq("status", "approved")
     .order("name")
-    .returns<CircleListItem[]>();
+    .limit(CIRCLE_RESULT_LIMIT);
+
+  const clause = searchClause(
+    ["name", "description", "public_intro"],
+    search,
+  );
+  if (clause) query = query.or(clause);
+
+  const { data, error } = await query.returns<CircleListItem[]>();
 
   if (error) {
     console.error("サークル取得に失敗しました:", error.message);
     return {
       circles: [] as CircleListItem[],
       hiddenCount: 0,
+      truncated: false,
       error: error.message,
     };
   }
@@ -128,7 +139,34 @@ export async function listApprovedCircles(
     return mine !== 0 ? mine : x.name.localeCompare(y.name, "ja");
   });
 
-  return { circles, hiddenCount, error: null };
+  return {
+    circles,
+    hiddenCount,
+    truncated: (data ?? []).length >= CIRCLE_RESULT_LIMIT,
+    error: null,
+  };
+}
+
+/**
+ * 検索語を PostgREST の or 条件にする。
+ *
+ * ilike のパターンに使う記号は落とす。% や _ を素通しすると
+ * 「全部に一致する」検索語を作れてしまい、絞り込みの意味が無くなる。
+ * カンマと括弧は or 条件の区切りなので、残すと式そのものが壊れる。
+ */
+/**
+ * 一度に返すサークルの上限。
+ *
+ * 通常は都道府県 → 大学 と辿るので数十件に収まるが、
+ * 上の階層から検索されると全大学が対象になる。
+ * 打ち止めにして、絞り込みを促す。
+ */
+export const CIRCLE_RESULT_LIMIT = 120;
+
+function searchClause(columns: string[], term: string): string | null {
+  const safe = term.trim().replace(/[%_,()\\]/g, " ").trim();
+  if (!safe) return null;
+  return columns.map((c) => `${c}.ilike.%${safe}%`).join(",");
 }
 
 /**
@@ -143,21 +181,33 @@ export async function listPublicCircles(
   favoriteIds: Set<string> = new Set(),
   /** 拠点で絞る。代表キャンパスなら拠点未設定のものも含める */
   campus?: { id: string; includeUnassigned: boolean },
+  search = "",
 ) {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("circles")
     .select(LIST_SELECT)
     .eq("status", "approved")
     .order("name")
-    .returns<CircleListItem[]>();
+    .limit(CIRCLE_RESULT_LIMIT);
+
+  // 名前だけでなく紹介文も対象にする。「初心者歓迎」のような
+  // 言葉で探す人が、名前だけの検索では何も見つけられない。
+  const clause = searchClause(
+    ["name", "description", "public_intro"],
+    search,
+  );
+  if (clause) query = query.or(clause);
+
+  const { data, error } = await query.returns<CircleListItem[]>();
 
   if (error) {
     console.error("サークル取得に失敗しました:", error.message);
     return {
       circles: [] as CircleListItem[],
       hiddenCount: 0,
+      truncated: false,
       error: error.message,
     };
   }
@@ -184,7 +234,13 @@ export async function listPublicCircles(
     return fav !== 0 ? fav : x.name.localeCompare(y.name, "ja");
   });
 
-  return { circles, hiddenCount: all.length - visible.length, error: null };
+  return {
+    circles,
+    hiddenCount: all.length - visible.length,
+    // 上限に達したなら、絞り込めばもっと出てくる可能性がある
+    truncated: all.length >= CIRCLE_RESULT_LIMIT,
+    error: null,
+  };
 }
 
 /** 自分が所属（active）しているサークルのID */

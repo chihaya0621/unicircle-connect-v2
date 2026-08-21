@@ -124,11 +124,13 @@ export async function listVisibleEvents(
     page = 1,
     perPage = EVENTS_PER_PAGE,
     watchedUniversityIds = [],
+    search = "",
   }: {
     page?: number;
     perPage?: number;
     /** 一般ユーザーが指定した大学。空なら絞らない */
     watchedUniversityIds?: string[];
+    search?: string;
   } = {},
 ) {
   const supabase = await createClient();
@@ -170,6 +172,13 @@ export async function listVisibleEvents(
       clauses.push(`host_circle_id.in.(${circleIds.join(",")})`);
     }
     query = query.or(clauses.join(","));
+  }
+
+  // 検索も SQL 側で。ilike のパターン記号は落とす。素通しすると
+  // 「全部に一致する」検索語を作れてしまう。
+  const term = search.trim().replace(/[%_,()\\]/g, " ").trim();
+  if (term) {
+    query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
   }
 
   const { data, error, count } = await query.returns<EventListItem[]>();
@@ -365,4 +374,34 @@ export async function getMyEventReminder(
     return null;
   }
   return data?.lead_minutes ?? null;
+}
+
+/**
+ * ある大学の、学外向けに案内している開催予定イベント。
+ *
+ * 公開のサークル一覧で大学を選んだときに、その大学の行事も見せる。
+ * サークルだけ出しても、その大学に行ってみたい人の知りたいことに
+ * 半分しか答えられない。
+ */
+export async function listUniversityPublicEvents(
+  universityId: string,
+  limit = 4,
+) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("events")
+    .select(EVENT_SELECT)
+    .eq("host_university_id", universityId)
+    .eq("visibility", "public")
+    .eq("public_listed", true)
+    .gte("event_date", new Date().toISOString())
+    .order("event_date", { ascending: true })
+    .limit(limit)
+    .returns<EventListItem[]>();
+
+  if (error) {
+    console.error("大学のイベント取得に失敗しました:", error.message);
+    return [];
+  }
+  return data ?? [];
 }

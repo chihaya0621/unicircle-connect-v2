@@ -4,6 +4,8 @@ import Link from "next/link";
 import { decideCircle } from "@/app/actions/circles";
 import { PageHero } from "@/components/PageHero";
 import { CircleCard } from "@/components/CircleCard";
+import { EventCard } from "@/components/EventCard";
+import { SearchForm } from "@/components/SearchForm";
 import {
   DirectoryBreadcrumb,
   PrefectureList,
@@ -20,6 +22,7 @@ import {
   listFavoriteCircleIds,
   listWatchedUniversityIds,
 } from "@/lib/discovery";
+import { listUniversityPublicEvents } from "@/lib/events";
 import { PREFECTURE_UNKNOWN } from "@/lib/prefectures";
 import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
 
@@ -34,6 +37,7 @@ export default async function CirclesPage({
     pref?: string;
     university?: string;
     campus?: string;
+    q?: string;
   }>;
 }) {
   // 未ログインにも開く。公開設定のサークルだけが見えることは
@@ -48,7 +52,8 @@ export default async function CirclesPage({
 
   // 他大学のサークル（インカレ・合同）を出すかは URL クエリで持つ。
   // 既定は非表示。インカレが増えるほど自大学の一覧が埋もれるため。
-  const { others, fav, pref, university, campus } = await searchParams;
+  const { others, fav, pref, university, campus, q } = await searchParams;
+  const search = (q ?? "").trim();
   const showOtherUniversities = others === "1";
   const favoritesOnly = fav === "1";
 
@@ -83,16 +88,23 @@ export default async function CirclesPage({
         selected.campusId
           ? { id: selected.campusId, includeUnassigned: selected.isPrimary }
           : undefined,
+        search,
       )
     : isAnon || isGeneral
-      ? await listPublicCircles(watchedIds, favoriteIds)
+      ? await listPublicCircles(watchedIds, favoriteIds, undefined, search)
       : await listApprovedCircles(universityId, {
           isStaff: user.role === "staff",
           showOtherUniversities,
           myCircleIds,
+          search,
         });
 
-  const { hiddenCount, error } = listed;
+  // 大学を選んだときは、その大学の学外向けイベントも一緒に見せる
+  const universityEvents = selected
+    ? await listUniversityPublicEvents(selected.universityId)
+    : [];
+
+  const { hiddenCount, truncated, error } = listed;
   const circles = favoritesOnly
     ? listed.circles.filter((c) => favoriteIds.has(c.id))
     : listed.circles;
@@ -101,8 +113,16 @@ export default async function CirclesPage({
   const pending =
     user?.role === "staff" ? await listPendingCircles(user.id) : [];
 
+  // 大学を1つ選んだあとは、まとめる意味が無いので平坦に並べる。
+  // 描画の分岐もこの値を見る。データ側だけ条件を足すと、
+  // 「まとめる」経路のまま空の配列を描いてしまう。
+  // 検索したときは階層を飛ばして結果だけ出す。
+  // 「都道府県を選び直してから検索」では手間が増えるだけなので。
+  const showDirectory = useDirectory && !selected && !search;
+  const showGrouped = groupByUniversity && !selected;
+
   // 大学ごとにまとめる。大学名の五十音順、同じ大学の中はサークル名順。
-  const byUniversity = groupByUniversity && !selected
+  const byUniversity = showGrouped
     ? [...
         circles
           .reduce((map, c) => {
@@ -280,6 +300,45 @@ export default async function CirclesPage({
         />
       )}
 
+      <SearchForm
+        action="/circles"
+        placeholder="サークル名・活動内容で検索"
+        value={search}
+        hidden={{ pref, university, campus, others, fav }}
+      />
+
+      {truncated && (
+        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+          該当が多いため一部だけ表示しています。検索語を足すか、
+          大学を選んで絞り込んでください。
+        </p>
+      )}
+
+      {universityEvents.length > 0 && !search && (
+        <section className="mb-8">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold">
+              {selected?.universityName}の公開イベント
+            </h2>
+            <Link
+              href="/events"
+              className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              イベントを一覧で見る
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {universityEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {selected && !search && (
+        <h2 className="mb-3 text-lg font-semibold">サークル</h2>
+      )}
+
       {selected?.websiteUrl && (
         <p className="mb-4 text-sm">
           <a
@@ -293,7 +352,7 @@ export default async function CirclesPage({
         </p>
       )}
 
-      {useDirectory && !selected ? (
+      {showDirectory ? (
         pref ? (
           <UniversityList
             prefecture={pref}
@@ -306,7 +365,9 @@ export default async function CirclesPage({
         )
       ) : circles.length === 0 && !error ? (
         <p className="glass-empty py-12">
-          {favoritesOnly
+          {search
+            ? `「${search}」に一致するサークルはありません。`
+            : favoritesOnly
             ? "気になるサークルはまだありません。カードのハートで印を付けられます。"
             : isAnon
               ? "公開されているサークルはまだありません。"
@@ -318,7 +379,7 @@ export default async function CirclesPage({
                   ? "参加できるサークルはまだありません。"
                   : "自大学のサークルはまだありません。「他大学のサークルも表示する」で範囲を広げられます。"}
         </p>
-      ) : groupByUniversity ? (
+      ) : showGrouped ? (
         <div className="space-y-10">
           {byUniversity.map(([universityName, list]) => (
             <section key={universityName}>

@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { PageHero } from "@/components/PageHero";
 import { EventCard } from "@/components/EventCard";
+import { SearchForm } from "@/components/SearchForm";
 import { getCurrentUser } from "@/lib/dal";
 import { listWatchedUniversityIds } from "@/lib/discovery";
 import { listVisibleEvents, resolveEventRelations } from "@/lib/events";
@@ -13,9 +14,10 @@ export const metadata: Metadata = { title: "イベント | UniCircle Connect" };
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; q?: string }>;
 }) {
-  const { page: pageParam } = await searchParams;
+  const { page: pageParam, q } = await searchParams;
+  const search = (q ?? "").trim();
   const user = await getCurrentUser();
 
   const isLimitedView = !user || user.role === "general";
@@ -31,13 +33,22 @@ export default async function EventsPage({
     {
       page: Number.isInteger(requestedPage) ? requestedPage : 1,
       watchedUniversityIds: watchedIds,
+      search,
     },
   );
 
   const lastPage = Math.max(1, Math.ceil(total / perPage));
   const firstIndex = total === 0 ? 0 : (page - 1) * perPage + 1;
   const lastIndex = Math.min(page * perPage, total);
-  const pageHref = (n: number) => (n <= 1 ? "/events" : `/events?page=${n}`);
+  // 検索語はページを跨いでも保つ。2ページ目で条件が外れると、
+  // 見ている一覧が黙って別物になる。
+  const pageHref = (n: number) => {
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (n > 1) params.set("page", String(n));
+    const query = params.toString();
+    return query ? `/events?${query}` : "/events";
+  };
 
   // 一覧は時系列のまま。関係は色分けでのみ示す。
   const relations = user
@@ -93,6 +104,12 @@ export default async function EventsPage({
         </ul>
       )}
 
+      <SearchForm
+        action="/events"
+        placeholder="イベント名・内容で検索"
+        value={search}
+      />
+
       {error && (
         <p
           role="alert"
@@ -104,7 +121,9 @@ export default async function EventsPage({
 
       {!error && events.length === 0 && (
         <p className="glass-empty py-12">
-          {!user
+          {search
+            ? `「${search}」に一致するイベントはありません。`
+            : !user
             ? "開催予定の公開イベントはまだありません。"
             : isGeneral && watchedIds.length > 0
               ? "指定した大学に、開催予定の公開イベントがありません。"
