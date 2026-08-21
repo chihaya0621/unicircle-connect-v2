@@ -36,11 +36,9 @@ export default async function BoardPage() {
       ) : (
         <div className="space-y-8">
           {boards.map((board) => (
-            <section
-              key={board.circle.id}
-              className="glass-panel"
-            >
-              <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <section key={board.circle.id}>
+              {/* 見出しは板の外に置く。木枠の上に文字を載せると読みづらい */}
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-semibold">
                   <Link
                     href={`/circles/${board.circle.id}`}
@@ -64,16 +62,23 @@ export default async function BoardPage() {
                 )}
               </div>
 
-              <div className="mb-4">
-                <PostComposer circleId={board.circle.id} canPin={board.isAdmin} />
-              </div>
+              <div className="cork-frame">
+                <div className="cork p-4 sm:p-5">
+                  <div className="mb-5">
+                    <PostComposer
+                      circleId={board.circle.id}
+                      canPin={board.isAdmin}
+                    />
+                  </div>
 
-              <PostList
-                posts={board.posts}
-                isAdmin={board.isAdmin}
-                currentUserName={user.name}
-                emptyLabel="まだ投稿がありません。最初の連絡を書いてみましょう。"
-              />
+                  <PostList
+                    posts={board.posts}
+                    isAdmin={board.isAdmin}
+                    currentUserName={user.name}
+                    emptyLabel="まだ何も貼られていません。最初の連絡を貼ってみましょう。"
+                  />
+                </div>
+              </div>
             </section>
           ))}
         </div>

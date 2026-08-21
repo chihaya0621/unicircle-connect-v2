@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import { deletePost, togglePin } from "@/app/actions/board";
 import type { CirclePost } from "@/lib/board";
 
@@ -7,11 +9,46 @@ const formatter = new Intl.DateTimeFormat("ja-JP", {
   timeZone: "Asia/Tokyo",
 });
 
+/**
+ * 紙の傾き。
+ *
+ * 人が貼った紙は少しずつ曲がっているので、全部まっすぐだと嘘になる。
+ * ただし乱数だと再描画のたびに傾きが変わってちらつくうえ、
+ * サーバーとクライアントで値が食い違う。投稿 ID から決定的に求める。
+ */
+function tilt(id: string) {
+  // FNV-1a
+  let hash = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    hash ^= id.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  // 最後に撹拌する（murmur3 の fmix32）。
+  // 投稿 ID は末尾しか違わない連番なので、単純な積和だけだと
+  // 結果も連番になり、どの紙もほぼ同じ角度になってしまう。
+  hash ^= hash >>> 15;
+  hash = Math.imul(hash, 2246822507);
+  hash ^= hash >>> 13;
+  hash = Math.imul(hash, 3266489909);
+  hash ^= hash >>> 16;
+
+  const ratio = (hash >>> 0) / 4294967296;
+  return ((ratio - 0.5) * 5).toFixed(2);
+}
+
+/**
+ * コルクボードに貼られた連絡。
+ *
+ * 紙の高さがまちまちなので、段組み（columns）で詰めて並べる。
+ * 行そろえのグリッドだと、短い紙の下に大きな空白が空いてしまい、
+ * 「板に貼ってある」ようには見えない。
+ */
 export function PostList({
   posts,
   isAdmin,
   currentUserName,
-  emptyLabel = "まだ投稿がありません。",
+  emptyLabel = "まだ何も貼られていません。",
 }: {
   posts: CirclePost[];
   isAdmin: boolean;
@@ -24,14 +61,14 @@ export function PostList({
 }) {
   if (posts.length === 0) {
     return (
-      <p className="glass-empty py-6">
+      <p className="px-4 py-6 text-center text-sm text-white/85 [text-shadow:0_1px_3px_rgb(40_26_12/0.6)]">
         {emptyLabel}
       </p>
     );
   }
 
   return (
-    <ul className="space-y-2">
+    <ul className="columns-1 gap-4 sm:columns-2">
       {posts.map((post) => {
         const isMine = post.author?.name === currentUserName;
         const canDelete = isMine || isAdmin;
@@ -39,60 +76,63 @@ export function PostList({
         return (
           <li
             key={post.id}
-            className={`glass-card p-3.5 ${
-              post.is_pinned
-                ? "tint-amber" : ""
+            className={`note mb-6 break-inside-avoid ${
+              post.is_pinned ? "note-pinned" : ""
             }`}
+            style={{ "--tilt": `${tilt(post.id)}deg` } as CSSProperties}
           >
-            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              {post.is_pinned && (
-                <span className="badge bg-amber-500/20 font-medium text-amber-800 dark:text-amber-200">
-                  お知らせ
-                </span>
-              )}
-              <span className="font-medium text-gray-700 dark:text-gray-300">
-                {post.author?.name ?? "退会したメンバー"}
-              </span>
-              <time dateTime={post.created_at}>
-                {formatter.format(new Date(post.created_at))}
-              </time>
-            </div>
+            {post.is_pinned && (
+              <p className="mb-1.5 text-xs font-bold tracking-wide text-rose-700">
+                お知らせ
+              </p>
+            )}
 
-            <p className="mt-2 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed">
               {post.body}
             </p>
 
-            {(canDelete || isAdmin) && (
-              <div className="mt-2 flex flex-wrap gap-2">
+            {/* 署名。紙の右下に書く */}
+            <p
+              className="mt-3 text-right text-xs"
+              style={{ color: "rgb(var(--note-meta))" }}
+            >
+              {post.author?.name ?? "退会したメンバー"}
+              {" ・ "}
+              <time dateTime={post.created_at}>
+                {formatter.format(new Date(post.created_at))}
+              </time>
+            </p>
+
+            {canDelete && (
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 border-t border-black/[0.08] pt-1.5">
                 {isAdmin && (
                   <form action={togglePin}>
                     <input type="hidden" name="post_id" value={post.id} />
-                    <input type="hidden" name="circle_id" value={post.circle_id} />
+                    <input
+                      type="hidden"
+                      name="circle_id"
+                      value={post.circle_id}
+                    />
                     <input
                       type="hidden"
                       name="pinned"
                       value={String(!post.is_pinned)}
                     />
-                    <button
-                      type="submit"
-                      className="btn-ghost-sm px-2 py-1"
-                    >
+                    <button type="submit" className="note-action">
                       {post.is_pinned ? "固定を解除" : "お知らせにする"}
                     </button>
                   </form>
                 )}
-                {canDelete && (
-                  <form action={deletePost}>
-                    <input type="hidden" name="post_id" value={post.id} />
-                    <input type="hidden" name="circle_id" value={post.circle_id} />
-                    <button
-                      type="submit"
-                      className="btn-danger-sm px-2 py-1"
-                    >
-                      削除
-                    </button>
-                  </form>
-                )}
+                <form action={deletePost}>
+                  <input type="hidden" name="post_id" value={post.id} />
+                  <input type="hidden" name="circle_id" value={post.circle_id} />
+                  <button
+                    type="submit"
+                    className="note-action note-action-danger"
+                  >
+                    はがす
+                  </button>
+                </form>
               </div>
             )}
           </li>

@@ -816,3 +816,188 @@ a {
   /* 自動送りは JS 側で止めるが、手動操作の滑走もここで無効にする */
   .deck-track { scroll-behavior: auto; }
 }
+
+/* -----------------------------------------------------------------------------
+   掲示板（コルクボード）
+   -----------------------------------------------------------------------------
+   掲示板だけは「面」ではなく「物」として作る。木枠にコルクを張り、
+   その上に紙を画鋲で留める。既存の glass 系とは意図的に別系統にしている。
+
+   コルクと紙は素材なので、テーマを変えても色は変わらない。
+   代わりに画鋲の色だけがテーマの差し色（--accent）に追従する。
+   ----------------------------------------------------------------------------- */
+
+:root {
+  --cork-1: 219 186 139;
+  --cork-2: 190 152 97;
+  --frame-1: 168 132 92;
+  --frame-2: 110 82 52;
+  --note-bg: 255 253 244;
+  --note-fg: 44 36 24;
+  --note-meta: 124 106 78;
+  --note-pinned-bg: 255 241 190;
+  --pin: var(--accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 暗い画面で明るいコルクが浮くので、板も紙も一段落とす */
+    --cork-1: 118 92 61;
+    --cork-2: 88 68 44;
+    --frame-1: 94 72 48;
+    --frame-2: 58 43 28;
+    --note-bg: 238 232 218;
+    --note-fg: 38 31 21;
+    --note-meta: 116 99 73;
+    --note-pinned-bg: 240 224 165;
+  }
+}
+
+/** 木枠。コルク面を内側に持つ */
+@utility cork-frame {
+  background-image: linear-gradient(
+    150deg,
+    rgb(var(--frame-1)),
+    rgb(var(--frame-2))
+  );
+  border-radius: 0.85rem;
+  padding: 0.7rem;
+  box-shadow:
+    0 18px 34px -18px rgb(40 26 12 / 0.6),
+    inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+
+/** コルク面。粒の大きさが違う斑点を重ねて質感を作る */
+@utility cork {
+  background-color: rgb(var(--cork-2));
+  background-image:
+    radial-gradient(rgb(0 0 0 / 0.07) 1px, transparent 1.3px),
+    radial-gradient(rgb(255 255 255 / 0.10) 1px, transparent 1.3px),
+    radial-gradient(rgb(0 0 0 / 0.05) 2px, transparent 2.5px),
+    radial-gradient(rgb(0 0 0 / 0.04) 1.5px, transparent 2px),
+    linear-gradient(160deg, rgb(var(--cork-1)), rgb(var(--cork-2)));
+  background-size:
+    9px 9px,
+    13px 13px,
+    27px 27px,
+    19px 19px,
+    100% 100%;
+  background-position:
+    0 0,
+    4px 6px,
+    11px 3px,
+    7px 13px,
+    0 0;
+  border-radius: 0.35rem;
+  box-shadow:
+    inset 0 2px 12px rgb(50 32 14 / 0.35),
+    inset 0 -1px 0 rgb(255 255 255 / 0.10);
+}
+
+/** 貼られた紙。角は丸めない */
+@utility note {
+  position: relative;
+  background-color: rgb(var(--note-bg));
+  color: rgb(var(--note-fg));
+  border-radius: 2px;
+  padding: 1.15rem 1rem 0.85rem;
+  rotate: var(--tilt, 0deg);
+  box-shadow:
+    0 10px 18px -9px rgb(40 26 12 / 0.75),
+    0 1px 2px rgb(0 0 0 / 0.18);
+  transition:
+    rotate 450ms cubic-bezier(0.22, 1, 0.36, 1),
+    translate 450ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 450ms ease-out;
+}
+
+/* 触れるとまっすぐ直って浮く */
+.note:hover,
+.note:focus-within {
+  rotate: 0deg;
+  translate: 0 -4px;
+  box-shadow:
+    0 22px 30px -12px rgb(40 26 12 / 0.8),
+    0 2px 3px rgb(0 0 0 / 0.2);
+}
+
+/** 画鋲。左上の照り返しで球に見せる */
+@utility pin {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -0.5rem;
+  width: 1rem;
+  height: 1rem;
+  translate: -50% 0;
+  border-radius: 9999px;
+  background-image: radial-gradient(
+    circle at 34% 30%,
+    rgb(255 255 255 / 0.75),
+    transparent 46%
+  );
+  background-color: rgb(var(--pin));
+  box-shadow:
+    0 3px 5px rgb(0 0 0 / 0.45),
+    inset 0 -2px 3px rgb(0 0 0 / 0.28);
+}
+
+.note::before {
+  @apply pin;
+}
+
+/** お知らせは色紙に赤い画鋲で留める */
+.note-pinned {
+  --pin: 225 29 72;
+  background-color: rgb(var(--note-pinned-bg));
+}
+
+/** 紙の上に置く操作。ガラスのボタンは紙から浮くので使わない */
+@utility note-action {
+  color: rgb(var(--note-meta));
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.35rem;
+  margin-left: -0.35rem;
+  @apply text-xs font-medium underline decoration-dotted underline-offset-2;
+  @apply transition-colors duration-200;
+  @apply hover:bg-black/[0.06] focus-visible:outline-none focus-visible:ring-2;
+}
+.note-action:hover { color: rgb(var(--note-fg)); }
+
+/** まだ何も貼られていない場所 */
+@utility note-blank {
+  border: 2px dashed rgb(255 255 255 / 0.45);
+  border-radius: 3px;
+  color: rgb(255 255 255 / 0.9);
+  text-shadow: 0 1px 3px rgb(40 26 12 / 0.6);
+  background-color: rgb(255 255 255 / 0.08);
+  @apply w-full px-4 py-3 text-left text-sm;
+  @apply transition-all duration-300 ease-out;
+  @apply hover:-translate-y-0.5 hover:bg-white/15;
+}
+
+/* 削除だけは色で区別する。.note-action:hover より後に置いて上書きする */
+.note-action-danger { color: rgb(190 18 60); }
+.note-action-danger:hover { color: rgb(159 18 57); }
+
+/** 紙の上に置く入力欄。ガラスの入力欄は紙に馴染まない */
+@utility note-input {
+  background-color: rgb(255 255 255 / 0.72);
+  border: 1px solid rgb(var(--note-fg) / 0.2);
+  border-radius: 3px;
+  color: rgb(var(--note-fg));
+  @apply w-full px-3 py-2.5 text-sm outline-none;
+  @apply transition-all duration-200 ease-out;
+  @apply placeholder:text-black/35;
+}
+.note-input:focus {
+  border-color: rgb(var(--pin));
+  box-shadow: 0 0 0 3px rgb(var(--pin) / 0.18);
+}
+
+/* 書いている最中の紙は動かさない。入力中に浮き沈みすると気が散る */
+.note-static:hover,
+.note-static:focus-within {
+  rotate: 0deg;
+  translate: 0 0;
+}

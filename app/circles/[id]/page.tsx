@@ -176,15 +176,19 @@ export default async function CircleDetailPage({
       {isMember && (
         <section className="mb-10">
           <h2 className="mb-3 text-lg font-semibold">掲示板</h2>
-          <div className="mb-4">
-            <PostComposer circleId={circle.id} canPin={canManage} />
+          <div className="cork-frame">
+            <div className="cork p-4 sm:p-5">
+              <div className="mb-5">
+                <PostComposer circleId={circle.id} canPin={canManage} />
+              </div>
+              <PostList
+                posts={posts}
+                isAdmin={canManage}
+                currentUserName={user.name}
+                emptyLabel="まだ何も貼られていません。"
+              />
+            </div>
           </div>
-          <PostList
-            posts={posts}
-            isAdmin={canManage}
-            currentUserName={user.name}
-            emptyLabel="まだ投稿がありません。"
-          />
         </section>
       )}
 
