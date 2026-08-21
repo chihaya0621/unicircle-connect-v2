@@ -6,12 +6,16 @@ import { removeCampus, saveCampus, type ActionState } from "@/app/actions/campus
 import { FormMessage } from "@/components/Field";
 import { SubmitButton } from "@/components/SubmitButton";
 import type { Campus } from "@/lib/discovery";
+import { PREFECTURES } from "@/lib/prefectures";
 
 /**
  * 自大学のキャンパス管理。職員にのみ出す。
  *
  * サークルはここに登録されたものから拠点を選ぶ。増やす場所が
  * どこにも無いと、複数キャンパスの大学で拠点を書けなくなる。
+ *
+ * 所在地はキャンパスごとに持つ。県をまたいでキャンパスを構える大学が、
+ * 片方の県からしか見つからなくなるのを避けるため。
  */
 export function CampusManager({ campuses }: { campuses: Campus[] }) {
   const [state, action] = useActionState<ActionState, FormData>(
@@ -33,7 +37,14 @@ export function CampusManager({ campuses }: { campuses: Campus[] }) {
               className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-black/[0.08] px-3.5 py-2.5 dark:border-white/10"
             >
               <div className="min-w-0">
-                <p className="text-sm font-medium">{c.name}</p>
+                <p className="text-sm font-medium">
+                  {c.name}
+                  {c.prefecture && (
+                    <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
+                      {c.prefecture}
+                    </span>
+                  )}
+                </p>
                 {c.address && (
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {c.address}
@@ -57,7 +68,7 @@ export function CampusManager({ campuses }: { campuses: Campus[] }) {
           await action(data);
           formRef.current?.reset();
         }}
-        className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+        className="grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-end"
       >
         <div>
           <label htmlFor="campus-name" className="mb-1 block text-xs font-medium">
@@ -71,6 +82,22 @@ export function CampusManager({ campuses }: { campuses: Campus[] }) {
             placeholder="第2キャンパス"
             className="field-input"
           />
+        </div>
+        <div>
+          <label
+            htmlFor="campus-pref"
+            className="mb-1 block text-xs font-medium"
+          >
+            所在地
+          </label>
+          <select id="campus-pref" name="prefecture" className="field-input">
+            <option value="">大学と同じ</option>
+            {PREFECTURES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label

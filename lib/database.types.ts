@@ -52,17 +52,28 @@ export type Database = {
           website_url?: string | null;
         };
       };
-      /** 大学のキャンパス（0023_university_details.sql） */
+      /** 大学のキャンパス（0023 / 0024 で所在地を追加） */
       campuses: {
         Row: {
           id: string;
           university_id: string;
           name: string;
           address: string | null;
+          /** キャンパスの所在地。公開一覧はこちらで絞る（0024） */
+          prefecture: string | null;
           created_at: string;
         };
-        Insert: { university_id: string; name: string; address?: string | null };
-        Update: { name?: string; address?: string | null };
+        Insert: {
+          university_id: string;
+          name: string;
+          address?: string | null;
+          prefecture?: string | null;
+        };
+        Update: {
+          name?: string;
+          address?: string | null;
+          prefecture?: string | null;
+        };
       };
       notifications: {
         Row: {
@@ -389,9 +400,14 @@ export type Database = {
         };
         Returns: undefined;
       };
-      /** キャンパスの追加・更新。その大学の職員のみ（0023） */
+      /** キャンパスの追加・更新。その大学の職員のみ（0023 / 0024） */
       upsert_campus: {
-        Args: { p_id: string | null; p_name: string; p_address?: string | null };
+        Args: {
+          p_id: string | null;
+          p_name: string;
+          p_address?: string | null;
+          p_prefecture?: string | null;
+        };
         Returns: string;
       };
       /** キャンパスの削除。その大学の職員のみ（0023） */

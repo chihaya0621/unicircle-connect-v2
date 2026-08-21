@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import type { UniversitySummary } from "@/lib/discovery";
+import type { DirectoryEntry } from "@/lib/discovery";
 import { PREFECTURE_UNKNOWN, prefectureOrder } from "@/lib/prefectures";
 
 /**
@@ -34,18 +34,23 @@ function Tiles({ items }: { items: Level[] }) {
   );
 }
 
-/** 都道府県の一覧。大学が1校も無い県は出さない */
-export function PrefectureList({
-  directory,
-}: {
-  directory: UniversitySummary[];
-}) {
-  const byPrefecture = new Map<string, { universities: number; circles: number }>();
-  for (const u of directory) {
-    const key = u.prefecture ?? PREFECTURE_UNKNOWN;
-    const acc = byPrefecture.get(key) ?? { universities: 0, circles: 0 };
-    acc.universities += 1;
-    acc.circles += u.circleCount;
+/**
+ * 都道府県の一覧。キャンパスが1つも無い県は出さない。
+ *
+ * 大学数は実体で数える。県をまたぐ大学は複数のキャンパスを持つので、
+ * 拠点の数をそのまま出すと同じ大学を二重に数えてしまう。
+ */
+export function PrefectureList({ entries }: { entries: DirectoryEntry[] }) {
+  const byPrefecture = new Map<
+    string,
+    { universities: Set<string>; circles: number }
+  >();
+  for (const e of entries) {
+    const key = e.prefecture ?? PREFECTURE_UNKNOWN;
+    const acc =
+      byPrefecture.get(key) ?? { universities: new Set<string>(), circles: 0 };
+    acc.universities.add(e.universityId);
+    acc.circles += e.circleCount;
     byPrefecture.set(key, acc);
   }
 
@@ -54,7 +59,7 @@ export function PrefectureList({
     .map(([name, acc]) => ({
       href: `/circles?pref=${encodeURIComponent(name)}`,
       label: name,
-      sub: `${acc.universities}大学 ／ ${acc.circles}件`,
+      sub: `${acc.universities.size}大学 ／ ${acc.circles}件`,
     }));
 
   if (items.length === 0) {
@@ -65,15 +70,15 @@ export function PrefectureList({
   return <Tiles items={items} />;
 }
 
-/** ある都道府県の大学一覧 */
+/** ある都道府県の拠点一覧 */
 export function UniversityList({
   prefecture,
-  universities,
+  entries,
 }: {
   prefecture: string;
-  universities: UniversitySummary[];
+  entries: DirectoryEntry[];
 }) {
-  if (universities.length === 0) {
+  if (entries.length === 0) {
     return (
       <p className="glass-empty py-12">
         {prefecture}に掲載されている大学がまだありません。
@@ -83,10 +88,12 @@ export function UniversityList({
 
   return (
     <Tiles
-      items={universities.map((u) => ({
-        href: `/circles?university=${u.id}`,
-        label: u.name,
-        sub: `${u.circleCount}件`,
+      items={entries.map((e) => ({
+        href: e.campusId
+          ? `/circles?university=${e.universityId}&campus=${e.campusId}`
+          : `/circles?university=${e.universityId}`,
+        label: e.label,
+        sub: `${e.circleCount}件`,
       }))}
     />
   );

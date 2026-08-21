@@ -22,6 +22,8 @@ export async function saveCampus(
   const id = String(formData.get("campus_id") ?? "") || null;
   const name = String(formData.get("name") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
+  // 空なら DB 側で大学の所在地を引き継ぐ
+  const prefecture = String(formData.get("prefecture") ?? "").trim() || null;
 
   if (!name) return { error: "キャンパス名を入力してください。" };
   if (name.length > 60) return { error: "キャンパス名は60文字までです。" };
@@ -31,6 +33,7 @@ export async function saveCampus(
     p_id: id,
     p_name: name,
     p_address: address,
+    p_prefecture: prefecture,
   });
 
   if (error) return { error: `保存に失敗しました: ${error.message}` };

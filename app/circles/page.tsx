@@ -16,8 +16,8 @@ import {
   listPublicCircles,
 } from "@/lib/circles";
 import {
+  listCampusDirectory,
   listFavoriteCircleIds,
-  listUniversityDirectory,
   listWatchedUniversityIds,
 } from "@/lib/discovery";
 import { PREFECTURE_UNKNOWN } from "@/lib/prefectures";
@@ -33,6 +33,7 @@ export default async function CirclesPage({
     fav?: string;
     pref?: string;
     university?: string;
+    campus?: string;
   }>;
 }) {
   // 未ログインにも開く。公開設定のサークルだけが見えることは
@@ -47,7 +48,7 @@ export default async function CirclesPage({
 
   // 他大学のサークル（インカレ・合同）を出すかは URL クエリで持つ。
   // 既定は非表示。インカレが増えるほど自大学の一覧が埋もれるため。
-  const { others, fav, pref, university } = await searchParams;
+  const { others, fav, pref, university, campus } = await searchParams;
   const showOtherUniversities = others === "1";
   const favoritesOnly = fav === "1";
 
@@ -64,13 +65,25 @@ export default async function CirclesPage({
   // 気になる大学を指定済みの一般ユーザーは、そこから始める必要が無い。
   const useDirectory = isAnon || (isGeneral && watchedIds.length === 0);
   const directory =
-    useDirectory || university ? await listUniversityDirectory() : [];
-  const selectedUniversity = university
-    ? (directory.find((u) => u.id === university) ?? null)
+    useDirectory || university ? await listCampusDirectory() : [];
+
+  // 拠点まで指定されていればその拠点、なければ大学の代表拠点
+  const selected = university
+    ? (directory.find(
+        (e) =>
+          e.universityId === university &&
+          (campus ? e.campusId === campus : e.isPrimary),
+      ) ?? null)
     : null;
 
-  const listed = selectedUniversity
-    ? await listPublicCircles([selectedUniversity.id], favoriteIds)
+  const listed = selected
+    ? await listPublicCircles(
+        [selected.universityId],
+        favoriteIds,
+        selected.campusId
+          ? { id: selected.campusId, includeUnassigned: selected.isPrimary }
+          : undefined,
+      )
     : isAnon || isGeneral
       ? await listPublicCircles(watchedIds, favoriteIds)
       : await listApprovedCircles(universityId, {
@@ -89,7 +102,7 @@ export default async function CirclesPage({
     user?.role === "staff" ? await listPendingCircles(user.id) : [];
 
   // 大学ごとにまとめる。大学名の五十音順、同じ大学の中はサークル名順。
-  const byUniversity = groupByUniversity && !selectedUniversity
+  const byUniversity = groupByUniversity && !selected
     ? [...
         circles
           .reduce((map, c) => {
@@ -108,10 +121,12 @@ export default async function CirclesPage({
         eyebrow="CIRCLES"
         title={isAnon || isGeneral ? "サークルを探す" : "サークル"}
         description={
-          selectedUniversity ? (
+          selected ? (
             <>
-              {selectedUniversity.name}の公開サークルです。
-              {selectedUniversity.website_url && "大学の公式サイトも案内しています。"}
+              {selected.label}の公開サークルです。
+              {selected.isPrimary &&
+                selected.campusId &&
+                "拠点が未設定のサークルもここに含めています。"}
             </>
           ) : useDirectory ? (
             pref ? (
@@ -258,36 +273,36 @@ export default async function CirclesPage({
         )}
       </div>
 
-      {(useDirectory || selectedUniversity) && (
+      {(useDirectory || selected) && (
         <DirectoryBreadcrumb
-          prefecture={pref ?? selectedUniversity?.prefecture}
-          universityName={selectedUniversity?.name}
+          prefecture={pref ?? selected?.prefecture}
+          universityName={selected?.label}
         />
       )}
 
-      {selectedUniversity?.website_url && (
+      {selected?.websiteUrl && (
         <p className="mb-4 text-sm">
           <a
-            href={selectedUniversity.website_url}
+            href={selected.websiteUrl}
             target="_blank"
             rel="noreferrer noopener"
             className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
           >
-            {selectedUniversity.name}の公式サイト
+            {selected.universityName}の公式サイト
           </a>
         </p>
       )}
 
-      {useDirectory && !selectedUniversity ? (
+      {useDirectory && !selected ? (
         pref ? (
           <UniversityList
             prefecture={pref}
-            universities={directory.filter(
-              (u) => (u.prefecture ?? PREFECTURE_UNKNOWN) === pref,
+            entries={directory.filter(
+              (e) => (e.prefecture ?? PREFECTURE_UNKNOWN) === pref,
             )}
           />
         ) : (
-          <PrefectureList directory={directory} />
+          <PrefectureList entries={directory} />
         )
       ) : circles.length === 0 && !error ? (
         <p className="glass-empty py-12">

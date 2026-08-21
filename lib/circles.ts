@@ -19,6 +19,7 @@ export type CircleListItem = {
   scope: Scope;
   image_path: string | null;
   university_id: string | null;
+  campus_id: string | null;
   university: { name: string } | null;
   member_count: { count: number }[];
   scoped_universities: { university_id: string }[];
@@ -57,7 +58,7 @@ export type CircleDetail = CirclePublicProfile & {
 };
 
 const LIST_SELECT = `
-  id, name, description, status, scope, image_path, university_id,
+  id, name, description, status, scope, image_path, university_id, campus_id,
   university:universities!circles_university_id_fkey(name),
   member_count:circle_members(count),
   scoped_universities:circle_universities(university_id)
@@ -140,6 +141,8 @@ export async function listApprovedCircles(
 export async function listPublicCircles(
   watchedUniversityIds: string[],
   favoriteIds: Set<string> = new Set(),
+  /** 拠点で絞る。代表キャンパスなら拠点未設定のものも含める */
+  campus?: { id: string; includeUnassigned: boolean },
 ) {
   const supabase = await createClient();
 
@@ -161,10 +164,18 @@ export async function listPublicCircles(
 
   const all = data ?? [];
   const watched = new Set(watchedUniversityIds);
-  const visible =
+  const inWatched =
     watched.size === 0
       ? all
       : all.filter((c) => c.university_id && watched.has(c.university_id));
+
+  const visible = campus
+    ? inWatched.filter(
+        (c) =>
+          c.campus_id === campus.id ||
+          (campus.includeUnassigned && c.campus_id === null),
+      )
+    : inWatched;
 
   // 気になるものを先頭に。並びに元々意味が無いので、
   // 自分で印を付けたものから読めるようにする。
