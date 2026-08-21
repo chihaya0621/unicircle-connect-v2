@@ -33,6 +33,7 @@ SOURCES=(
   "migrations/0017_theme_variants.sql"
   "migrations/0018_circle_event_stats.sql"
   "migrations/0019_public_discovery.sql"
+  "migrations/0020_event_participation_roles.sql"
   "seed.sql"
 )
 

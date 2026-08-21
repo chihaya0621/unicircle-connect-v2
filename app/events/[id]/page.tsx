@@ -56,8 +56,10 @@ export default async function EventDetailPage({
     ? await canManageEvent(event, user.id, universityId, user.role)
     : false;
 
-  // 参加状態。職員は運営側なので参加登録の対象外。
-  const canParticipate = user !== null && user.role !== "staff";
+  // 参加登録できるのは学生だけ。職員は運営側で、一般ユーザー
+  // （高校生・企業）は公開情報を見に来る立場なので名簿には載せない。
+  // 同じ判定を join_event（0020）が DB 側でも行う。
+  const canParticipate = user?.role === "student";
   let isGoing = false;
   if (canParticipate && user) {
     const supabase = await createClient();
@@ -138,6 +140,13 @@ export default async function EventDetailPage({
             </p>
           )}
       </header>
+
+      {user?.role === "general" && !isPast && (
+        <p className="mb-8 text-sm text-gray-500 dark:text-gray-400">
+          公開されている情報の閲覧のみ行えます。参加を希望する場合は、
+          主催団体の案内をご確認ください。
+        </p>
+      )}
 
       {canParticipate && !isPast && (
         <div className="mb-8">

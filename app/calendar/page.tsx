@@ -96,7 +96,9 @@ export default async function CalendarPage({
         filters,
       }),
       supabase.from("universities").select("id, name").order("name"),
-      listUpcomingJoinedEvents(user.id, 5),
+      user.role === "general"
+        ? Promise.resolve([])
+        : listUpcomingJoinedEvents(user.id, 5),
       // 一般ユーザーはサークルに所属しないので問い合わせ自体を省く
       user.role === "general"
         ? Promise.resolve([])
@@ -159,18 +161,22 @@ export default async function CalendarPage({
         }
       />
 
-      {upcoming.length > 0 ? (
-        <section className="mb-6">
-          <EventDeck events={upcoming} />
-        </section>
-      ) : (
-        <p className="glass-empty mb-6 py-6">
-          参加予定のイベントはありません。
-          <Link href="/events" className="ml-1 font-medium underline">
-            イベントを探す
-          </Link>
-        </p>
-      )}
+      {/* 一般ユーザーは参加登録をしないので、枠ごと出さない。
+          常に空の「参加予定はありません」が出ると、登録できるのに
+          していないだけ、と読めてしまう。 */}
+      {user.role !== "general" &&
+        (upcoming.length > 0 ? (
+          <section className="mb-6">
+            <EventDeck events={upcoming} />
+          </section>
+        ) : (
+          <p className="glass-empty mb-6 py-6">
+            参加予定のイベントはありません。
+            <Link href="/events" className="ml-1 font-medium underline">
+              イベントを探す
+            </Link>
+          </p>
+        ))}
 
       {activeCircles.length > 0 && (
         <section className="mb-6">
