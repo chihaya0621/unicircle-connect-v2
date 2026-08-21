@@ -121,6 +121,14 @@ export async function listVisibleEvents(
     query = query.eq("visibility", "public");
   }
 
+  // 未ログインには大学主催のものだけを出す。
+  // サークルの告知は「参加登録をお願いします」のように中の人へ向けた
+  // 文面が多く、通りすがりの人が最初に見るものとしては噛み合わない。
+  // サークルの活動はサークル一覧から辿ってもらう。
+  if (role === null) {
+    query = query.not("host_university_id", "is", null);
+  }
+
   const { data, error } = await query.returns<EventListItem[]>();
 
   if (error) {

@@ -14,7 +14,7 @@ import {
   listFavoriteCircleIds,
   listWatchedUniversityIds,
 } from "@/lib/discovery";
-import { getMyUniversityId, requireUser } from "@/lib/dal";
+import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
 
 export const metadata: Metadata = { title: "サークル | UniCircle Connect" };
 
@@ -23,11 +23,15 @@ export default async function CirclesPage({
 }: {
   searchParams: Promise<{ others?: string; fav?: string }>;
 }) {
-  // 一般ユーザーにも開く。公開サークルだけが見えることは
-  // RLS（0019_public_discovery.sql）が担保している。
-  const user = await requireUser();
+  // 未ログインにも開く。公開設定のサークルだけが見えることは
+  // RLS（0021_circle_public_profile.sql）が担保している。
+  const user = await getCurrentUser();
   const universityId = await getMyUniversityId();
-  const isGeneral = user.role === "general";
+  const isAnon = user === null;
+  const isGeneral = user?.role === "general";
+  // 所属の文脈が無い人には、大学ごとにまとめて見せる。
+  // 平坦な一覧だと、どこの大学の話なのかが読み取れない。
+  const groupByUniversity = isAnon;
 
   // 他大学のサークル（インカレ・合同）を出すかは URL クエリで持つ。
   // 既定は非表示。インカレが増えるほど自大学の一覧が埋もれるため。
@@ -35,22 +39,23 @@ export default async function CirclesPage({
   const showOtherUniversities = others === "1";
   const favoritesOnly = fav === "1";
 
-  const favoriteIds = await listFavoriteCircleIds();
+  // 気になる登録はログインしている人だけのもの
+  const favoriteIds = user ? await listFavoriteCircleIds() : new Set<string>();
 
   // 一般ユーザーは所属大学を持たないので、本人が指定した大学に寄せる
   const watchedIds = isGeneral ? await listWatchedUniversityIds() : [];
 
-  const myCircleIds = isGeneral
-    ? new Set<string>()
-    : await getMyCircleIds(user.id);
+  const myCircleIds =
+    user && !isGeneral ? await getMyCircleIds(user.id) : new Set<string>();
 
-  const listed = isGeneral
-    ? await listPublicCircles(watchedIds, favoriteIds)
-    : await listApprovedCircles(universityId, {
-        isStaff: user.role === "staff",
-        showOtherUniversities,
-        myCircleIds,
-      });
+  const listed =
+    isAnon || isGeneral
+      ? await listPublicCircles(watchedIds, favoriteIds)
+      : await listApprovedCircles(universityId, {
+          isStaff: user.role === "staff",
+          showOtherUniversities,
+          myCircleIds,
+        });
 
   const { hiddenCount, error } = listed;
   const circles = favoritesOnly
@@ -59,16 +64,34 @@ export default async function CirclesPage({
 
   // 職員には自分の大学の承認待ちキューを見せる
   const pending =
-    user.role === "staff" ? await listPendingCircles(user.id) : [];
+    user?.role === "staff" ? await listPendingCircles(user.id) : [];
+
+  // 大学ごとにまとめる。大学名の五十音順、同じ大学の中はサークル名順。
+  const byUniversity = groupByUniversity
+    ? [...
+        circles
+          .reduce((map, c) => {
+            const name = c.university?.name ?? "所属大学未設定";
+            (map.get(name) ?? map.set(name, []).get(name)!).push(c);
+            return map;
+          }, new Map<string, typeof circles>())
+          .entries(),
+      ].sort((a, b) => a[0].localeCompare(b[0], "ja"))
+    : [];
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <PageHero
         variant="arc"
         eyebrow="CIRCLES"
-        title={isGeneral ? "サークルを見る" : "サークル"}
+        title={isAnon || isGeneral ? "サークルを探す" : "サークル"}
         description={
-          isGeneral ? (
+          isAnon ? (
+            <>
+              公開されているサークルを大学ごとに表示しています。
+              登録すると、気になるサークルに印を付けておけます。
+            </>
+          ) : isGeneral ? (
             <>
               公開されているサークルを表示しています。
               {watchedIds.length > 0
@@ -96,13 +119,17 @@ export default async function CirclesPage({
                   : `気になる ${favoriteIds.size}件`}
               </Link>
             )}
-            {isGeneral ? (
+            {isAnon ? (
+              <Link href="/signup" className="btn-primary">
+                新規登録
+              </Link>
+            ) : isGeneral ? (
               <Link href="/mypage" className="btn-ghost py-2">
                 大学を指定
                 {watchedIds.length > 0 && `（${watchedIds.length}校）`}
               </Link>
             ) : (
-              user.role === "student" && (
+              user?.role === "student" && (
                 <Link href="/circles/new" className="btn-primary">
                   サークルを設立する
                 </Link>
@@ -178,7 +205,11 @@ export default async function CirclesPage({
         </p>
       )}
 
-      <div className={`mb-4 flex flex-wrap items-center gap-3 ${isGeneral ? "hidden" : ""}`}>
+      <div
+        className={`mb-4 flex flex-wrap items-center gap-3 ${
+          isAnon || isGeneral ? "hidden" : ""
+        }`}
+      >
         <Link
           href={showOtherUniversities ? "/circles" : "/circles?others=1"}
           className="rounded-lg border border-black/15 px-3 py-1.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
@@ -198,14 +229,34 @@ export default async function CirclesPage({
         <p className="glass-empty py-12">
           {favoritesOnly
             ? "気になるサークルはまだありません。カードのハートで印を付けられます。"
-            : isGeneral
-              ? watchedIds.length > 0
-                ? "指定した大学に公開サークルがありません。指定を見直してみてください。"
-                : "公開されているサークルはまだありません。"
-              : showOtherUniversities
-                ? "参加できるサークルはまだありません。"
-                : "自大学のサークルはまだありません。「他大学のサークルも表示する」で範囲を広げられます。"}
+            : isAnon
+              ? "公開されているサークルはまだありません。"
+              : isGeneral
+                ? watchedIds.length > 0
+                  ? "指定した大学に公開サークルがありません。指定を見直してみてください。"
+                  : "公開されているサークルはまだありません。"
+                : showOtherUniversities
+                  ? "参加できるサークルはまだありません。"
+                  : "自大学のサークルはまだありません。「他大学のサークルも表示する」で範囲を広げられます。"}
         </p>
+      ) : groupByUniversity ? (
+        <div className="space-y-10">
+          {byUniversity.map(([universityName, list]) => (
+            <section key={universityName}>
+              <div className="mb-3 flex items-baseline gap-3">
+                <h2 className="text-lg font-semibold">{universityName}</h2>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {list.length}件
+                </span>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {list.map((circle) => (
+                  <CircleCard key={circle.id} circle={circle} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {circles.map((circle) => (

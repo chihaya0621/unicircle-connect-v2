@@ -37,9 +37,9 @@ export async function Header() {
   const unread = user ? await getUnreadCount() : 0;
 
   const items: NavItem[] = [];
-  // 一般ユーザー（高校生・企業）は公開情報を見に来る人なので、
-  // 探す場所を先頭に置く。学生・職員は自分の予定が先。
-  if (user?.role === "general") {
+  // 公開情報を見に来る人（未ログイン・一般）は、探す場所を先頭に置く。
+  // 学生・職員は自分の予定が先。
+  if (!user || user.role === "general") {
     items.push({ href: "/circles", label: "サークル" });
   }
   if (user) items.push({ href: "/calendar", label: "カレンダー" });

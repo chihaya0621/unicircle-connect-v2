@@ -29,7 +29,7 @@ import {
   listMembers,
 } from "@/lib/circles";
 import { listFavoriteCircleIds } from "@/lib/discovery";
-import { requireUser } from "@/lib/dal";
+import { getCurrentUser } from "@/lib/dal";
 
 const activityDateFormatter = new Intl.DateTimeFormat("ja-JP", {
   dateStyle: "medium",
@@ -56,20 +56,22 @@ export default async function CircleDetailPage({
   const circle = await getCircle(id);
   if (!circle) notFound();
 
-  // 一覧と同じく一般ユーザーも到達できる。ここに来られた時点で
-  // RLS を通っているので、非公開サークルなら getCircle が null を返す。
-  const user = await requireUser();
-  const isGeneral = user.role === "general";
-  const membership = isGeneral ? null : await getMyMembership(id, user.id);
+  // 一覧と同じく、一般ユーザーと未ログインも到達できる。
+  // 掲載していないサークルなら RLS が弾き、getCircle が null を返す。
+  const user = await getCurrentUser();
+  // 所属を持たない閲覧者。メンバー情報の問い合わせ自体を省く
+  const isOutsider = user === null || user.role === "general";
+  const membership =
+    user && !isOutsider ? await getMyMembership(id, user.id) : null;
   const canManage = isCircleAdmin(membership);
 
   // 承認待ちのサークルは、関係者（メンバー）と職員以外には見せない
-  const isInsider = membership !== null || user.role === "staff";
+  const isInsider = membership !== null || user?.role === "staff";
   if (circle.status !== "approved" && !isInsider) notFound();
 
-  // 一般ユーザーは RLS でメンバーを1件も読めないので、問い合わせ自体を省く
-  const members = isGeneral ? [] : await listMembers(id);
-  const favoriteIds = await listFavoriteCircleIds();
+  // 部外者は RLS でメンバーを1件も読めないので、問い合わせ自体を省く
+  const members = isOutsider ? [] : await listMembers(id);
+  const favoriteIds = user ? await listFavoriteCircleIds() : new Set<string>();
 
   // 掲示板はメンバーのみ。RLS でも非メンバーには 0 件になる。
   const isMember = membership?.status === "active";
@@ -84,7 +86,9 @@ export default async function CircleDetailPage({
   // 承認済みサークルのみイベントを持ちうる
   const upcoming =
     circle.status === "approved" ? await listUpcomingCircleEvents(id, 1) : [];
-  const relations = await resolveEventRelations(user.id, upcoming);
+  const relations = user
+    ? await resolveEventRelations(user.id, upcoming)
+    : new Map<string, "joined" | "my-circle" | "other">();
 
   // 活動記録はメンバーだけに見せる。外部に活動履歴まで公開する必要はない。
   const activity = isMember
@@ -110,7 +114,7 @@ export default async function CircleDetailPage({
             )}
             <h1 className="text-2xl font-bold tracking-tight">{circle.name}</h1>
           </div>
-          {circle.status === "approved" && (
+          {circle.status === "approved" && user && (
             <FavoriteButton
               circleId={circle.id}
               isFavorite={favoriteIds.has(circle.id)}
@@ -148,11 +152,21 @@ export default async function CircleDetailPage({
 
         {circle.status === "approved" && (
           <div className="mt-6">
-            <JoinCircleButton
-              circleId={circle.id}
-              viewerRole={user.role}
-              membership={membership}
-            />
+            {user ? (
+              <JoinCircleButton
+                circleId={circle.id}
+                viewerRole={user.role}
+                membership={membership}
+              />
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                公開されている情報を表示しています。
+                <Link href="/signup" className="mx-1 font-medium underline">
+                  新規登録
+                </Link>
+                すると、気になるサークルに印を付けておけます。
+              </p>
+            )}
           </div>
         )}
       </header>
@@ -257,7 +271,7 @@ export default async function CircleDetailPage({
               <PostList
                 posts={posts}
                 isAdmin={canManage}
-                currentUserName={user.name}
+                currentUserName={user?.name ?? ""}
                 emptyLabel="まだ何も貼られていません。"
               />
             </div>
@@ -312,7 +326,7 @@ export default async function CircleDetailPage({
         </section>
       )}
 
-      {!isGeneral && (
+      {!isOutsider && (
         <MemberList
           members={members}
           circleId={circle.id}

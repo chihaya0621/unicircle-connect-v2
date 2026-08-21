@@ -47,16 +47,22 @@ export default async function EventsPage() {
         eyebrow="EVENTS"
         title="イベント"
         description={
-          isGeneral
-            ? watchedIds.length > 0
-              ? "指定した大学の公開イベントを表示しています。"
-              : "公開イベントを表示しています。気になる大学を指定すると絞り込めます。"
-            : isLimitedView
-              ? "公開イベントを表示しています。学内限定イベントは学生・職員アカウントで閲覧できます。"
-              : "あなたが閲覧できる、開催予定のイベントを表示しています。"
+          !user
+            ? "大学が主催する公開イベントを表示しています。サークルの活動はサークル一覧から見られます。"
+            : isGeneral
+              ? watchedIds.length > 0
+                ? "指定した大学の公開イベントを表示しています。"
+                : "公開イベントを表示しています。気になる大学を指定すると絞り込めます。"
+              : isLimitedView
+                ? "公開イベントを表示しています。学内限定イベントは学生・職員アカウントで閲覧できます。"
+                : "あなたが閲覧できる、開催予定のイベントを表示しています。"
         }
         action={
-          isGeneral ? (
+          !user ? (
+            <Link href="/circles" className="btn-ghost py-2">
+              サークルを探す
+            </Link>
+          ) : isGeneral ? (
             <Link href="/mypage" className="btn-ghost py-2">
               大学を指定
               {watchedIds.length > 0 && `（${watchedIds.length}校）`}
@@ -93,9 +99,11 @@ export default async function EventsPage() {
 
       {!error && events.length === 0 && (
         <p className="glass-empty py-12">
-          {isGeneral && watchedIds.length > 0
-            ? "指定した大学に、開催予定の公開イベントがありません。"
-            : "開催予定のイベントはまだありません。"}
+          {!user
+            ? "開催予定の公開イベントはまだありません。"
+            : isGeneral && watchedIds.length > 0
+              ? "指定した大学に、開催予定の公開イベントがありません。"
+              : "開催予定のイベントはまだありません。"}
         </p>
       )}
 
