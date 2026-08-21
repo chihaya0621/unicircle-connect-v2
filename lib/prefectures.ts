@@ -23,10 +23,6 @@ export type Prefecture = (typeof PREFECTURES)[number];
 /** 未設定の大学をまとめる先。都道府県名と衝突しない文字列にしている */
 export const PREFECTURE_UNKNOWN = "所在地未設定";
 
-export function isPrefecture(value: string): value is Prefecture {
-  return (PREFECTURES as readonly string[]).includes(value);
-}
-
 /** 並べ替え用の順位。未設定は最後 */
 export function prefectureOrder(name: string): number {
   const index = (PREFECTURES as readonly string[]).indexOf(name);

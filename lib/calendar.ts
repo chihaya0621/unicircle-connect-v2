@@ -27,12 +27,6 @@ export type CalendarFilters = {
   search: string;
 };
 
-export const EMPTY_FILTERS: CalendarFilters = {
-  universities: [],
-  showUnjoinedCircles: false,
-  search: "",
-};
-
 const CALENDAR_SELECT = `
   id, title, description, event_date, visibility, target_grades, image_path,
   host_university_id, host_circle_id,

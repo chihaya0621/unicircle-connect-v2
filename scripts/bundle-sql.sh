@@ -25,7 +25,6 @@ SOURCES=(
   "migrations/0009_profile.sql"
   "migrations/0010_student_registration.sql"
   "migrations/0011_circle_posts.sql"
-  "migrations/0012_activities.sql"
   "migrations/0013_event_attendance.sql"
   "migrations/0014_notifications.sql"
   "migrations/0015_images.sql"

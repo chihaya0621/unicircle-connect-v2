@@ -18,11 +18,3 @@ export const REMINDER_OPTIONS: ReminderOption[] = [
   { minutes: 4320, label: "3日前" },
   { minutes: 10080, label: "1週間前" },
 ];
-
-export function reminderLabel(minutes: number | null): string {
-  if (minutes === null) return "通知しない";
-  return (
-    REMINDER_OPTIONS.find((o) => o.minutes === minutes)?.label ??
-    `${minutes}分前`
-  );
-}
