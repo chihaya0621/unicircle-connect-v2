@@ -407,6 +407,15 @@ export type Database = {
         Args: { p_event_id: string; p_path?: string };
         Returns: undefined;
       };
+      /** サークルの活動記録に出す参加人数（0018。個人は返さない） */
+      circle_event_stats: {
+        Args: { p_circle_id: string };
+        Returns: {
+          stat_event_id: string;
+          stat_registered: number;
+          stat_present: number;
+        }[];
+      };
       /** 表示テーマの変更（0016。対象は常に自分自身） */
       set_my_theme: { Args: { p_theme: Theme }; Returns: undefined };
       /** 通知を既読にする（0014。p_ids 省略で全件） */

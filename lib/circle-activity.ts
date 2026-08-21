@@ -24,8 +24,10 @@ export type ActivitySummary = {
  * すでに入っているので、それを振り返る形にする。別テーブルを持つと
  * 同じ活動を2回入力することになり、記録が食い違う。
  *
- * 出欠の内訳は主催者しか読めない（RLS）。メンバーには参加登録の人数だけが
- * 見える形になり、それでも「どのくらいの規模だったか」は分かる。
+ * 人数は circle_event_stats（RPC）から取る。event_participants を直接
+ * 数えると、RLS により一般メンバーには自分の1件しか返らず、
+ * 常に「1人」と表示されてしまうため。
+ * この RPC は人数だけを返し、誰が参加したかは返さない。
  */
 export async function getCircleActivity(
   circleId: string,
@@ -35,21 +37,21 @@ export async function getCircleActivity(
   if (events.length === 0) return { activities: [], total: 0 };
 
   const supabase = await createClient();
-  const { data: participants } = await supabase
-    .from("event_participants")
-    .select("event_id, status, attended")
-    .in(
-      "event_id",
-      events.map((e) => e.id),
-    );
+  const { data: stats, error } = await supabase.rpc("circle_event_stats", {
+    p_circle_id: circleId,
+  });
+
+  if (error) {
+    // 集計が取れなくても活動の一覧自体は出す
+    console.error("活動記録の集計に失敗しました:", error.message);
+  }
 
   const byEvent = new Map<string, { present: number; registered: number }>();
-  for (const p of participants ?? []) {
-    if (p.status !== "going") continue;
-    const acc = byEvent.get(p.event_id) ?? { present: 0, registered: 0 };
-    acc.registered += 1;
-    if (p.attended === true) acc.present += 1;
-    byEvent.set(p.event_id, acc);
+  for (const s of stats ?? []) {
+    byEvent.set(s.stat_event_id, {
+      registered: s.stat_registered,
+      present: s.stat_present,
+    });
   }
 
   return {
