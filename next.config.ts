@@ -7,6 +7,13 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
   : undefined;
 
 const nextConfig: NextConfig = {
+  // 出力先を環境変数で差し替えられるようにしておく。
+  // 開発サーバーを動かしたまま検証用のビルドを回すと、同じ .next を
+  // 奪い合ってキャッシュが壊れる（実際に一度壊して全ページ 404 になった）。
+  // 使ったあとは tsconfig.json の include に検証用ディレクトリが
+  // 書き足されるので、元に戻してからコミットすること。
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
+
   // ダッシュボードはカレンダーに統合した。中身（参加予定・所属サークル）は
   // すべてカレンダー側に移してあるので、古いリンクはそちらへ送る。
   // permanent: false なのは、ブラウザに 308 を焼き付けたくないため。
