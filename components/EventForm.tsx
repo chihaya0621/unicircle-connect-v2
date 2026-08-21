@@ -109,6 +109,25 @@ export function EventForm({
         </Select>
       </Field>
 
+      {/* 学外向けの案内に載せるかは、全体公開のときだけ意味がある */}
+      {visibility === "public" && (
+        <label className="flex items-start gap-2.5 text-sm">
+          <input
+            type="checkbox"
+            name="public_listed"
+            className="field-check mt-0.5"
+          />
+          <span>
+            学外の方向けの案内にも載せる
+            <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+              未ログインの方が見るイベント一覧に出ます。
+              オープンキャンパスや学園祭など、学外の方を迎える行事に使ってください。
+              学内向けの行事（防災訓練・ガイダンスなど）には付けないでください。
+            </span>
+          </span>
+        </label>
+      )}
+
       {visibility === "scoped" && (
         <fieldset className="rounded-lg border border-black/10 p-4 dark:border-white/10">
           <legend className="px-1 text-sm font-medium">公開する大学</legend>

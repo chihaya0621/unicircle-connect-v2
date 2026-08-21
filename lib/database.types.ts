@@ -304,6 +304,8 @@ export type Database = {
           event_date: string;
           visibility: EventVisibility;
           target_grades: string[] | null;
+          /** 学外の方向けの案内に載せるか（0025） */
+          public_listed: boolean;
           image_path: string | null;
           created_at: string;
         };
@@ -486,7 +488,7 @@ export type Database = {
         Args: { p_facility_id: string; p_available: boolean };
         Returns: undefined;
       };
-      /** イベント作成。作成した event の id を返す（0005_events.sql） */
+      /** イベント作成。作成した event の id を返す（0005 / 0025） */
       create_event: {
         Args: {
           p_title: string;
@@ -496,6 +498,7 @@ export type Database = {
           p_circle_id?: string;
           p_target_grades?: string[];
           p_university_ids?: string[];
+          p_public_listed?: boolean;
         };
         Returns: string;
       };

@@ -38,6 +38,7 @@ SOURCES=(
   "migrations/0022_event_reminders.sql"
   "migrations/0023_university_details.sql"
   "migrations/0024_campus_location.sql"
+  "migrations/0025_public_events.sql"
   "seed.sql"
 )
 

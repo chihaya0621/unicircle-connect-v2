@@ -79,6 +79,8 @@ export async function createEvent(
     p_circle_id: circleId || undefined,
     p_target_grades: targetGrades.length ? targetGrades : undefined,
     p_university_ids: visibility === "scoped" ? universityIds : undefined,
+    // 学内限定のものは、指定されても DB 側で false に倒される
+    p_public_listed: formData.get("public_listed") !== null,
   });
 
   if (error) return { error: error.message };

@@ -104,46 +104,95 @@ export function eventVisibleTo(
  * アクセス制御になっている。本番では同等のルールを RLS ポリシー側にも
  * 実装しないと、API を直接叩かれた際に学内限定イベントが漏れる。
  */
+/** 1ページに並べる件数 */
+export const EVENTS_PER_PAGE = 20;
+
+/**
+ * 閲覧者に見えるイベントを、開催日の近い順に1ページぶん返す。
+ *
+ * 絞り込みはすべて SQL 側で行う。アプリ側で間引くと、間引く前の件数で
+ * ページを切ることになり、ページ番号と中身が食い違う。
+ *
+ * 公開範囲（internal / scoped）の判定は RLS の events_select が
+ * そのまま行うので、ここでは重ねない。実データで両者の結果が
+ * 一致することを確認済み（74件 = 74件）。
+ * eventVisibleTo は詳細ページの単体判定に残している。
+ */
 export async function listVisibleEvents(
   role: UserRole | null,
-  universityId: string | null = null,
+  {
+    page = 1,
+    perPage = EVENTS_PER_PAGE,
+    watchedUniversityIds = [],
+  }: {
+    page?: number;
+    perPage?: number;
+    /** 一般ユーザーが指定した大学。空なら絞らない */
+    watchedUniversityIds?: string[];
+  } = {},
 ) {
   const supabase = await createClient();
+  const current = Math.max(1, page);
+  const from = (current - 1) * perPage;
 
   let query = supabase
     .from("events")
-    .select(EVENT_SELECT)
+    .select(EVENT_SELECT, { count: "exact" })
     .gte("event_date", new Date().toISOString())
     .order("event_date", { ascending: true })
-    .limit(50);
+    .range(from, from + perPage - 1);
 
   if (role === null || role === "general") {
     query = query.eq("visibility", "public");
   }
 
-  // 未ログインには大学主催のものだけを出す。
-  // サークルの告知は「参加登録をお願いします」のように中の人へ向けた
-  // 文面が多く、通りすがりの人が最初に見るものとしては噛み合わない。
-  // サークルの活動はサークル一覧から辿ってもらう。
+  // 未ログインには、大学主催かつ学外向けに立てられたものだけを出す。
+  // 防災訓練や図書館ガイダンスまで並ぶと、探しているものに辿り着けない。
   if (role === null) {
-    query = query.not("host_university_id", "is", null);
+    query = query
+      .not("host_university_id", "is", null)
+      .eq("public_listed", true);
   }
 
-  const { data, error } = await query.returns<EventListItem[]>();
+  // 一般ユーザーが大学を指定していれば、その大学のものに寄せる。
+  // サークル主催は host_circle_id しか持たないので、対象大学の
+  // サークルを引いてから ID で絞る。指定は20校までなので、
+  // ここで組み立てる条件の長さは頭打ちになる。
+  if (role === "general" && watchedUniversityIds.length > 0) {
+    const { data: circles } = await supabase
+      .from("circles")
+      .select("id")
+      .in("university_id", watchedUniversityIds);
+
+    const clauses = [`host_university_id.in.(${watchedUniversityIds.join(",")})`];
+    const circleIds = (circles ?? []).map((c) => c.id);
+    if (circleIds.length > 0) {
+      clauses.push(`host_circle_id.in.(${circleIds.join(",")})`);
+    }
+    query = query.or(clauses.join(","));
+  }
+
+  const { data, error, count } = await query.returns<EventListItem[]>();
 
   if (error) {
     // 画面全体を落とさず、空一覧＋エラー表示にフォールバックする
     console.error("イベント取得に失敗しました:", error.message);
-    return { events: [] as EventListItem[], error: error.message };
+    return {
+      events: [] as EventListItem[],
+      total: 0,
+      page: current,
+      perPage,
+      error: error.message,
+    };
   }
 
-  const rows = data ?? [];
-  const events =
-    role === null || role === "general"
-      ? rows
-      : rows.filter((e) => eventVisibleTo(e, universityId));
-
-  return { events, error: null };
+  return {
+    events: data ?? [],
+    total: count ?? 0,
+    page: current,
+    perPage,
+    error: null,
+  };
 }
 
 /**

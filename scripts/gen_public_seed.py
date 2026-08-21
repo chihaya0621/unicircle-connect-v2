@@ -158,12 +158,73 @@ w("                     public_listed, public_intro, public_schedule, public_con
 w(",\n".join(circle_rows))
 w("ON CONFLICT (id) DO NOTHING;")
 w("")
+# -----------------------------------------------------------------------------
+# イベント
+# -----------------------------------------------------------------------------
+# 学外向け（オープンキャンパス・学園祭など）と学内向け（防災訓練・
+# ガイダンスなど）を混ぜる。未ログインに出るのは前者だけになる。
+
+OPEN = [
+    ("オープンキャンパス", "学部紹介、模擬授業、キャンパスツアーを行います。高校生の方はどなたでも参加できます。保護者の方の同伴も歓迎します。"),
+    ("大学祭", "模擬店、ステージ企画、研究展示を行います。地域の皆さまもぜひお越しください。入場無料です。"),
+    ("公開講座", "教員による一般向けの講座です。専門知識は不要で、どなたでも受講できます。"),
+    ("キャンパス見学会", "施設と設備をご案内します。在学生が案内役を務めます。"),
+]
+INTERNAL = [
+    ("防災訓練", "全学の避難訓練を実施します。授業は一時中断します。"),
+    ("図書館ガイダンス", "文献検索の使い方を説明します。"),
+    ("履修相談会", "履修登録の相談を受け付けます。"),
+    ("健康診断", "学年別の日程で実施します。"),
+    ("就職ガイダンス", "就職活動の進め方を説明します。"),
+]
+
+event_rows = []
+n_ev = 0
+for u in unis:
+    # 学外向け: 各大学2〜3件
+    for title, desc in random.sample(OPEN, random.randint(2, 3)):
+        n_ev += 1
+        days = random.randint(3, 300)
+        event_rows.append(
+            "  ('%s', '%s', NULL, '%s%d', '%s', now() + interval '%d days', "
+            "'public', ARRAY['高校生','一般'], true)"
+            % (uid("b4000000", n_ev), u["id"], title, 2026, desc, days))
+    # 学内向け: 各大学2〜4件
+    for title, desc in random.sample(INTERNAL, random.randint(2, 4)):
+        n_ev += 1
+        days = random.randint(3, 200)
+        vis = "public" if random.random() < 0.5 else "internal"
+        event_rows.append(
+            "  ('%s', '%s', NULL, '%s', '%s', now() + interval '%d days', "
+            "'%s', NULL, false)"
+            % (uid("b4000000", n_ev), u["id"], title, desc, days, vis))
+
+# サークル主催。未ログインには出ないが、学生の一覧では件数が増える
+CIRCLE_EVENTS = ["新歓ライブ", "練習試合", "定期演奏会", "作品展示会", "合宿説明会", "もくもく会"]
+for row in circle_rows:
+    if random.random() > 0.35:
+        continue
+    cid = row.split("'")[1]
+    n_ev += 1
+    days = random.randint(2, 120)
+    event_rows.append(
+        "  ('%s', NULL, '%s', '%s', 'メンバー向けの案内です。', "
+        "now() + interval '%d days', 'public', NULL, false)"
+        % (uid("b4000000", n_ev), cid, random.choice(CIRCLE_EVENTS), days))
+
+w("INSERT INTO events (id, host_university_id, host_circle_id, title, description,")
+w("                    event_date, visibility, target_grades, public_listed) VALUES")
+w(",\n".join(event_rows))
+w("ON CONFLICT (id) DO NOTHING;")
+w("")
 w("-- 確認用")
 w("SELECT")
 w("  (SELECT count(*) FROM universities) AS universities,")
 w("  (SELECT count(*) FROM campuses)     AS campuses,")
 w("  (SELECT count(DISTINCT prefecture) FROM campuses) AS prefectures,")
-w("  (SELECT count(*) FROM circles WHERE status='approved') AS circles;")
+w("  (SELECT count(*) FROM circles WHERE status='approved') AS circles,")
+w("  (SELECT count(*) FROM events WHERE event_date > now()) AS events,")
+w("  (SELECT count(*) FROM events WHERE event_date > now() AND public_listed) AS public_events;")
 
 open("supabase/seed_public_directory.sql", "w", encoding="utf-8").write("\n".join(out) + "\n")
 print("大学 %d / キャンパス %d / サークル %d" % (len(unis), len(campuses), n))

@@ -3,20 +3,20 @@ import Link from "next/link";
 
 import { PageHero } from "@/components/PageHero";
 import { EventCard } from "@/components/EventCard";
-import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
+import { getCurrentUser } from "@/lib/dal";
 import { listWatchedUniversityIds } from "@/lib/discovery";
 import { listVisibleEvents, resolveEventRelations } from "@/lib/events";
 import { RELATION_BADGE, RELATION_LABEL } from "@/lib/event-sources";
 
 export const metadata: Metadata = { title: "イベント | UniCircle Connect" };
 
-export default async function EventsPage() {
+export default async function EventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page: pageParam } = await searchParams;
   const user = await getCurrentUser();
-  const universityId = await getMyUniversityId();
-  const { events: allEvents, error } = await listVisibleEvents(
-    user?.role ?? null,
-    universityId,
-  );
 
   const isLimitedView = !user || user.role === "general";
   const isGeneral = user?.role === "general";
@@ -24,15 +24,20 @@ export default async function EventsPage() {
   // 一般ユーザーは所属大学を持たないので、本人が指定した大学に寄せる。
   // 指定が無いうちは全部見せる。最初に来た人に空の画面を出さないため。
   const watchedIds = isGeneral ? await listWatchedUniversityIds() : [];
-  const watched = new Set(watchedIds);
-  const events =
-    watched.size > 0
-      ? allEvents.filter((e) => {
-          const hostUniversity =
-            e.host_university_id ?? e.host_circle?.university_id ?? null;
-          return hostUniversity !== null && watched.has(hostUniversity);
-        })
-      : allEvents;
+
+  const requestedPage = Number(pageParam);
+  const { events, total, page, perPage, error } = await listVisibleEvents(
+    user?.role ?? null,
+    {
+      page: Number.isInteger(requestedPage) ? requestedPage : 1,
+      watchedUniversityIds: watchedIds,
+    },
+  );
+
+  const lastPage = Math.max(1, Math.ceil(total / perPage));
+  const firstIndex = total === 0 ? 0 : (page - 1) * perPage + 1;
+  const lastIndex = Math.min(page * perPage, total);
+  const pageHref = (n: number) => (n <= 1 ? "/events" : `/events?page=${n}`);
 
   // 一覧は時系列のまま。関係は色分けでのみ示す。
   const relations = user
@@ -107,6 +112,12 @@ export default async function EventsPage() {
         </p>
       )}
 
+      {total > 0 && (
+        <p className="mb-3 text-sm text-gray-500 dark:text-gray-400 tabular-nums">
+          {total}件中 {firstIndex}〜{lastIndex}件
+        </p>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
         {events.map((event) => (
           <EventCard
@@ -116,6 +127,37 @@ export default async function EventsPage() {
           />
         ))}
       </div>
+
+      {lastPage > 1 && (
+        <nav
+          aria-label="ページ送り"
+          className="mt-8 flex flex-wrap items-center justify-center gap-3"
+        >
+          {page > 1 ? (
+            <Link href={pageHref(page - 1)} className="btn-ghost-sm">
+              ← 前の{perPage}件
+            </Link>
+          ) : (
+            <span className="btn-ghost-sm pointer-events-none opacity-40">
+              ← 前の{perPage}件
+            </span>
+          )}
+
+          <span className="text-sm tabular-nums text-gray-500 dark:text-gray-400">
+            {page} / {lastPage}
+          </span>
+
+          {page < lastPage ? (
+            <Link href={pageHref(page + 1)} className="btn-ghost-sm">
+              次の{perPage}件 →
+            </Link>
+          ) : (
+            <span className="btn-ghost-sm pointer-events-none opacity-40">
+              次の{perPage}件 →
+            </span>
+          )}
+        </nav>
+      )}
     </div>
   );
 }
