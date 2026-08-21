@@ -40,9 +40,10 @@ function tilt(id: string) {
 /**
  * コルクボードに貼られた連絡。
  *
- * 紙の高さがまちまちなので、段組み（columns）で詰めて並べる。
- * 行そろえのグリッドだと、短い紙の下に大きな空白が空いてしまい、
- * 「板に貼ってある」ようには見えない。
+ * 並べ方はグリッド。段組み（columns）だと、break-inside: avoid で
+ * 割れない紙と列の釣り合わせがぶつかり、収まりきらない紙が
+ * コルクの外へはみ出す。列ごとに高さをずらして、
+ * 揃いすぎて見えないようにしている。
  */
 export function PostList({
   posts,
@@ -68,7 +69,7 @@ export function PostList({
   }
 
   return (
-    <ul className="columns-1 gap-4 sm:columns-2">
+    <ul className="note-wall">
       {posts.map((post) => {
         const isMine = post.author?.name === currentUserName;
         const canDelete = isMine || isAdmin;
@@ -76,9 +77,7 @@ export function PostList({
         return (
           <li
             key={post.id}
-            className={`note mb-6 break-inside-avoid ${
-              post.is_pinned ? "note-pinned" : ""
-            }`}
+            className={post.is_pinned ? "note note-pinned" : "note"}
             style={{ "--tilt": `${tilt(post.id)}deg` } as CSSProperties}
           >
             {post.is_pinned && (

@@ -1001,3 +1001,25 @@ a {
   rotate: 0deg;
   translate: 0 0;
 }
+
+/** 紙を貼る面の並び。
+    段組み（columns）は使わない。break-inside: avoid と釣り合わせを
+    同時に指定すると、収まりきらない紙がコルクの外へはみ出す。
+    グリッドなら器の外に出ることはない。 */
+@utility note-wall {
+  display: grid;
+  grid-template-columns: 1fr;
+  /* 行の間は画鋲が飛び出すぶんを見込んで広めに取る */
+  gap: 1.75rem 1rem;
+  align-items: start;
+}
+
+@media (width >= 40rem) {
+  .note-wall {
+    grid-template-columns: 1fr 1fr;
+  }
+  /* 右の列だけ少し下げる。きれいに揃っていると板に貼ったように見えない */
+  .note-wall > :nth-child(even) {
+    margin-top: 1.5rem;
+  }
+}

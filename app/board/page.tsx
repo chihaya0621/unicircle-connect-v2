@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PageHero } from "@/components/PageHero";
 import { PostComposer } from "@/components/PostComposer";
 import { PostList } from "@/components/PostList";
-import { listMyBoards } from "@/lib/board";
+import { BOARD_VISIBLE_DAYS, listMyBoards } from "@/lib/board";
 import { requireRole } from "@/lib/dal";
 
 export const metadata: Metadata = { title: "掲示板 | UniCircle Connect" };
@@ -20,7 +20,7 @@ export default async function BoardPage() {
         variant="blobs"
         eyebrow="BOARD"
         title="掲示板"
-        description="所属しているサークルごとの連絡です。メンバー以外には見えません。"
+        description={`所属しているサークルごとの連絡です。メンバー以外には見えません。貼られた紙は${BOARD_VISIBLE_DAYS}日で下がりますが、お知らせに固定したものは残ります。`}
       />
 
       {boards.length === 0 ? (

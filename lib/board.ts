@@ -24,6 +24,24 @@ const POST_SELECT = `
   author:users!circle_posts_author_id_fkey(name)
 ` as const;
 
+/** 掲示板に貼っておく期間 */
+export const BOARD_VISIBLE_DAYS = 14;
+
+/**
+ * 掲示期間の絞り込み条件。
+ *
+ * 実際の掲示板と同じように、古い紙は自然に下がっていくようにする。
+ * ただし「お知らせ」として固定したものは、期間を過ぎても残す。
+ * 意図して貼り続けているものまで消えると、固定の意味がなくなるため。
+ *
+ * 行は消さずに表示から外すだけなので、期間を変えれば過去の投稿も戻る。
+ */
+function withinPostingPeriod() {
+  const since = new Date();
+  since.setDate(since.getDate() - BOARD_VISIBLE_DAYS);
+  return `is_pinned.eq.true,created_at.gte.${since.toISOString()}`;
+}
+
 /**
  * 所属サークルごとの掲示板。
  *
@@ -67,6 +85,7 @@ export async function listMyBoards(
       "circle_id",
       circles.map((c) => c.id),
     )
+    .or(withinPostingPeriod())
     .order("is_pinned", { ascending: false })
     .order("created_at", { ascending: false })
     .returns<CirclePost[]>();
@@ -99,6 +118,7 @@ export async function listCirclePosts(circleId: string) {
     .from("circle_posts")
     .select(POST_SELECT)
     .eq("circle_id", circleId)
+    .or(withinPostingPeriod())
     .order("is_pinned", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(100)

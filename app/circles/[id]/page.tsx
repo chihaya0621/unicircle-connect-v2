@@ -12,7 +12,7 @@ import { JoinCircleButton } from "@/components/JoinCircleButton";
 import { PostComposer } from "@/components/PostComposer";
 import { PostList } from "@/components/PostList";
 import { MemberList } from "@/components/MemberList";
-import { listCirclePosts } from "@/lib/board";
+import { BOARD_VISIBLE_DAYS, listCirclePosts } from "@/lib/board";
 import { getCircleActivity } from "@/lib/circle-activity";
 import { EventCard } from "@/components/EventCard";
 import {
@@ -175,7 +175,10 @@ export default async function CircleDetailPage({
 
       {isMember && (
         <section className="mb-10">
-          <h2 className="mb-3 text-lg font-semibold">掲示板</h2>
+          <h2 className="mb-1 text-lg font-semibold">掲示板</h2>
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            貼られた紙は{BOARD_VISIBLE_DAYS}日で下がります。お知らせに固定したものは残ります。
+          </p>
           <div className="cork-frame">
             <div className="cork p-4 sm:p-5">
               <div className="mb-5">
