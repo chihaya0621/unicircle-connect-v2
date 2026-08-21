@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Zen_Kaku_Gothic_New } from "next/font/google";
+import { Geist, Geist_Mono, M_PLUS_2 } from "next/font/google";
 import "./globals.css";
 
 import { Header } from "@/components/Header";
@@ -25,12 +25,15 @@ const geistMono = Geist_Mono({
  * 欧文は Geist のまま前に置き、日本語だけこちらに落とす。
  * 和文書体の欧文を使うより字面が締まり、追加の読み込みも増えない。
  *
+ * M PLUS 2 は骨格が幾何学的で、字面が大きく詰まって見える。
+ * 太いウェイトでも潰れにくいので、pop テーマの見出しと相性がよい。
+ *
  * ウェイトは 400 / 700 / 900 の3つに絞っている。日本語フォントは
  * 1ウェイトあたり約1MB・121ファイルに分割されて配信されるため、
  * 増やすほどビルドが重くなる。500（font-medium）は 400 に寄せた。
  */
-const zenKaku = Zen_Kaku_Gothic_New({
-  variable: "--font-zen-kaku",
+const mplus = M_PLUS_2({
+  variable: "--font-jp",
   subsets: ["latin"],
   weight: ["400", "700", "900"],
   display: "swap",
@@ -54,7 +57,7 @@ export default async function RootLayout({
     <html
       lang="ja"
       data-theme={theme}
-      className={`${geistSans.variable} ${geistMono.variable} ${zenKaku.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${mplus.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Header />
