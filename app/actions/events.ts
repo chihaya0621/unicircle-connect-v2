@@ -84,7 +84,7 @@ export async function createEvent(
   if (error) return { error: error.message };
 
   revalidatePath("/events");
-  revalidatePath("/dashboard");
+  revalidatePath("/calendar");
   redirect(`/events/${data}`);
 }
 
@@ -103,7 +103,7 @@ export async function deleteEvent(formData: FormData): Promise<void> {
   }
 
   revalidatePath("/events");
-  revalidatePath("/dashboard");
+  revalidatePath("/calendar");
   redirect("/events");
 }
 

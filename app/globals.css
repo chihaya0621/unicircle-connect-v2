@@ -31,7 +31,7 @@
   --orb-4: 251 191 36;
   --orb-alpha-1: 0.42;
   --orb-alpha-2: 0.34;
-  --orb-blur: 30px;
+  --orb-blur: 1.6vw;
   --grid-opacity: 0.35;
 
   /* 面 */
@@ -212,6 +212,12 @@ body {
    奥行きのあるメッシュ背景を作る。スクロールしても動かないので、
    ガラス面が背景の上を滑るように見える。
    pointer-events を切って操作の邪魔をしないようにしている。
+
+   寸法は必ず vw / vh / % で書くこと。ブラウザの拡大率を変えると
+   ビューポートの CSS ピクセル数が変わるが、rem と px は変わらない。
+   そのため rem で書くと、縮小表示にしたときだけ図形が画面に対して
+   小さくなり、意図しない構図になる。ビューポート基準にしておけば
+   どの拡大率でも同じ絵が拡縮するだけになる。
    ----------------------------------------------------------------------------- */
 
 body::before {
@@ -221,10 +227,10 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(38rem 32rem at 12% 8%,  rgb(var(--orb-1) / var(--orb-alpha-1)), transparent 60%),
-    radial-gradient(34rem 30rem at 88% 12%, rgb(var(--orb-2) / var(--orb-alpha-2)), transparent 62%),
-    radial-gradient(40rem 34rem at 78% 82%, rgb(var(--orb-3) / var(--orb-alpha-2)), transparent 60%),
-    radial-gradient(30rem 28rem at 18% 88%, rgb(var(--orb-4) / var(--orb-alpha-2)), transparent 62%);
+    radial-gradient(48vw 46vh at 12% 8%,  rgb(var(--orb-1) / var(--orb-alpha-1)), transparent 60%),
+    radial-gradient(44vw 42vh at 88% 12%, rgb(var(--orb-2) / var(--orb-alpha-2)), transparent 62%),
+    radial-gradient(50vw 48vh at 78% 82%, rgb(var(--orb-3) / var(--orb-alpha-2)), transparent 60%),
+    radial-gradient(38vw 38vh at 18% 88%, rgb(var(--orb-4) / var(--orb-alpha-2)), transparent 62%);
   filter: blur(var(--orb-blur)) saturate(120%);
   animation: orb-drift 28s ease-in-out infinite alternate;
 }
@@ -240,7 +246,7 @@ body::after {
   background-image:
     linear-gradient(rgb(var(--glass-border) / 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgb(var(--glass-border) / 0.08) 1px, transparent 1px);
-  background-size: 56px 56px;
+  background-size: 4vmin 4vmin;
   mask-image: radial-gradient(70% 60% at 50% 40%, black, transparent);
 }
 
@@ -486,8 +492,8 @@ a {
   left: -12%;
   top: 14%;
   width: 124%;
-  height: 22rem;
-  opacity: 0.16;
+  height: 34vh;
+  opacity: 0.14;
   background:
     linear-gradient(100deg,
       rgb(var(--orb-1)) 0%,
@@ -496,7 +502,9 @@ a {
       rgb(var(--orb-3)) 100%);
   border-radius: 50% 50% 46% 54% / 62% 58% 42% 38%;
   transform: rotate(-6deg);
-  mask-image: none;
+  /* 端を溶かす。切りっぱなしだと「大きな板が乗っている」ように見えてしまう */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
   animation: ribbon-wave 24s ease-in-out infinite alternate;
 }
 
@@ -512,10 +520,10 @@ a {
 [data-theme="berry"] body::before,
 :root:not([data-theme]) body::before {
   background-image:
-    radial-gradient(38rem 30rem at 8% 6%,   rgb(var(--orb-1) / var(--orb-alpha-1)), transparent 58%),
-    radial-gradient(30rem 26rem at 92% 10%, rgb(var(--orb-2) / var(--orb-alpha-2)), transparent 60%),
-    radial-gradient(34rem 30rem at 84% 86%, rgb(var(--orb-3) / var(--orb-alpha-2)), transparent 58%),
-    radial-gradient(28rem 24rem at 10% 92%, rgb(var(--orb-4) / var(--orb-alpha-2)), transparent 60%);
+    radial-gradient(46vw 44vh at 8% 6%,   rgb(var(--orb-1) / var(--orb-alpha-1)), transparent 58%),
+    radial-gradient(38vw 36vh at 92% 10%, rgb(var(--orb-2) / var(--orb-alpha-2)), transparent 60%),
+    radial-gradient(42vw 42vh at 84% 86%, rgb(var(--orb-3) / var(--orb-alpha-2)), transparent 58%),
+    radial-gradient(34vw 34vh at 10% 92%, rgb(var(--orb-4) / var(--orb-alpha-2)), transparent 60%);
 }
 
 /* pop の見出しは太く、詰めて力強く */
@@ -621,3 +629,190 @@ a {
 .tint-rose:hover   { --glass-border-alpha: 0.45; }
 .tint-indigo:hover { --glass-border-alpha: 0.42; }
 .tint-amber:hover  { --glass-border-alpha: 0.48; }
+
+/* -----------------------------------------------------------------------------
+   トップページの演出
+   -----------------------------------------------------------------------------
+   1. タイトルの文字が散らばった位置から集まってくる
+   2. 抽象アイコンを結ぶ線が引かれ、その上を信号が流れ続ける
+
+   「ばらばらのものが、ひとつにつながる」という製品の主張を、
+   文字と線の二層で言い直している。色はすべてテーマ変数を参照するので、
+   テーマを切り替えると演出の配色も一緒に変わる。
+   ----------------------------------------------------------------------------- */
+
+.kinetic {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.34em;
+}
+
+.kinetic i {
+  font-style: normal;
+  display: inline-block;
+  /* 4色を横に流す。テーマを変えれば流れる色も変わる */
+  background-image: linear-gradient(
+    100deg,
+    rgb(var(--orb-1)),
+    rgb(var(--orb-3)) 28%,
+    rgb(var(--orb-2)) 58%,
+    rgb(var(--orb-4)) 84%,
+    rgb(var(--orb-1))
+  );
+  background-size: 400% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation:
+    kinetic-in 820ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i) * 42ms) both,
+    kinetic-sweep 11s linear calc(1100ms + var(--i) * 42ms) infinite;
+}
+
+/* --kx / --ky / --kr は文字ごとに散らばり方を変えるための初期位置 */
+@keyframes kinetic-in {
+  from {
+    opacity: 0;
+    transform: translate(var(--kx, 0), var(--ky, 0.7em)) rotate(var(--kr, 0deg))
+      scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kinetic-sweep {
+  to { background-position: 400% 0; }
+}
+
+/* --- 抽象アイコンを結ぶ網 --- */
+
+.thread-net { position: relative; }
+
+.thread-net svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.thread-net path {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* 下地の線。読み込み時に一度だけ描き伸びる */
+.thread-line {
+  stroke: rgb(var(--accent) / 0.28);
+  stroke-dasharray: 220;
+  stroke-dashoffset: 220;
+  animation: thread-draw 1s ease-out calc(var(--i) * 110ms) both;
+}
+
+@keyframes thread-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* 線の上を流れ続ける信号。短い破線を動かしているだけ */
+.thread-pulse {
+  stroke-width: 2.5;
+  stroke-dasharray: 7 213;
+  animation: thread-flow 5.5s linear calc(1s + var(--i) * 110ms) infinite;
+}
+
+@keyframes thread-flow {
+  from { stroke-dashoffset: 220; }
+  to   { stroke-dashoffset: -7; }
+}
+
+/* 節点。位置合わせの translate は transform に、
+   演出は scale / translate の個別プロパティに分けている。
+   同じ transform を2つのアニメーションで奪い合わせないため。 */
+.thread-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  animation: node-pop 640ms cubic-bezier(0.34, 1.56, 0.64, 1)
+    calc(400ms + var(--i) * 110ms) both;
+}
+
+@keyframes node-pop {
+  from { opacity: 0; scale: 0.35; }
+  to   { opacity: 1; scale: 1; }
+}
+
+.thread-node > * {
+  animation: node-float 7s ease-in-out calc(var(--i) * 400ms) infinite;
+}
+
+@keyframes node-float {
+  0%, 100% { translate: 0 0; }
+  50%      { translate: 0 -7px; }
+}
+
+/* 中心の節点だけ、静かに波紋を出す */
+.thread-hub::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid rgb(var(--accent) / 0.45);
+  animation: node-ripple 3.2s ease-out 1.4s infinite;
+}
+
+@keyframes node-ripple {
+  0%   { opacity: 0.6; scale: 1; }
+  100% { opacity: 0; scale: 1.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 流れる信号は「止まった短い破線」になってしまうので消す */
+  .thread-pulse,
+  .thread-hub::after {
+    display: none;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   参加予定のスライダー
+   -----------------------------------------------------------------------------
+   重ねずに横へ並べ、スクロールスナップで送る。
+   ネイティブのスクロールに任せているので、スマホでは指でなぞるだけで動き、
+   慣性もブラウザ側のものがそのまま効く。矢印は scrollTo を呼ぶだけなので、
+   進む向きと見た目の動きが必ず一致する。
+   ----------------------------------------------------------------------------- */
+
+.deck-track {
+  /* 子要素の offsetLeft の基準にする。scrollTo の座標計算がこれに依存する */
+  position: relative;
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  /* overflow-x を auto にすると、CSS の規定で overflow-y も auto になる。
+     そのため何もしないとカードの影とホバー時の浮き上がりが上下端で
+     平らに切り落とされる。内側に影の逃げ場を作り、その分を外側で相殺して
+     見た目の余白は変えない。
+     上は浮き上がり(6px)＋影、下はホバー時の影(約28px)が収まる量。 */
+  padding-block: 0.75rem 2rem;
+  margin-block: -0.75rem -1.75rem;
+}
+
+.deck-track::-webkit-scrollbar {
+  display: none;
+}
+
+.deck-slide {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 自動送りは JS 側で止めるが、手動操作の滑走もここで無効にする */
+  .deck-track { scroll-behavior: auto; }
+}

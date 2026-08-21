@@ -7,6 +7,12 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
   : undefined;
 
 const nextConfig: NextConfig = {
+  // ダッシュボードはカレンダーに統合した。中身（参加予定・所属サークル）は
+  // すべてカレンダー側に移してあるので、古いリンクはそちらへ送る。
+  // permanent: false なのは、ブラウザに 308 を焼き付けたくないため。
+  async redirects() {
+    return [{ source: "/dashboard", destination: "/calendar", permanent: false }];
+  },
   images: {
     remotePatterns: supabaseHost
       ? [

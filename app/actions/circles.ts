@@ -58,7 +58,7 @@ export async function createCircle(
   if (error) return { error: error.message };
 
   revalidatePath("/circles");
-  revalidatePath("/dashboard");
+  revalidatePath("/calendar");
   redirect(`/circles/${data}`);
 }
 
@@ -76,7 +76,7 @@ export async function requestJoin(formData: FormData): Promise<void> {
   if (error) console.error("参加申請に失敗しました:", error.message);
 
   revalidatePath(`/circles/${circleId}`);
-  revalidatePath("/dashboard");
+  revalidatePath("/calendar");
 }
 
 /** メンバーの承認 / 却下（サークル管理者のみ。判定は DB 側） */

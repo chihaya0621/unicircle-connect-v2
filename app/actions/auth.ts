@@ -12,8 +12,8 @@ export type AuthFormState = {
   notice?: string;
 } | null;
 
-/** 認証済みユーザーの初期到達点 */
-const DEFAULT_REDIRECT = "/dashboard";
+/** 認証済みユーザーの初期到達点。ログインしたらまず自分の予定が見える。 */
+const DEFAULT_REDIRECT = "/calendar";
 
 /** オープンリダイレクト防止: 自サイト内の相対パスのみ許可する */
 function safeRedirect(next: FormDataEntryValue | null): string {

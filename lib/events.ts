@@ -36,7 +36,13 @@ export type EventHost =
  * ただし埋め込みリソース側は参照先が消えていれば null になり得るため、
  * 名前が取れないケースにもフォールバックを用意している。
  */
-export function eventHost(event: EventListItem): EventHost {
+/** eventHost が実際に読む項目だけ。一覧用の全項目を揃えなくても呼べるようにする */
+export type EventHostFields = Pick<
+  EventListItem,
+  "host_university_id" | "host_university" | "host_circle"
+>;
+
+export function eventHost(event: EventHostFields): EventHost {
   if (event.host_university_id) {
     return { kind: "university", name: event.host_university?.name ?? "大学" };
   }

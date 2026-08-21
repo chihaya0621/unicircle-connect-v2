@@ -167,8 +167,8 @@ export function PageHero({
     <header className="glass-panel relative mb-6 overflow-hidden p-0">
       <Decoration variant={variant} />
 
-      <div className="relative flex flex-wrap items-end justify-between gap-6 p-6">
-        <div className="flex min-w-0 items-end gap-5">
+      <div className="relative flex flex-wrap items-end justify-between gap-4 p-5 sm:gap-6 sm:p-6">
+        <div className="flex min-w-0 items-end gap-3 sm:gap-5">
           {lead}
           <div className="min-w-0">
             {eyebrow && (

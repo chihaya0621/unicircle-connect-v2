@@ -34,6 +34,18 @@ export const SOURCE_COLOR: Record<EventSource, string> = {
     "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
 };
 
+/**
+ * 狭い画面のカレンダー用。件名を置く幅がないので、点の色だけで種別を示す。
+ * SOURCE_COLOR と同じ色相の、面で塗れる濃さを選んでいる。
+ */
+export const SOURCE_DOT: Record<EventSource, string> = {
+  joined: "bg-rose-500",
+  "my-circle": "bg-indigo-500",
+  "own-university": "bg-emerald-500",
+  "unjoined-circle": "bg-sky-500",
+  "other-university": "bg-amber-500",
+};
+
 /** 凡例に出す順序。既定表示の3種を先に並べる。 */
 export const SOURCE_ORDER: EventSource[] = [
   "joined",

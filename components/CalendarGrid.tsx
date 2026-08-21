@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import type { CalendarEvent } from "@/lib/calendar";
-import { SOURCE_COLOR, SOURCE_LABEL } from "@/lib/event-sources";
+import { SOURCE_COLOR, SOURCE_DOT, SOURCE_LABEL } from "@/lib/event-sources";
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
@@ -43,6 +43,10 @@ function groupByDate(events: CalendarEvent[]) {
  * 曜日は S M T W T F S の頭文字で、日曜と土曜だけ色を変える。
  * 日付そのものにも同じ色を回して、週末が一目で分かるようにしている。
  *
+ * 狭い画面では件名を置く幅がないので、色の点だけを並べて
+ * 「どの日が詰まっているか」を示し、詳細は下の一覧に任せる。
+ * 横スクロールさせて月表を覗き見る形にはしない。
+ *
  * 配色はテーマ変数（--accent）に追従するので、テーマを変えると
  * カレンダーの色も一緒に変わる。
  */
@@ -73,16 +77,16 @@ export function CalendarGrid({
 
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[44rem]">
+      <div className="min-w-0 sm:min-w-[44rem]">
         {/* 曜日 */}
         <div className="mb-1 grid grid-cols-7">
           {WEEKDAYS.map((w, i) => (
             <div
               key={`${w}-${i}`}
-              className={`px-2 pb-2 text-center text-sm font-bold tracking-widest ${weekdayTone(i)}`}
+              className={`px-1 pb-2 text-center text-xs font-bold tracking-widest sm:px-2 sm:text-sm ${weekdayTone(i)}`}
             >
               {w}
-              <span className="ml-1 text-[10px] font-normal opacity-70">
+              <span className="ml-1 hidden text-[10px] font-normal opacity-70 sm:inline">
                 {WEEKDAYS_JA[i]}
               </span>
             </div>
@@ -90,7 +94,7 @@ export function CalendarGrid({
         </div>
 
         {/* 日付 */}
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
           {days.map((d, i) => {
             const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
             const dayEvents = byDate.get(key) ?? [];
@@ -101,16 +105,16 @@ export function CalendarGrid({
             return (
               <div
                 key={key}
-                className={`min-h-24 rounded-xl p-1.5 transition-colors duration-200 ${
+                className={`min-h-16 rounded-lg p-1 transition-colors duration-200 sm:min-h-24 sm:rounded-xl sm:p-1.5 ${
                   isCurrentMonth
                     ? "bg-black/[0.02] dark:bg-white/[0.04]"
                     : "opacity-45"
                 }`}
               >
                 <div
-                  className={`mb-1 text-center text-sm font-semibold tabular-nums ${
+                  className={`mb-1 text-center text-xs font-semibold tabular-nums sm:text-sm ${
                     isToday
-                      ? "mx-auto inline-flex size-6 items-center justify-center rounded-full bg-[rgb(var(--accent))] text-white shadow-md"
+                      ? "mx-auto inline-flex size-5 items-center justify-center rounded-full bg-[rgb(var(--accent))] text-white shadow-md sm:size-6"
                       : dow === 0
                         ? "text-rose-500"
                         : dow === 6
@@ -121,7 +125,22 @@ export function CalendarGrid({
                   {d.getDate()}
                 </div>
 
-                <ul className="space-y-1">
+                {/* 狭い画面: 色の点で密度だけを見せる。詳細は下の一覧で読む */}
+                {dayEvents.length > 0 && (
+                  <div
+                    className="flex flex-wrap justify-center gap-0.5 sm:hidden"
+                    aria-hidden
+                  >
+                    {dayEvents.slice(0, 3).map((e) => (
+                      <span
+                        key={e.id}
+                        className={`size-1.5 rounded-full ${SOURCE_DOT[e.source]}`}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <ul className="hidden space-y-1 sm:block">
                   {dayEvents.slice(0, 3).map((e) => (
                     <li key={e.id}>
                       <Link

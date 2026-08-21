@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CalendarFilterPanel } from "@/components/CalendarFilterPanel";
+import { EventDeck } from "@/components/EventDeck";
 import { PageHero } from "@/components/PageHero";
 import { CalendarGrid } from "@/components/CalendarGrid";
-import { listCalendarEvents } from "@/lib/calendar";
+import { listCalendarEvents, listUpcomingJoinedEvents } from "@/lib/calendar";
+import { listMyCircles } from "@/lib/circles";
 import { SOURCE_COLOR, SOURCE_LABEL } from "@/lib/event-sources";
 import { getMyUniversityId, requireUser } from "@/lib/dal";
 import { createClient } from "@/lib/supabase-server";
@@ -79,17 +81,31 @@ export default async function CalendarPage({
     search: sp.search ?? "",
   };
 
-  const [{ events, error }, { data: universities }] = await Promise.all([
-    listCalendarEvents({
-      userId: user.id,
-      role: user.role,
-      universityId,
-      from: gridStart,
-      to: gridEnd,
-      filters,
-    }),
-    (await createClient()).from("universities").select("id, name").order("name"),
-  ]);
+  const supabase = await createClient();
+
+  // ダッシュボードを廃してここが入口になったので、
+  // 「次に何があるか」と「どこに属しているか」も併せて出す。
+  const [{ events, error }, { data: universities }, upcoming, myCircles] =
+    await Promise.all([
+      listCalendarEvents({
+        userId: user.id,
+        role: user.role,
+        universityId,
+        from: gridStart,
+        to: gridEnd,
+        filters,
+      }),
+      supabase.from("universities").select("id, name").order("name"),
+      listUpcomingJoinedEvents(user.id, 5),
+      // 一般ユーザーはサークルに所属しないので問い合わせ自体を省く
+      user.role === "general"
+        ? Promise.resolve([])
+        : listMyCircles(user.id),
+    ]);
+
+  const activeCircles = myCircles.filter(
+    (m) => m.status === "active" && m.circle,
+  );
 
   const prev = new Date(year, month - 1, 1);
   const next = new Date(year, month + 1, 1);
@@ -111,7 +127,7 @@ export default async function CalendarPage({
         description={`${thisMonth.length}件の予定`}
         lead={
           <span
-            className="text-7xl font-extrabold leading-none tracking-tighter tabular-nums sm:text-8xl"
+            className="text-5xl font-extrabold leading-none tracking-tighter tabular-nums sm:text-8xl"
             style={{ color: "rgb(var(--accent))" }}
           >
             {String(month + 1).padStart(2, "0")}
@@ -142,6 +158,44 @@ export default async function CalendarPage({
           </>
         }
       />
+
+      {upcoming.length > 0 ? (
+        <section className="mb-6">
+          <EventDeck events={upcoming} />
+        </section>
+      ) : (
+        <p className="glass-empty mb-6 py-6">
+          参加予定のイベントはありません。
+          <Link href="/events" className="ml-1 font-medium underline">
+            イベントを探す
+          </Link>
+        </p>
+      )}
+
+      {activeCircles.length > 0 && (
+        <section className="mb-6">
+          <h2 className="mb-2 text-sm font-semibold">
+            所属サークル {activeCircles.length}件
+          </h2>
+          <ul className="flex flex-wrap gap-2">
+            {activeCircles.map((m) => (
+              <li key={m.circle!.id}>
+                <Link
+                  href={`/circles/${m.circle!.id}`}
+                  className="btn-ghost-sm"
+                >
+                  {m.circle!.name}
+                  {m.role === "admin" && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      管理者
+                    </span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <CalendarFilterPanel
         universities={universities ?? []}
@@ -182,10 +236,10 @@ export default async function CalendarPage({
                   href={`/events/${e.id}`}
                   className="flex flex-wrap items-center gap-x-3 gap-y-1 glass-card px-4 py-3"
                 >
-                  <span className="w-24 shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="w-20 shrink-0 text-xs text-gray-500 dark:text-gray-400 sm:w-24">
                     {dateFormatter.format(new Date(e.event_date))}
                   </span>
-                  <span className="w-14 shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="w-12 shrink-0 text-xs text-gray-500 dark:text-gray-400 sm:w-14">
                     {timeFormatter.format(new Date(e.event_date))}
                   </span>
                   <span className="min-w-0 flex-1">
