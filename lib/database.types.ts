@@ -82,6 +82,26 @@ export type Database = {
           new_event?: boolean;
         };
       };
+      /** 閲覧者が指定した、気にしている大学（0019_public_discovery.sql） */
+      watched_universities: {
+        Row: {
+          user_id: string;
+          university_id: string;
+          created_at: string;
+        };
+        Insert: { user_id: string; university_id: string };
+        Update: Record<string, never>;
+      };
+      /** 閲覧者が気になったサークル（0019_public_discovery.sql） */
+      circle_favorites: {
+        Row: {
+          user_id: string;
+          circle_id: string;
+          created_at: string;
+        };
+        Insert: { user_id: string; circle_id: string };
+        Update: Record<string, never>;
+      };
       circle_posts: {
         Row: {
           id: string;
@@ -308,6 +328,16 @@ export type Database = {
     }>;
     Views: Record<never, never>;
     Functions: {
+      /** 気にしている大学を総入れ替えする。保存できた件数を返す（0019） */
+      set_watched_universities: {
+        Args: { p_university_ids: string[] };
+        Returns: number;
+      };
+      /** 気になるサークルの登録・解除。登録後の状態を返す（0019） */
+      toggle_circle_favorite: {
+        Args: { p_circle_id: string };
+        Returns: boolean;
+      };
       /** サークル設立。作成した circle の id を返す（0002_circles.sql） */
       create_circle: {
         Args: {

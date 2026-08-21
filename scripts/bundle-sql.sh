@@ -32,38 +32,29 @@ SOURCES=(
   "migrations/0016_theme.sql"
   "migrations/0017_theme_variants.sql"
   "migrations/0018_circle_event_stats.sql"
+  "migrations/0019_public_discovery.sql"
   "seed.sql"
 )
 
 OUT="supabase/setup_all.sql"
 
 {
-  cat <<'HEADER'
+  cat <<'HEADER_TOP'
 -- =============================================================================
 -- UniCircle Connect セットアップ一括実行ファイル（自動生成）
 -- =============================================================================
 --
 -- このファイルは以下を連結した生成物です。直接編集しないでください。
---   1. migrations/0000_initial_schema.sql
---   2. migrations/0001_handle_new_user.sql
---   3. migrations/0002_circles.sql
---   4. migrations/0003_scopes.sql
---   5. migrations/0004_facilities.sql
---   6. migrations/0005_events.sql
---   7. migrations/0006_facility_management.sql
---   8. migrations/0007_event_participants.sql
---   9. migrations/0008_rls.sql
---  10. migrations/0009_profile.sql
---  11. migrations/0010_student_registration.sql
---  12. migrations/0011_circle_posts.sql
---  13. migrations/0012_activities.sql
---  14. migrations/0013_event_attendance.sql
---  15. migrations/0014_notifications.sql
---  16. migrations/0015_images.sql
---  17. migrations/0016_theme.sql
---  18. migrations/0017_theme_variants.sql
---  19. migrations/0018_circle_event_stats.sql
---  20. seed.sql
+HEADER_TOP
+
+  # 一覧は SOURCES から組み立てる。手書きだと追加のたびに実体とずれる
+  i=0
+  for src in "${SOURCES[@]}"; do
+    i=$((i + 1))
+    printf -- '--  %2d. %s\n' "$i" "$src"
+  done
+
+  cat <<'HEADER'
 --
 -- 再生成: npm run db:bundle
 --

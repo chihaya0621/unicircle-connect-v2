@@ -6,6 +6,8 @@ import { PageHero } from "@/components/PageHero";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { ProfileForm } from "@/components/ProfileForm";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { UniversityWatchPanel } from "@/components/UniversityWatchPanel";
+import { CircleCard } from "@/components/CircleCard";
 import type { UserRole } from "@/lib/database.types";
 import { getMyUniversityId, requireUser } from "@/lib/dal";
 import {
@@ -17,6 +19,12 @@ import {
   type MyEvent,
   type MyReservation,
 } from "@/lib/mypage";
+import {
+  listFavoriteCircleIds,
+  listUniversities,
+  listWatchedUniversityIds,
+} from "@/lib/discovery";
+import { listPublicCircles } from "@/lib/circles";
 import { getPreferences } from "@/lib/notifications";
 import { getPendingCounts } from "@/lib/pending";
 
@@ -142,7 +150,23 @@ export default async function MyPage() {
   if (!profile) notFound();
 
   const isStaff = user.role === "staff";
+  const isGeneral = user.role === "general";
   const preferences = await getPreferences(user.id);
+
+  // 気になるサークルは全ロールで使える。所属していなくても
+  // 追いかけたいサークルはあるため。
+  const favoriteIds = await listFavoriteCircleIds();
+  const [universities, watchedIds] = isGeneral
+    ? await Promise.all([listUniversities(), listWatchedUniversityIds()])
+    : [[], [] as string[]];
+
+  // 一覧は RLS 越しに引き直す。お気に入りの ID だけでは名前も画像も出せない。
+  const favorites =
+    favoriteIds.size > 0
+      ? (await listPublicCircles([], favoriteIds)).circles.filter((c) =>
+          favoriteIds.has(c.id),
+        )
+      : [];
 
   // 職員はサークルに所属せず、イベント参加も個人予約もしない。
   // 代わりに自大学の状況を出すため、取得するデータ自体を分ける。
@@ -184,6 +208,31 @@ export default async function MyPage() {
         <h2 className="mb-4 text-lg font-semibold">プロフィール</h2>
         <ProfileForm profile={profile} />
       </section>
+
+      {isGeneral && (
+        <section className="mt-10 glass-panel">
+          <h2 className="mb-1 text-lg font-semibold">気になる大学</h2>
+          <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            指定すると、サークルとイベントの一覧をその大学に絞ります。
+          </p>
+          <UniversityWatchPanel
+            universities={universities}
+            selectedIds={watchedIds}
+          />
+        </section>
+      )}
+
+      {favorites.length > 0 && (
+        <Section title="気になるサークル" count={favorites.length}>
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {favorites.map((circle) => (
+              <li key={circle.id}>
+                <CircleCard circle={circle} isFavorite />
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       <section className="mt-10 glass-panel">
         <h2 className="mb-4 text-lg font-semibold">表示テーマ</h2>

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import type { UserRole } from "@/lib/database.types";
 import { DEV_PASSWORD, DEV_USERS, IS_DEV } from "@/lib/dev-users";
 import { createClient } from "@/lib/supabase-server";
 
@@ -12,13 +13,43 @@ export type AuthFormState = {
   notice?: string;
 } | null;
 
-/** 認証済みユーザーの初期到達点。ログインしたらまず自分の予定が見える。 */
+/**
+ * 役割ごとの初期到達点。
+ *
+ * 学生・職員はログインしたらまず自分の予定が見えるとよい。
+ * 一般ユーザー（高校生・企業）は予定を持たないので、
+ * カレンダーに着地させると空の画面になる。探す場所へ送る。
+ */
+const HOME_BY_ROLE: Record<UserRole, string> = {
+  student: "/calendar",
+  staff: "/calendar",
+  general: "/circles",
+};
+
 const DEFAULT_REDIRECT = "/calendar";
 
+/** ログイン直後の行き先。役割が分からなければ既定へ。 */
+async function homeForCurrentUser(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<string> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return DEFAULT_REDIRECT;
+
+  const { data } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return HOME_BY_ROLE[data?.role as UserRole] ?? DEFAULT_REDIRECT;
+}
+
 /** オープンリダイレクト防止: 自サイト内の相対パスのみ許可する */
-function safeRedirect(next: FormDataEntryValue | null): string {
-  if (typeof next !== "string") return DEFAULT_REDIRECT;
-  if (!next.startsWith("/") || next.startsWith("//")) return DEFAULT_REDIRECT;
+function safeRedirect(next: FormDataEntryValue | null): string | null {
+  if (typeof next !== "string") return null;
+  if (!next.startsWith("/") || next.startsWith("//")) return null;
   return next;
 }
 
@@ -91,7 +122,7 @@ export async function signIn(
   }
 
   revalidatePath("/", "layout");
-  redirect(next);
+  redirect(next ?? (await homeForCurrentUser(supabase)));
 }
 
 export async function signOut() {
@@ -139,5 +170,5 @@ export async function devQuickLogin(formData: FormData): Promise<void> {
   }
 
   revalidatePath("/", "layout");
-  redirect(next);
+  redirect(next ?? (await homeForCurrentUser(supabase)));
 }

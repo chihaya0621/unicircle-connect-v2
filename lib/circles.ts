@@ -119,6 +119,52 @@ export async function listApprovedCircles(
   return { circles, hiddenCount, error: null };
 }
 
+/**
+ * 一般ユーザー向けの一覧。
+ *
+ * RLS が scope='public' の承認済みしか返さないので、ここでの絞り込みは
+ * 認可ではなく「気にしている大学に寄せる」ためだけのもの。
+ * 指定が無いときは全部見せる。最初に来た人に空の画面を出さないため。
+ */
+export async function listPublicCircles(
+  watchedUniversityIds: string[],
+  favoriteIds: Set<string> = new Set(),
+) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("circles")
+    .select(LIST_SELECT)
+    .eq("status", "approved")
+    .order("name")
+    .returns<CircleListItem[]>();
+
+  if (error) {
+    console.error("サークル取得に失敗しました:", error.message);
+    return {
+      circles: [] as CircleListItem[],
+      hiddenCount: 0,
+      error: error.message,
+    };
+  }
+
+  const all = data ?? [];
+  const watched = new Set(watchedUniversityIds);
+  const visible =
+    watched.size === 0
+      ? all
+      : all.filter((c) => c.university_id && watched.has(c.university_id));
+
+  // 気になるものを先頭に。並びに元々意味が無いので、
+  // 自分で印を付けたものから読めるようにする。
+  const circles = [...visible].sort((x, y) => {
+    const fav = Number(favoriteIds.has(y.id)) - Number(favoriteIds.has(x.id));
+    return fav !== 0 ? fav : x.name.localeCompare(y.name, "ja");
+  });
+
+  return { circles, hiddenCount: all.length - visible.length, error: null };
+}
+
 /** 自分が所属（active）しているサークルのID */
 export async function getMyCircleIds(userId: string) {
   const supabase = await createClient();

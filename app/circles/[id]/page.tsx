@@ -8,6 +8,7 @@ import {
   uploadCircleImage,
 } from "@/app/actions/images";
 import { ImageUploader } from "@/components/ImageUploader";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { JoinCircleButton } from "@/components/JoinCircleButton";
 import { PostComposer } from "@/components/PostComposer";
 import { PostList } from "@/components/PostList";
@@ -26,7 +27,8 @@ import {
   isCircleAdmin,
   listMembers,
 } from "@/lib/circles";
-import { requireRole } from "@/lib/dal";
+import { listFavoriteCircleIds } from "@/lib/discovery";
+import { requireUser } from "@/lib/dal";
 
 const activityDateFormatter = new Intl.DateTimeFormat("ja-JP", {
   dateStyle: "medium",
@@ -53,16 +55,20 @@ export default async function CircleDetailPage({
   const circle = await getCircle(id);
   if (!circle) notFound();
 
-  // 一覧と同じく、学生と職員のみ到達できる
-  const user = await requireRole("student", "staff");
-  const membership = await getMyMembership(id, user.id);
+  // 一覧と同じく一般ユーザーも到達できる。ここに来られた時点で
+  // RLS を通っているので、非公開サークルなら getCircle が null を返す。
+  const user = await requireUser();
+  const isGeneral = user.role === "general";
+  const membership = isGeneral ? null : await getMyMembership(id, user.id);
   const canManage = isCircleAdmin(membership);
 
   // 承認待ちのサークルは、関係者（メンバー）と職員以外には見せない
   const isInsider = membership !== null || user.role === "staff";
   if (circle.status !== "approved" && !isInsider) notFound();
 
-  const members = await listMembers(id);
+  // 一般ユーザーは RLS でメンバーを1件も読めないので、問い合わせ自体を省く
+  const members = isGeneral ? [] : await listMembers(id);
+  const favoriteIds = await listFavoriteCircleIds();
 
   // 掲示板はメンバーのみ。RLS でも非メンバーには 0 件になる。
   const isMember = membership?.status === "active";
@@ -98,6 +104,12 @@ export default async function CircleDetailPage({
             )}
             <h1 className="text-2xl font-bold tracking-tight">{circle.name}</h1>
           </div>
+          {circle.status === "approved" && (
+            <FavoriteButton
+              circleId={circle.id}
+              isFavorite={favoriteIds.has(circle.id)}
+            />
+          )}
           {circle.status === "pending" && (
             <span className="badge bg-amber-500/15 px-3 py-1 text-amber-700 dark:text-amber-300">
               職員の承認待ち
@@ -242,7 +254,13 @@ export default async function CircleDetailPage({
         </section>
       )}
 
-      <MemberList members={members} circleId={circle.id} canManage={canManage} />
+      {!isGeneral && (
+        <MemberList
+          members={members}
+          circleId={circle.id}
+          canManage={canManage}
+        />
+      )}
     </div>
   );
 }
