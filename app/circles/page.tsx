@@ -5,6 +5,11 @@ import { decideCircle } from "@/app/actions/circles";
 import { PageHero } from "@/components/PageHero";
 import { CircleCard } from "@/components/CircleCard";
 import {
+  DirectoryBreadcrumb,
+  PrefectureList,
+  UniversityList,
+} from "@/components/CircleDirectory";
+import {
   getMyCircleIds,
   listApprovedCircles,
   listPendingCircles,
@@ -12,8 +17,10 @@ import {
 } from "@/lib/circles";
 import {
   listFavoriteCircleIds,
+  listUniversityDirectory,
   listWatchedUniversityIds,
 } from "@/lib/discovery";
+import { PREFECTURE_UNKNOWN } from "@/lib/prefectures";
 import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
 
 export const metadata: Metadata = { title: "サークル | UniCircle Connect" };
@@ -21,7 +28,12 @@ export const metadata: Metadata = { title: "サークル | UniCircle Connect" };
 export default async function CirclesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ others?: string; fav?: string }>;
+  searchParams: Promise<{
+    others?: string;
+    fav?: string;
+    pref?: string;
+    university?: string;
+  }>;
 }) {
   // 未ログインにも開く。公開設定のサークルだけが見えることは
   // RLS（0021_circle_public_profile.sql）が担保している。
@@ -35,7 +47,7 @@ export default async function CirclesPage({
 
   // 他大学のサークル（インカレ・合同）を出すかは URL クエリで持つ。
   // 既定は非表示。インカレが増えるほど自大学の一覧が埋もれるため。
-  const { others, fav } = await searchParams;
+  const { others, fav, pref, university } = await searchParams;
   const showOtherUniversities = others === "1";
   const favoritesOnly = fav === "1";
 
@@ -48,8 +60,18 @@ export default async function CirclesPage({
   const myCircleIds =
     user && !isGeneral ? await getMyCircleIds(user.id) : new Set<string>();
 
-  const listed =
-    isAnon || isGeneral
+  // 所属大学を持たない人は、都道府県 → 大学 と辿ってから一覧に着く。
+  // 気になる大学を指定済みの一般ユーザーは、そこから始める必要が無い。
+  const useDirectory = isAnon || (isGeneral && watchedIds.length === 0);
+  const directory =
+    useDirectory || university ? await listUniversityDirectory() : [];
+  const selectedUniversity = university
+    ? (directory.find((u) => u.id === university) ?? null)
+    : null;
+
+  const listed = selectedUniversity
+    ? await listPublicCircles([selectedUniversity.id], favoriteIds)
+    : isAnon || isGeneral
       ? await listPublicCircles(watchedIds, favoriteIds)
       : await listApprovedCircles(universityId, {
           isStaff: user.role === "staff",
@@ -67,7 +89,7 @@ export default async function CirclesPage({
     user?.role === "staff" ? await listPendingCircles(user.id) : [];
 
   // 大学ごとにまとめる。大学名の五十音順、同じ大学の中はサークル名順。
-  const byUniversity = groupByUniversity
+  const byUniversity = groupByUniversity && !selectedUniversity
     ? [...
         circles
           .reduce((map, c) => {
@@ -86,7 +108,18 @@ export default async function CirclesPage({
         eyebrow="CIRCLES"
         title={isAnon || isGeneral ? "サークルを探す" : "サークル"}
         description={
-          isAnon ? (
+          selectedUniversity ? (
+            <>
+              {selectedUniversity.name}の公開サークルです。
+              {selectedUniversity.website_url && "大学の公式サイトも案内しています。"}
+            </>
+          ) : useDirectory ? (
+            pref ? (
+              <>{pref}の大学から選んでください。</>
+            ) : (
+              <>まず都道府県を選んでください。大学、サークルの順に辿れます。</>
+            )
+          ) : isAnon ? (
             <>
               公開されているサークルを大学ごとに表示しています。
               登録すると、気になるサークルに印を付けておけます。
@@ -225,7 +258,38 @@ export default async function CirclesPage({
         )}
       </div>
 
-      {circles.length === 0 && !error ? (
+      {(useDirectory || selectedUniversity) && (
+        <DirectoryBreadcrumb
+          prefecture={pref ?? selectedUniversity?.prefecture}
+          universityName={selectedUniversity?.name}
+        />
+      )}
+
+      {selectedUniversity?.website_url && (
+        <p className="mb-4 text-sm">
+          <a
+            href={selectedUniversity.website_url}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+          >
+            {selectedUniversity.name}の公式サイト
+          </a>
+        </p>
+      )}
+
+      {useDirectory && !selectedUniversity ? (
+        pref ? (
+          <UniversityList
+            prefecture={pref}
+            universities={directory.filter(
+              (u) => (u.prefecture ?? PREFECTURE_UNKNOWN) === pref,
+            )}
+          />
+        ) : (
+          <PrefectureList directory={directory} />
+        )
+      ) : circles.length === 0 && !error ? (
         <p className="glass-empty py-12">
           {favoritesOnly
             ? "気になるサークルはまだありません。カードのハートで印を付けられます。"

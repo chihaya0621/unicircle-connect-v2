@@ -38,6 +38,8 @@ export type CirclePublicProfile = {
   public_intro: string | null;
   public_schedule: string | null;
   public_contact: string | null;
+  /** 主な活動拠点。同じ大学のキャンパスのみ */
+  campus_id: string | null;
 };
 
 export type CircleDetail = CirclePublicProfile & {
@@ -50,6 +52,7 @@ export type CircleDetail = CirclePublicProfile & {
   university_id: string | null;
   created_at: string;
   university: { name: string } | null;
+  campus: { name: string; address: string | null } | null;
   scoped_universities: { university: { name: string } | null }[];
 };
 
@@ -245,8 +248,9 @@ export const getCircle = cache(
       .from("circles")
       .select(
         `id, name, description, status, scope, image_path, university_id, created_at,
-         public_listed, public_intro, public_schedule, public_contact,
+         public_listed, public_intro, public_schedule, public_contact, campus_id,
          university:universities!circles_university_id_fkey(name),
+         campus:campuses!circles_campus_id_fkey(name, address),
          scoped_universities:circle_universities(
            university:universities!circle_universities_university_id_fkey(name)
          )`,

@@ -34,9 +34,35 @@ export type Database = {
   public: {
     Tables: WithRelationships<{
       universities: {
-        Row: { id: string; name: string; created_at: string };
+        Row: {
+          id: string;
+          name: string;
+          /** 所在地。公開一覧の絞り込みに使う（0023） */
+          prefecture: string | null;
+          /** 並び順のための読み（0023） */
+          name_kana: string | null;
+          website_url: string | null;
+          created_at: string;
+        };
         Insert: { id?: string; name: string; created_at?: string };
-        Update: { id?: string; name?: string; created_at?: string };
+        Update: {
+          name?: string;
+          prefecture?: string | null;
+          name_kana?: string | null;
+          website_url?: string | null;
+        };
+      };
+      /** 大学のキャンパス（0023_university_details.sql） */
+      campuses: {
+        Row: {
+          id: string;
+          university_id: string;
+          name: string;
+          address: string | null;
+          created_at: string;
+        };
+        Insert: { university_id: string; name: string; address?: string | null };
+        Update: { name?: string; address?: string | null };
       };
       notifications: {
         Row: {
@@ -218,6 +244,8 @@ export type Database = {
           status: ApprovalStatus;
           scope: Scope;
           image_path: string | null;
+          /** 主な活動拠点（0023） */
+          campus_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -349,7 +377,7 @@ export type Database = {
         Args: { p_event_id: string; p_lead_minutes: number | null };
         Returns: undefined;
       };
-      /** 公開プロフィールの更新。サークル管理者のみ（0021） */
+      /** 公開プロフィールの更新。サークル管理者のみ（0021 / 0023 で拠点を追加） */
       update_circle_public_profile: {
         Args: {
           p_circle_id: string;
@@ -357,7 +385,18 @@ export type Database = {
           p_intro?: string | null;
           p_schedule?: string | null;
           p_contact?: string | null;
+          p_campus_id?: string | null;
         };
+        Returns: undefined;
+      };
+      /** キャンパスの追加・更新。その大学の職員のみ（0023） */
+      upsert_campus: {
+        Args: { p_id: string | null; p_name: string; p_address?: string | null };
+        Returns: string;
+      };
+      /** キャンパスの削除。その大学の職員のみ（0023） */
+      delete_campus: {
+        Args: { p_id: string };
         Returns: undefined;
       };
       /** 気にしている大学を総入れ替えする。保存できた件数を返す（0019） */

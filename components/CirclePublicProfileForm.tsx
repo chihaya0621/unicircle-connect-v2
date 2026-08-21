@@ -9,6 +9,7 @@ import {
 import { FormMessage } from "@/components/Field";
 import { SubmitButton } from "@/components/SubmitButton";
 import type { CirclePublicProfile } from "@/lib/circles";
+import type { Campus } from "@/lib/discovery";
 
 /**
  * 公開プロフィールの編集。サークル管理者にのみ出す。
@@ -20,9 +21,12 @@ import type { CirclePublicProfile } from "@/lib/circles";
 export function CirclePublicProfileForm({
   circleId,
   profile,
+  campuses,
 }: {
   circleId: string;
   profile: CirclePublicProfile;
+  /** そのサークルの大学のキャンパス。1つも無ければ欄を出さない */
+  campuses: Campus[];
 }) {
   const [state, action] = useActionState<ActionState, FormData>(
     updateCirclePublicProfile,
@@ -69,6 +73,31 @@ export function CirclePublicProfileForm({
           className="field-input"
         />
       </div>
+
+      {campuses.length > 0 && (
+        <div>
+          <label htmlFor="campus_id" className="mb-1 block text-sm font-medium">
+            主な活動拠点
+          </label>
+          <select
+            id="campus_id"
+            name="campus_id"
+            defaultValue={profile.campus_id ?? ""}
+            className="field-input"
+          >
+            <option value="">指定しない</option>
+            {campuses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            キャンパスが複数ある大学では、どこで活動しているかが
+            名前だけでは伝わりません。
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

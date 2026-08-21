@@ -28,7 +28,7 @@ import {
   isCircleAdmin,
   listMembers,
 } from "@/lib/circles";
-import { listFavoriteCircleIds } from "@/lib/discovery";
+import { listCampuses, listFavoriteCircleIds } from "@/lib/discovery";
 import { getCurrentUser } from "@/lib/dal";
 
 const activityDateFormatter = new Intl.DateTimeFormat("ja-JP", {
@@ -72,6 +72,8 @@ export default async function CircleDetailPage({
   // 部外者は RLS でメンバーを1件も読めないので、問い合わせ自体を省く
   const members = isOutsider ? [] : await listMembers(id);
   const favoriteIds = user ? await listFavoriteCircleIds() : new Set<string>();
+  // 拠点の選択肢は管理者にしか要らない
+  const campuses = canManage ? await listCampuses(circle.university_id) : [];
 
   // 掲示板はメンバーのみ。RLS でも非メンバーには 0 件になる。
   const isMember = membership?.status === "active";
@@ -134,6 +136,7 @@ export default async function CircleDetailPage({
 
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           {circle.university?.name ?? "所属大学未設定"}
+          {circle.campus && ` ／ ${circle.campus.name}`}
           {circle.scope === "public" && " ／ すべての大学から参加できます"}
           {circle.scope === "scoped" &&
             ` ／ ${[
@@ -231,11 +234,13 @@ export default async function CircleDetailPage({
           </p>
           <CirclePublicProfileForm
             circleId={circle.id}
+            campuses={campuses}
             profile={{
               public_listed: circle.public_listed,
               public_intro: circle.public_intro,
               public_schedule: circle.public_schedule,
               public_contact: circle.public_contact,
+              campus_id: circle.campus_id,
             }}
           />
         </section>

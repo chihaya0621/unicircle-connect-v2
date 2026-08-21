@@ -138,6 +138,8 @@ export async function updateCirclePublicProfile(
   const contact = String(formData.get("public_contact") ?? "").trim();
   // チェックボックスは未チェックだと送られてこない
   const listed = formData.get("public_listed") !== null;
+  // 「指定しない」は空文字で届く
+  const campusId = String(formData.get("campus_id") ?? "") || null;
 
   if (intro.length > 1000) {
     return { error: "活動紹介は1000文字までです。" };
@@ -153,6 +155,7 @@ export async function updateCirclePublicProfile(
     p_intro: intro,
     p_schedule: schedule,
     p_contact: contact,
+    p_campus_id: campusId,
   });
 
   if (error) return { error: `保存に失敗しました: ${error.message}` };
