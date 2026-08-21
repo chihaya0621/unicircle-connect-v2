@@ -49,6 +49,10 @@ const CALENDAR_SELECT = `
  *   設定で出す … 他大学主催（選択した大学のみ）/ 自大学の未所属サークル
  *   検索時のみ … 他大学のサークルの公開イベント
  *
+ * 一般ユーザーだけは別扱いにする。所属大学もサークルも参加登録も
+ * 持たないため、上の分類はどれ一つ成立せず、何も表示されなくなる。
+ * 指定した大学の公開イベントを「公開」の一種類として出す。
+ *
  * 絞り込みはアプリ側で行う。分類ごとに条件が異なり、PostgREST の
  * 単一クエリでは表現しづらいうえ、可視判定 (eventVisibleTo) と
  * 二重管理になるのを避けたいため。
@@ -130,7 +134,15 @@ export async function listCalendarEvents({
 
     let source: EventSource | null = null;
 
-    if (joinedIds.has(e.id)) {
+    if (role === "general") {
+      // 大学主催・サークル主催のどちらも、主管の大学で絞る。
+      // 指定が無いうちは全部見せる（空の画面を出さないため）。
+      const hostUniversity = e.host_university_id ?? hostCircleUniversity;
+      const inScope =
+        selectedUniversities.size === 0 ||
+        (hostUniversity !== null && selectedUniversities.has(hostUniversity));
+      if (inScope || matchesSearch) source = "public";
+    } else if (joinedIds.has(e.id)) {
       source = "joined";
     } else if (e.host_circle_id && myCircleIds.has(e.host_circle_id)) {
       source = "my-circle";

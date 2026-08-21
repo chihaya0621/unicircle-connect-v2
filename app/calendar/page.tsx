@@ -7,6 +7,7 @@ import { PageHero } from "@/components/PageHero";
 import { CalendarGrid } from "@/components/CalendarGrid";
 import { listCalendarEvents, listUpcomingJoinedEvents } from "@/lib/calendar";
 import { listMyCircles } from "@/lib/circles";
+import { listWatchedUniversityIds } from "@/lib/discovery";
 import { SOURCE_COLOR, SOURCE_LABEL } from "@/lib/event-sources";
 import { getMyUniversityId, requireUser } from "@/lib/dal";
 import { createClient } from "@/lib/supabase-server";
@@ -69,11 +70,19 @@ export default async function CalendarPage({
   const gridEnd = new Date(gridStart);
   gridEnd.setDate(gridStart.getDate() + 42);
 
-  const selectedUniversities = sp.universities
+  const isGeneral = user.role === "general";
+
+  const requested = sp.universities
     ? Array.isArray(sp.universities)
       ? sp.universities
       : [sp.universities]
-    : [];
+    : null;
+
+  // 一般ユーザーは所属大学を持たないので、URL に指定が無ければ
+  // マイページで選んだ大学を初期値にする。何も選んでいなければ空のまま
+  // ＝全大学の公開イベントを表示する（lib/calendar.ts 側の扱い）。
+  const selectedUniversities =
+    requested ?? (isGeneral ? await listWatchedUniversityIds() : []);
 
   const filters = {
     universities: selectedUniversities,
@@ -209,6 +218,7 @@ export default async function CalendarPage({
         selectedUniversities={selectedUniversities}
         showUnjoinedCircles={filters.showUnjoinedCircles}
         search={filters.search}
+        isGeneral={isGeneral}
       />
 
       {error && (
