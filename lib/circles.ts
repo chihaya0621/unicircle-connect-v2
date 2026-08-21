@@ -32,7 +32,15 @@ export type CircleMember = {
   user: { name: string; role: UserRole } | null;
 };
 
-export type CircleDetail = {
+export type CirclePublicProfile = {
+  /** 一般ユーザー・未ログインの一覧に載せるか */
+  public_listed: boolean;
+  public_intro: string | null;
+  public_schedule: string | null;
+  public_contact: string | null;
+};
+
+export type CircleDetail = CirclePublicProfile & {
   id: string;
   name: string;
   description: string | null;
@@ -222,13 +230,22 @@ export async function listPendingCircles(staffUserId: string) {
   return data ?? [];
 }
 
+/**
+ * サークル1件。取得できなければ null。
+ *
+ * エラーは握り潰さずに記録する。クエリが失敗したときと本当に
+ * 存在しないときの区別が付かないと、呼び出し側が一律 404 を返し、
+ * 原因の分からない「全部 404」になる（列を足したのに
+ * マイグレーションが未適用、といった場合がこれに当たる）。
+ */
 export const getCircle = cache(
   async (circleId: string): Promise<CircleDetail | null> => {
     const supabase = await createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("circles")
       .select(
         `id, name, description, status, scope, image_path, university_id, created_at,
+         public_listed, public_intro, public_schedule, public_contact,
          university:universities!circles_university_id_fkey(name),
          scoped_universities:circle_universities(
            university:universities!circle_universities_university_id_fkey(name)
@@ -237,6 +254,14 @@ export const getCircle = cache(
       .eq("id", circleId)
       .maybeSingle()
       .returns<CircleDetail>();
+
+    if (error) {
+      console.error(
+        `サークル(${circleId})の取得に失敗しました:`,
+        error.message,
+      );
+      return null;
+    }
     return data ?? null;
   },
 );

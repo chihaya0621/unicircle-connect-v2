@@ -328,6 +328,17 @@ export type Database = {
     }>;
     Views: Record<never, never>;
     Functions: {
+      /** 公開プロフィールの更新。サークル管理者のみ（0021） */
+      update_circle_public_profile: {
+        Args: {
+          p_circle_id: string;
+          p_listed: boolean;
+          p_intro?: string | null;
+          p_schedule?: string | null;
+          p_contact?: string | null;
+        };
+        Returns: undefined;
+      };
       /** 気にしている大学を総入れ替えする。保存できた件数を返す（0019） */
       set_watched_universities: {
         Args: { p_university_ids: string[] };

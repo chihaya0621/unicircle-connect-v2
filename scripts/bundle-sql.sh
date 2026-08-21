@@ -34,6 +34,7 @@ SOURCES=(
   "migrations/0018_circle_event_stats.sql"
   "migrations/0019_public_discovery.sql"
   "migrations/0020_event_participation_roles.sql"
+  "migrations/0021_circle_public_profile.sql"
   "seed.sql"
 )
 

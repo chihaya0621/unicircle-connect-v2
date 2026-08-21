@@ -7,6 +7,7 @@ import {
   removeCircleImage,
   uploadCircleImage,
 } from "@/app/actions/images";
+import { CirclePublicProfileForm } from "@/components/CirclePublicProfileForm";
 import { ImageUploader } from "@/components/ImageUploader";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { JoinCircleButton } from "@/components/JoinCircleButton";
@@ -74,6 +75,11 @@ export default async function CircleDetailPage({
   const isMember = membership?.status === "active";
   const posts = isMember ? await listCirclePosts(id) : [];
   const image = imageUrl(circle.image_path);
+
+  // 管理者が何か書いていれば「このサークルについて」を出す
+  const hasPublicProfile = Boolean(
+    circle.public_intro || circle.public_schedule || circle.public_contact,
+  );
 
   // 承認済みサークルのみイベントを持ちうる
   const upcoming =
@@ -151,6 +157,39 @@ export default async function CircleDetailPage({
         )}
       </header>
 
+      {hasPublicProfile && (
+        <section className="mb-10 glass-panel">
+          <h2 className="mb-3 text-lg font-semibold">このサークルについて</h2>
+
+          {circle.public_intro && (
+            <p className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
+              {circle.public_intro}
+            </p>
+          )}
+
+          {(circle.public_schedule || circle.public_contact) && (
+            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              {circle.public_schedule && (
+                <div>
+                  <dt className="text-xs text-gray-500 dark:text-gray-400">
+                    活動日・場所
+                  </dt>
+                  <dd className="mt-0.5">{circle.public_schedule}</dd>
+                </div>
+              )}
+              {circle.public_contact && (
+                <div>
+                  <dt className="text-xs text-gray-500 dark:text-gray-400">
+                    連絡先・SNS
+                  </dt>
+                  <dd className="mt-0.5 break-all">{circle.public_contact}</dd>
+                </div>
+              )}
+            </dl>
+          )}
+        </section>
+      )}
+
       {upcoming.length > 0 && (
         <section className="mb-10">
           <div className="mb-3 flex items-baseline justify-between">
@@ -165,6 +204,25 @@ export default async function CircleDetailPage({
           <EventCard
             event={upcoming[0]}
             relation={relations.get(upcoming[0].id) ?? "other"}
+          />
+        </section>
+      )}
+
+      {canManage && (
+        <section className="mb-10 glass-panel">
+          <h2 className="mb-1 text-lg font-semibold">公開プロフィール</h2>
+          <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            高校生や企業の方など、学外の人にも見える情報です。
+            名簿・掲示板・活動記録はこれまでどおり公開されません。
+          </p>
+          <CirclePublicProfileForm
+            circleId={circle.id}
+            profile={{
+              public_listed: circle.public_listed,
+              public_intro: circle.public_intro,
+              public_schedule: circle.public_schedule,
+              public_contact: circle.public_contact,
+            }}
           />
         </section>
       )}

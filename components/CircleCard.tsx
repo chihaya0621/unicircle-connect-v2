@@ -107,9 +107,11 @@ export function CircleCard({
             </span>
           </div>
 
+          {/* メンバー数は RLS で読めない閲覧者（一般）には必ず 0 が返る。
+              0 を「メンバーがいない」と読ませたくないので、その場合は出さない。 */}
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {circle.university?.name ?? "所属大学未設定"} ／ メンバー
-            {memberCount}人
+            {circle.university?.name ?? "所属大学未設定"}
+            {memberCount > 0 && ` ／ メンバー${memberCount}人`}
           </p>
 
           {circle.description && (

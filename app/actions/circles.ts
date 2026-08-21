@@ -117,3 +117,52 @@ export async function decideCircle(formData: FormData): Promise<void> {
   revalidatePath("/circles");
   revalidatePath(`/circles/${circleId}`);
 }
+
+/**
+ * 公開プロフィールの更新。
+ *
+ * 権限判定と文字数の上限は DB 関数側が最終判定する。ここでの検査は
+ * 往復する前に気づけるようにするためのもの。
+ */
+export async function updateCirclePublicProfile(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireUser();
+
+  const circleId = String(formData.get("circle_id") ?? "");
+  if (!circleId) return { error: "サークルが指定されていません。" };
+
+  const intro = String(formData.get("public_intro") ?? "").trim();
+  const schedule = String(formData.get("public_schedule") ?? "").trim();
+  const contact = String(formData.get("public_contact") ?? "").trim();
+  // チェックボックスは未チェックだと送られてこない
+  const listed = formData.get("public_listed") !== null;
+
+  if (intro.length > 1000) {
+    return { error: "活動紹介は1000文字までです。" };
+  }
+  if (schedule.length > 200 || contact.length > 200) {
+    return { error: "活動日・場所と連絡先は200文字までです。" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_circle_public_profile", {
+    p_circle_id: circleId,
+    p_listed: listed,
+    p_intro: intro,
+    p_schedule: schedule,
+    p_contact: contact,
+  });
+
+  if (error) return { error: `保存に失敗しました: ${error.message}` };
+
+  revalidatePath(`/circles/${circleId}`);
+  revalidatePath("/circles");
+
+  return {
+    notice: listed
+      ? "公開プロフィールを保存しました。一般の方にも表示されます。"
+      : "公開プロフィールを保存しました。一覧には掲載していません。",
+  };
+}
