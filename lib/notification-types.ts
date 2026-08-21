@@ -10,7 +10,8 @@ export type NotificationType =
   | "approval_result"
   | "request_received"
   | "board_post"
-  | "new_event";
+  | "new_event"
+  | "event_reminder";
 
 export type NotificationPreferences = Record<NotificationType, boolean>;
 
@@ -20,6 +21,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   "request_received",
   "board_post",
   "new_event",
+  "event_reminder",
 ];
 
 export const TYPE_LABEL: Record<NotificationType, string> = {
@@ -27,6 +29,7 @@ export const TYPE_LABEL: Record<NotificationType, string> = {
   request_received: "自分への申請",
   board_post: "掲示板の新着",
   new_event: "新しいイベント",
+  event_reminder: "イベントのリマインド",
 };
 
 export const TYPE_DESCRIPTION: Record<NotificationType, string> = {
@@ -36,6 +39,8 @@ export const TYPE_DESCRIPTION: Record<NotificationType, string> = {
     "自分が管理するサークルへの参加申請や、担当する承認業務が発生したとき",
   board_post: "所属サークルの掲示板に新しい投稿があったとき",
   new_event: "所属サークルや自大学が新しいイベントを作成したとき",
+  event_reminder:
+    "参加登録したイベントについて、各イベントのページで設定した時刻になったとき",
 };
 
 export const TYPE_STYLE: Record<NotificationType, string> = {
@@ -46,4 +51,6 @@ export const TYPE_STYLE: Record<NotificationType, string> = {
   board_post:
     "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
   new_event: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+  event_reminder:
+    "bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
 };

@@ -7,10 +7,17 @@ import {
   removeEventImage,
   uploadEventImage,
 } from "@/app/actions/images";
+import { EventReminderPicker } from "@/components/EventReminderPicker";
 import { EventRoster, type RosterEntry } from "@/components/EventRoster";
 import { ImageUploader } from "@/components/ImageUploader";
 import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
-import { canManageEvent, eventHost, eventVisibleTo, getEvent } from "@/lib/events";
+import {
+  canManageEvent,
+  eventHost,
+  eventVisibleTo,
+  getEvent,
+  getMyEventReminder,
+} from "@/lib/events";
 import { imageUrl } from "@/lib/images";
 import { createClient } from "@/lib/supabase-server";
 
@@ -72,6 +79,10 @@ export default async function EventDetailPage({
     isGoing = data?.status === "going";
   }
   const isPast = new Date(event.event_date) < new Date();
+
+  // リマインドは、参加登録している未来のイベントにだけ仕掛けられる
+  const reminderLead =
+    isGoing && !isPast ? await getMyEventReminder(event.id) : null;
   const image = imageUrl(event.image_path);
 
   // 参加名簿は主催者のみ。RPC 側でも主催者判定を行う。
@@ -151,18 +162,25 @@ export default async function EventDetailPage({
       {canParticipate && !isPast && (
         <div className="mb-8">
           {isGoing ? (
-            <form action={leaveEvent} className="flex items-center gap-3">
-              <input type="hidden" name="event_id" value={event.id} />
-              <span className="text-sm font-medium text-rose-700 dark:text-rose-300">
-                参加予定です
-              </span>
-              <button
-                type="submit"
-                className="rounded-lg border border-black/15 px-3 py-1.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-              >
-                参加を取り消す
-              </button>
-            </form>
+            <div className="space-y-3">
+              <form action={leaveEvent} className="flex items-center gap-3">
+                <input type="hidden" name="event_id" value={event.id} />
+                <span className="text-sm font-medium text-rose-700 dark:text-rose-300">
+                  参加予定です
+                </span>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-black/15 px-3 py-1.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+                >
+                  参加を取り消す
+                </button>
+              </form>
+
+              <EventReminderPicker
+                eventId={event.id}
+                leadMinutes={reminderLead}
+              />
+            </div>
           ) : (
             <form action={joinEvent}>
               <input type="hidden" name="event_id" value={event.id} />

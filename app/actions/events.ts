@@ -134,3 +134,33 @@ export async function leaveEvent(formData: FormData): Promise<void> {
   revalidatePath(`/events/${id}`);
   revalidatePath("/calendar");
 }
+
+/**
+ * リマインドの設定・解除。
+ *
+ * 参加登録の有無と時刻の範囲は DB 関数が最終判定する。
+ * 「通知しない」を選ぶと空文字が届くので、NULL に直して解除に回す。
+ */
+export async function setEventReminder(formData: FormData) {
+  await requireUser();
+
+  const eventId = String(formData.get("event_id") ?? "");
+  if (!eventId) return;
+
+  const raw = String(formData.get("lead_minutes") ?? "");
+  const leadMinutes = raw === "" ? null : Number(raw);
+  if (leadMinutes !== null && !Number.isInteger(leadMinutes)) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_event_reminder", {
+    p_event_id: eventId,
+    p_lead_minutes: leadMinutes,
+  });
+
+  if (error) {
+    console.error("リマインドの設定に失敗しました:", error.message);
+    return;
+  }
+
+  revalidatePath(`/events/${eventId}`);
+}

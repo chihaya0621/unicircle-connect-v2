@@ -66,6 +66,7 @@ export type Database = {
           request_received: boolean;
           board_post: boolean;
           new_event: boolean;
+          event_reminder: boolean;
           updated_at: string;
         };
         Insert: {
@@ -74,13 +75,28 @@ export type Database = {
           request_received?: boolean;
           board_post?: boolean;
           new_event?: boolean;
+          event_reminder?: boolean;
         };
         Update: {
           approval_result?: boolean;
           request_received?: boolean;
           board_post?: boolean;
           new_event?: boolean;
+          event_reminder?: boolean;
         };
+      };
+      /** 参加イベントのリマインド予約（0022_event_reminders.sql） */
+      event_reminders: {
+        Row: {
+          user_id: string;
+          event_id: string;
+          /** 開始の何分前に知らせるか */
+          lead_minutes: number;
+          notified_at: string | null;
+          created_at: string;
+        };
+        Insert: { user_id: string; event_id: string; lead_minutes: number };
+        Update: { lead_minutes?: number };
       };
       /** 閲覧者が指定した、気にしている大学（0019_public_discovery.sql） */
       watched_universities: {
@@ -328,6 +344,11 @@ export type Database = {
     }>;
     Views: Record<never, never>;
     Functions: {
+      /** リマインドの設定・解除。分は NULL で解除（0022） */
+      set_event_reminder: {
+        Args: { p_event_id: string; p_lead_minutes: number | null };
+        Returns: undefined;
+      };
       /** 公開プロフィールの更新。サークル管理者のみ（0021） */
       update_circle_public_profile: {
         Args: {
@@ -471,6 +492,7 @@ export type Database = {
           p_request_received: boolean;
           p_board_post: boolean;
           p_new_event: boolean;
+          p_event_reminder?: boolean;
         };
         Returns: undefined;
       };

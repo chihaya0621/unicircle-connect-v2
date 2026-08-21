@@ -50,7 +50,9 @@ export async function getPreferences(
   const supabase = await createClient();
   const { data } = await supabase
     .from("notification_preferences")
-    .select("approval_result, request_received, board_post, new_event")
+    .select(
+      "approval_result, request_received, board_post, new_event, event_reminder",
+    )
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -59,5 +61,6 @@ export async function getPreferences(
     request_received: data?.request_received ?? true,
     board_post: data?.board_post ?? true,
     new_event: data?.new_event ?? true,
+    event_reminder: data?.event_reminder ?? true,
   };
 }

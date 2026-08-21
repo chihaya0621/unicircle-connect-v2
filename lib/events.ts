@@ -287,3 +287,25 @@ export async function resolveEventRelations(
   }
   return relations;
 }
+
+/**
+ * そのイベントに自分が仕掛けているリマインド。未設定なら null。
+ *
+ * RLS で自分の行しか読めないので、利用者の絞り込みは不要。
+ */
+export async function getMyEventReminder(
+  eventId: string,
+): Promise<number | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("event_reminders")
+    .select("lead_minutes")
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("リマインドの取得に失敗しました:", error.message);
+    return null;
+  }
+  return data?.lead_minutes ?? null;
+}

@@ -33,6 +33,7 @@ export async function updatePreferences(
     p_request_received: formData.get("request_received") === "on",
     p_board_post: formData.get("board_post") === "on",
     p_new_event: formData.get("new_event") === "on",
+    p_event_reminder: formData.get("event_reminder") === "on",
   });
 
   if (error) return { error: error.message };
