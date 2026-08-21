@@ -140,16 +140,24 @@ export async function leaveEvent(formData: FormData): Promise<void> {
  *
  * 参加登録の有無と時刻の範囲は DB 関数が最終判定する。
  * 「通知しない」を選ぶと空文字が届くので、NULL に直して解除に回す。
+ *
+ * 失敗を握り潰さず呼び出し側へ返す。選択欄は保存に失敗すると
+ * 再描画で元の値に戻るだけなので、理由を出さないと
+ * 「選んでも戻ってしまう」としか分からない。
  */
-export async function setEventReminder(formData: FormData) {
+export async function setEventReminder(
+  formData: FormData,
+): Promise<ActionState> {
   await requireUser();
 
   const eventId = String(formData.get("event_id") ?? "");
-  if (!eventId) return;
+  if (!eventId) return { error: "イベントが指定されていません。" };
 
   const raw = String(formData.get("lead_minutes") ?? "");
   const leadMinutes = raw === "" ? null : Number(raw);
-  if (leadMinutes !== null && !Number.isInteger(leadMinutes)) return;
+  if (leadMinutes !== null && !Number.isInteger(leadMinutes)) {
+    return { error: "リマインドの時刻が不正です。" };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("set_event_reminder", {
@@ -159,8 +167,9 @@ export async function setEventReminder(formData: FormData) {
 
   if (error) {
     console.error("リマインドの設定に失敗しました:", error.message);
-    return;
+    return { error: `保存できませんでした: ${error.message}` };
   }
 
   revalidatePath(`/events/${eventId}`);
+  return null;
 }
