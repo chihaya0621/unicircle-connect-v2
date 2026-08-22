@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { DevQuickLogin } from "@/components/DevQuickLogin";
 import { LoginForm } from "@/components/LoginForm";
-import { IS_DEV } from "@/lib/dev-users";
+import { IS_DEMO, QUICK_LOGIN_ENABLED } from "@/lib/dev-users";
 
 export const metadata: Metadata = { title: "ログイン | UniCircle Connect" };
 
@@ -27,7 +27,7 @@ export default async function LoginPage({
           パスワードを忘れた場合
         </Link>
       </p>
-      {IS_DEV && <DevQuickLogin next={next} />}
+      {QUICK_LOGIN_ENABLED && <DevQuickLogin next={next} isDemo={IS_DEMO} />}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { DEV_PASSWORD, DEV_USERS, IS_DEV } from "@/lib/dev-users";
+import { DEV_PASSWORD, DEV_USERS, QUICK_LOGIN_ENABLED } from "@/lib/dev-users";
 import { DEFAULT_HOME, HOME_BY_ROLE, homeForRole } from "@/lib/home";
 import { createClient } from "@/lib/supabase-server";
 
@@ -123,17 +123,17 @@ export async function signOut() {
 /**
  * 開発用クイックログイン。
  *
- * 【安全性】本番では絶対に動かないよう、ここで環境を再チェックする。
- * 画面を出すかどうかの判断（ページ側）とは独立に、Server Action 自体が
- * 拒否するので、万一 UI が本番に混入しても呼び出せない。
+ * 【安全性】開発環境か、明示的に立てた公開デモ環境でしか動かないよう、
+ * ここで再チェックする。画面を出すかどうかの判断（ページ側）とは独立に
+ * Server Action 自体が拒否するので、万一 UI だけが混入しても呼べない。
  *
  * さらに、渡されたメールアドレスが DEV_USERS に載っているものだけを
  * 受け付ける。任意のアドレスに共通パスワードでログインを試せる
- * 踏み台にしないため。
+ * 踏み台にしないため。環境変数を切り替えても、この名簿の縛りは残る。
  */
 export async function devQuickLogin(formData: FormData): Promise<void> {
-  if (!IS_DEV) {
-    throw new Error("この機能は開発環境でのみ利用できます。");
+  if (!QUICK_LOGIN_ENABLED) {
+    throw new Error("この機能は開発環境とデモ環境でのみ利用できます。");
   }
 
   const email = String(formData.get("email") ?? "");

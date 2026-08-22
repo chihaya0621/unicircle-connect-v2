@@ -51,6 +51,12 @@ NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 ```
 
+| 変数 | 必須 | 内容 |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | ○ | Supabase のプロジェクト URL。`next.config.ts` が画像の許可ホストを組み立てるのに**ビルド時にも読む**ので、CI やホスティングでは先に設定しておくこと |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ○ | 匿名キー。RLS が効いているので公開されて構わない |
+| `NEXT_PUBLIC_ENABLE_DEMO_LOGIN` | | `1` にすると、本番ビルドでもクイックログインが開く。**展示用のデモ環境だけで立てること**（後述） |
+
 ### 2. データベース
 
 **Supabase の SQL Editor で `supabase/setup_all.sql` の中身を貼って実行してください。**
@@ -176,6 +182,34 @@ npm run db:users -- staff
 データが載ります。**どれも何度実行しても増えません。**
 
 `6` の大学名はすべて造語です。実在の大学と紛れないようにしています。
+
+---
+
+## デプロイ（Vercel）
+
+1. GitHub のリポジトリを Vercel に取り込む。フレームワークは自動で Next.js と判定される
+2. **環境変数を先に設定する。** `NEXT_PUBLIC_SUPABASE_URL` はビルド時にも読まれるため、
+   後から足すと画像の許可ホストが空のままになる（Storage の画像が出ない）
+3. Supabase の Authentication → URL Configuration に本番のドメインを足す
+   - Site URL … `https://<本番ドメイン>`
+   - Redirect URLs … `https://<本番ドメイン>/auth/callback`
+   - 足さないと、確認メールとパスワード再設定のリンクが localhost に戻ってしまう
+4. 関数のリージョンは Supabase のプロジェクトに近い場所を選ぶ。
+   全ページがリクエストごとにデータベースを読むので、ここが遠いと体感が悪くなる
+
+`.next` はコミットしていないので、ホスティング側はまっさらな状態からビルドする。
+`NEXT_DIST_DIR` は開発機で検証ビルドを回すためだけのものなので、**ホスティング側では設定しない**。
+
+### デモ環境について
+
+`NEXT_PUBLIC_ENABLE_DEMO_LOGIN=1` を立てると、ログイン画面にアカウントの一覧が出て、
+選ぶだけで入れるようになる。展示や紹介の場で「その場で触ってもらう」ための設定。
+
+**この設定を入れると、URL を知っている人は誰でも職員として入り、データを書き換えられる。**
+中身が架空のデモデータであることが前提。実在の情報を扱う環境では絶対に立てないこと。
+
+なお、切り替えても**名簿にあるアドレスしか受け付けない**制限は残る。
+任意のアドレスに共通パスワードでログインを試す踏み台にはならない。
 
 ---
 
