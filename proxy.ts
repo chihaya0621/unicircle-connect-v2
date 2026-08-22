@@ -15,7 +15,16 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase";
  */
 
 /** 未ログインでも閲覧できるパス。前方一致で判定する。 */
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/events", "/circles"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/signup",
+  "/reset",
+  "/update-password",
+  "/events",
+  "/circles",
+  "/auth",
+];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some(

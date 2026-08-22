@@ -7,7 +7,16 @@
  */
 
 export type UserRole = "student" | "staff" | "general";
+/** 承認を伴うものの状態。施設予約とサークルで共有する */
 export type ApprovalStatus = "pending" | "approved" | "rejected";
+
+/**
+ * サークルの状態。
+ *
+ * 廃止（closed）はサークルにしか無いので、予約と同じ型にはしない。
+ * 共有すると、予約の一覧で起こりえない状態を扱う羽目になる。
+ */
+export type CircleStatus = ApprovalStatus | "closed";
 export type MembershipStatus = "pending" | "active" | "rejected";
 export type CircleRole = "admin" | "member";
 export type EventVisibility = "internal" | "scoped" | "public";
@@ -41,6 +50,8 @@ export type Database = {
           prefecture: string | null;
           /** 並び順のための読み（0023） */
           name_kana: string | null;
+          /** サークルの設立・廃止に必要な承認者数（0027） */
+          required_circle_approvals: number;
           website_url: string | null;
           created_at: string;
         };
@@ -51,6 +62,22 @@ export type Database = {
           name_kana?: string | null;
           website_url?: string | null;
         };
+      };
+      /** 誰がいつ何を承認・却下したかの記録（0027_approvals.sql） */
+      approvals: {
+        Row: {
+          id: string;
+          target_type: "circle" | "circle_closure" | "reservation";
+          target_id: string;
+          approver_id: string | null;
+          /** 記録した時点の氏名。アカウントが消えても誰か分かる */
+          approver_name: string;
+          decision: "approved" | "rejected";
+          comment: string | null;
+          created_at: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
       };
       /** 大学のキャンパス（0023 / 0024 で所在地を追加） */
       campuses: {
@@ -252,11 +279,13 @@ export type Database = {
           university_id: string | null;
           name: string;
           description: string | null;
-          status: ApprovalStatus;
+          status: CircleStatus;
           scope: Scope;
           image_path: string | null;
           /** 主な活動拠点（0023） */
           campus_id: string | null;
+          /** 廃止を申請した日時。承認が揃うまで status は動かさない（0027） */
+          closure_requested_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -264,14 +293,14 @@ export type Database = {
           university_id?: string | null;
           name: string;
           description?: string | null;
-          status?: ApprovalStatus;
+          status?: CircleStatus;
           scope?: Scope;
           created_at?: string;
         };
         Update: {
           name?: string;
           description?: string | null;
-          status?: ApprovalStatus;
+          status?: CircleStatus;
           scope?: Scope;
         };
       };
@@ -452,11 +481,65 @@ export type Database = {
         Args: { p_circle_id: string; p_user_id: string; p_approve: boolean };
         Returns: undefined;
       };
-      /** サークル設立の承認 / 却下（大学職員のみ） */
+      /** 設立の承認 / 却下。'pending' | 'approved' | 'rejected' を返す（0027） */
       decide_circle: {
-        Args: { p_circle_id: string; p_approve: boolean };
+        Args: { p_circle_id: string; p_approve: boolean; p_comment?: string };
+        Returns: string;
+      };
+      /** 廃止の承認 / 却下。同じく結果を返す（0027） */
+      decide_circle_closure: {
+        Args: { p_circle_id: string; p_approve: boolean; p_comment?: string };
+        Returns: string;
+      };
+      /** 廃止の申請・取り下げ。サークル管理者のみ（0027） */
+      request_circle_closure: {
+        Args: { p_circle_id: string; p_cancel?: boolean };
         Returns: undefined;
       };
+      /** 承認に必要な人数を変える。職員のみ（0027） */
+      set_required_circle_approvals: {
+        Args: { p_count: number };
+        Returns: undefined;
+      };
+      /** サークルを抜ける（0026） */
+      leave_circle: { Args: { p_circle_id: string }; Returns: undefined };
+      /** メンバーを外す。サークル管理者のみ（0026） */
+      remove_circle_member: {
+        Args: { p_circle_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+      /** 管理者にする／外す（0026） */
+      set_circle_member_role: {
+        Args: { p_circle_id: string; p_user_id: string; p_admin: boolean };
+        Returns: undefined;
+      };
+      /** サークル情報の編集。管理者のみ（0026） */
+      update_circle: {
+        Args: {
+          p_circle_id: string;
+          p_name: string;
+          p_description?: string | null;
+          p_scope?: Scope | null;
+          p_university_ids?: string[] | null;
+        };
+        Returns: undefined;
+      };
+      /** イベントの編集。主催者のみ（0026） */
+      update_event: {
+        Args: {
+          p_event_id: string;
+          p_title: string;
+          p_event_date: string;
+          p_description?: string | null;
+          p_visibility?: EventVisibility | null;
+          p_target_grades?: string[] | null;
+          p_university_ids?: string[] | null;
+          p_public_listed?: boolean | null;
+        };
+        Returns: undefined;
+      };
+      /** 自分のアカウントを削除。一般のみ（0028） */
+      delete_my_account: { Args: Record<string, never>; Returns: undefined };
       /** 施設予約の申請。予約 id を返す（0004_facilities.sql） */
       create_reservation: {
         Args: {

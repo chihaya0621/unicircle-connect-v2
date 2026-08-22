@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { deleteEvent, joinEvent, leaveEvent } from "@/app/actions/events";
@@ -215,6 +216,14 @@ export default async function EventDetailPage({
             ))}
           </ul>
         </div>
+      )}
+
+      {canManage && (
+        <p className="mb-6">
+          <Link href={`/events/${event.id}/edit`} className="btn-ghost-sm">
+            イベントを編集
+          </Link>
+        </p>
       )}
 
       {canManage && (

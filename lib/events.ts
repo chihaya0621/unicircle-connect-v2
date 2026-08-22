@@ -15,6 +15,8 @@ export type EventListItem = {
   event_date: string;
   visibility: EventVisibility;
   target_grades: string[] | null;
+  /** 学外の方向けの案内に載せるか（0025） */
+  public_listed: boolean;
   image_path: string | null;
   host_university_id: string | null;
   host_circle_id: string | null;
@@ -56,6 +58,7 @@ const EVENT_SELECT = `
   event_date,
   visibility,
   target_grades,
+  public_listed,
   image_path,
   host_university_id,
   host_circle_id,
@@ -231,9 +234,15 @@ export type EventDetail = EventListItem & {
   scoped_university_names: { university: { name: string } | null }[];
 };
 
+/**
+ * イベント1件。取得できなければ null。
+ *
+ * エラーは記録する。失敗と不在の区別が付かないと、呼び出し側が
+ * 一律 404 を返して原因が分からなくなる（サークル側で踏んだのと同じ）。
+ */
 export async function getEvent(eventId: string): Promise<EventDetail | null> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("events")
     .select(
       `${EVENT_SELECT},
@@ -245,6 +254,11 @@ export async function getEvent(eventId: string): Promise<EventDetail | null> {
     .eq("id", eventId)
     .maybeSingle()
     .returns<EventDetail>();
+
+  if (error) {
+    console.error(`イベント(${eventId})の取得に失敗しました:`, error.message);
+    return null;
+  }
   return data ?? null;
 }
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { DevQuickLogin } from "@/components/DevQuickLogin";
 import { LoginForm } from "@/components/LoginForm";
@@ -21,6 +22,11 @@ export default async function LoginPage({
         登録済みのアカウントでサインインしてください。
       </p>
       <LoginForm next={next} />
+      <p className="mt-4 text-sm">
+        <Link href="/reset" className="font-medium underline">
+          パスワードを忘れた場合
+        </Link>
+      </p>
       {IS_DEV && <DevQuickLogin next={next} />}
     </div>
   );

@@ -175,3 +175,54 @@ export async function setEventReminder(
   revalidatePath(`/events/${eventId}`);
   return null;
 }
+
+/**
+ * イベントの編集。主催者のみ。
+ *
+ * 日時を動かすとリマインドは DB 側で送信済みが解除される。
+ * 古い日時で送った通知は役に立たないため。
+ */
+export async function updateEvent(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireUser();
+
+  const eventId = String(formData.get("event_id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const eventDate = String(formData.get("event_date") ?? "");
+  const description = String(formData.get("description") ?? "").trim();
+  const visibility = String(formData.get("visibility") ?? "internal");
+  const targetGrades = formData.getAll("target_grades").map(String);
+  const universityIds = formData
+    .getAll("university_ids")
+    .map(String)
+    .filter(Boolean);
+
+  if (!eventId) return { error: "イベントが指定されていません。" };
+  if (!title) return { error: "イベント名を入力してください。" };
+  if (!eventDate) return { error: "開催日時を入力してください。" };
+  if (visibility === "scoped" && universityIds.length === 0) {
+    return { error: "範囲を指定する場合は対象大学を1つ以上選んでください。" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_event", {
+    p_event_id: eventId,
+    p_title: title,
+    // datetime-local は時間帯を持たないので、閲覧者の時間帯として解釈する
+    p_event_date: new Date(eventDate).toISOString(),
+    p_description: description,
+    p_visibility: visibility as EventVisibility,
+    p_target_grades: targetGrades.length ? targetGrades : undefined,
+    p_university_ids: visibility === "scoped" ? universityIds : undefined,
+    p_public_listed: formData.get("public_listed") !== null,
+  });
+
+  if (error) return { error: `保存に失敗しました: ${error.message}` };
+
+  revalidatePath(`/events/${eventId}`);
+  revalidatePath("/events");
+  revalidatePath("/calendar");
+  redirect(`/events/${eventId}`);
+}

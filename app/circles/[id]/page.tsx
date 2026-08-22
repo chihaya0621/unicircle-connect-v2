@@ -7,6 +7,12 @@ import {
   removeCircleImage,
   uploadCircleImage,
 } from "@/app/actions/images";
+import { ApprovalLog } from "@/components/ApprovalLog";
+import {
+  CircleEditForm,
+  ClosureRequest,
+  LeaveCircleButton,
+} from "@/components/CircleAdminPanel";
 import { CirclePublicProfileForm } from "@/components/CirclePublicProfileForm";
 import { ImageUploader } from "@/components/ImageUploader";
 import { FavoriteButton } from "@/components/FavoriteButton";
@@ -28,7 +34,12 @@ import {
   isCircleAdmin,
   listMembers,
 } from "@/lib/circles";
-import { listCampuses, listFavoriteCircleIds } from "@/lib/discovery";
+import { getRequiredApprovals, listCircleApprovals } from "@/lib/approvals";
+import {
+  listCampuses,
+  listFavoriteCircleIds,
+  listUniversities,
+} from "@/lib/discovery";
 import { getCurrentUser } from "@/lib/dal";
 
 const activityDateFormatter = new Intl.DateTimeFormat("ja-JP", {
@@ -72,8 +83,23 @@ export default async function CircleDetailPage({
   // 部外者は RLS でメンバーを1件も読めないので、問い合わせ自体を省く
   const members = isOutsider ? [] : await listMembers(id);
   const favoriteIds = user ? await listFavoriteCircleIds() : new Set<string>();
-  // 拠点の選択肢は管理者にしか要らない
-  const campuses = canManage ? await listCampuses(circle.university_id) : [];
+  // 拠点と大学の選択肢は管理者にしか要らない
+  const [campuses, universities] = canManage
+    ? await Promise.all([
+        listCampuses(circle.university_id),
+        listUniversities(),
+      ])
+    : [[], []];
+
+  // 誰が承認したかは、申請した側にも見えてよい。
+  // 読める範囲は RLS が対象そのものに合わせて決める。
+  const approvals = user ? await listCircleApprovals(id) : [];
+  const requiredApprovals = canManage
+    ? await getRequiredApprovals(circle.university_id)
+    : 1;
+  const closureApprovals = approvals.filter(
+    (a) => a.target_type === "circle_closure" && a.decision === "approved",
+  ).length;
 
   // 掲示板はメンバーのみ。RLS でも非メンバーには 0 件になる。
   const isMember = membership?.status === "active";
@@ -174,6 +200,8 @@ export default async function CircleDetailPage({
         )}
       </header>
 
+      <ApprovalLog entries={approvals} />
+
       {hasPublicProfile && (
         <section className="mb-10 glass-panel">
           <h2 className="mb-3 text-lg font-semibold">このサークルについて</h2>
@@ -221,6 +249,23 @@ export default async function CircleDetailPage({
           <EventCard
             event={upcoming[0]}
             relation={relations.get(upcoming[0].id) ?? "other"}
+          />
+        </section>
+      )}
+
+      {canManage && (
+        <section className="mb-10 glass-panel">
+          <h2 className="mb-4 text-lg font-semibold">サークル情報</h2>
+          <CircleEditForm
+            circleId={circle.id}
+            name={circle.name}
+            description={circle.description}
+            scope={circle.scope}
+            scopedUniversityIds={circle.scoped_universities.map(
+              (u) => u.university_id,
+            )}
+            universities={universities}
+            myUniversityId={circle.university_id}
           />
         </section>
       )}
@@ -336,7 +381,23 @@ export default async function CircleDetailPage({
           members={members}
           circleId={circle.id}
           canManage={canManage}
+          currentUserId={user?.id}
         />
+      )}
+
+      {(isMember || canManage) && (
+        <section className="mt-10 space-y-6 glass-panel">
+          <h2 className="text-lg font-semibold">このサークルとの関係</h2>
+          {isMember && <LeaveCircleButton circleId={circle.id} />}
+          {canManage && circle.status === "approved" && (
+            <ClosureRequest
+              circleId={circle.id}
+              requested={circle.closure_requested_at !== null}
+              requiredApprovals={requiredApprovals}
+              approvedCount={closureApprovals}
+            />
+          )}
+        </section>
       )}
     </div>
   );

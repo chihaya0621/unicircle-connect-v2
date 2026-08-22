@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PageHero } from "@/components/PageHero";
+import { DeleteAccount } from "@/components/DeleteAccount";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { ProfileForm } from "@/components/ProfileForm";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -232,6 +233,16 @@ export default async function MyPage() {
             ))}
           </ul>
         </Section>
+      )}
+
+      {isGeneral && (
+        <section className="mt-10 glass-panel">
+          <h2 className="mb-1 text-lg font-semibold">アカウントの削除</h2>
+          <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            登録した情報をすべて消して退会します。元には戻せません。
+          </p>
+          <DeleteAccount />
+        </section>
       )}
 
       <section className="mt-10 glass-panel">

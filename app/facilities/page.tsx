@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { PageHero } from "@/components/PageHero";
+import { ApprovalPolicy } from "@/components/ApprovalPolicy";
 import { CampusManager } from "@/components/CampusManager";
 import { FacilityForm } from "@/components/FacilityForm";
 import { FacilityRow } from "@/components/FacilityRow";
 import { getMyUniversityId, requireRole } from "@/lib/dal";
 import { listFacilities } from "@/lib/facilities";
+import { countStaff, getRequiredApprovals } from "@/lib/approvals";
 import { listCampuses } from "@/lib/discovery";
 import { getPendingCounts } from "@/lib/pending";
 
@@ -27,6 +29,12 @@ export default async function FacilitiesPage() {
   const isStaff = user.role === "staff";
   // キャンパスは大学マスタの一部なので、施設と同じ場所で管理する
   const campuses = isStaff ? await listCampuses(universityId) : [];
+  const [requiredApprovals, staffCount] = isStaff
+    ? await Promise.all([
+        getRequiredApprovals(universityId),
+        countStaff(universityId),
+      ])
+    : [1, 0];
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -53,6 +61,16 @@ export default async function FacilitiesPage() {
           </Link>
         }
       />
+
+      {isStaff && (
+        <section className="mb-10 glass-panel">
+          <h2 className="mb-1 text-sm font-semibold">承認のきまり</h2>
+          <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+            サークルの設立と廃止に、何人の職員の承認を求めるかを決めます。
+          </p>
+          <ApprovalPolicy current={requiredApprovals} staffCount={staffCount} />
+        </section>
+      )}
 
       {isStaff && (
         <section className="mb-10 glass-panel">

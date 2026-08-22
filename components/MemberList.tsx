@@ -1,4 +1,8 @@
-import { decideMember } from "@/app/actions/circles";
+import {
+  decideMember,
+  removeMember,
+  setMemberRole,
+} from "@/app/actions/circles";
 import type { CircleMember } from "@/lib/circles";
 
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
@@ -10,10 +14,13 @@ function MemberRow({
   member,
   circleId,
   canManage,
+  isSelf = false,
 }: {
   member: CircleMember;
   circleId: string;
   canManage: boolean;
+  /** 自分の行。自分を外す導線は出さない（退会を使う） */
+  isSelf?: boolean;
 }) {
   return (
     <li className="flex items-center justify-between gap-3 border-b border-black/5 py-3 last:border-0 dark:border-white/5">
@@ -32,6 +39,32 @@ function MemberRow({
           {member.status === "rejected" && " ／ 却下済み"}
         </p>
       </div>
+
+      {/* 在籍しているメンバーへの操作。自分の行には出さない。
+          最後の管理者を外す操作は DB 側でも止まる。 */}
+      {canManage && member.status === "active" && !isSelf && (
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <form action={setMemberRole}>
+            <input type="hidden" name="circle_id" value={circleId} />
+            <input type="hidden" name="user_id" value={member.user_id} />
+            <input
+              type="hidden"
+              name="admin"
+              value={member.role === "admin" ? "false" : "true"}
+            />
+            <button type="submit" className="btn-ghost-sm">
+              {member.role === "admin" ? "管理者を外す" : "管理者にする"}
+            </button>
+          </form>
+          <form action={removeMember}>
+            <input type="hidden" name="circle_id" value={circleId} />
+            <input type="hidden" name="user_id" value={member.user_id} />
+            <button type="submit" className="btn-danger-sm">
+              外す
+            </button>
+          </form>
+        </div>
+      )}
 
       {canManage && member.status === "pending" && (
         <div className="flex shrink-0 gap-2">
@@ -67,10 +100,13 @@ export function MemberList({
   members,
   circleId,
   canManage,
+  currentUserId,
 }: {
   members: CircleMember[];
   circleId: string;
   canManage: boolean;
+  /** 自分の行を判別する。未ログインなら null */
+  currentUserId?: string | null;
 }) {
   const active = members.filter((m) => m.status === "active");
   // 承認待ちの申請者は管理者にだけ見せる
@@ -113,7 +149,8 @@ export function MemberList({
                 key={m.user_id}
                 member={m}
                 circleId={circleId}
-                canManage={false}
+                canManage={canManage}
+                isSelf={m.user_id === currentUserId}
               />
             ))}
           </ul>

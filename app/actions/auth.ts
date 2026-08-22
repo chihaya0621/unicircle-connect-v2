@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { DEV_PASSWORD, DEV_USERS, IS_DEV } from "@/lib/dev-users";
@@ -157,4 +158,69 @@ export async function devQuickLogin(formData: FormData): Promise<void> {
 
   revalidatePath("/", "layout");
   redirect(next ?? (await homeForCurrentUser(supabase)));
+}
+
+/**
+ * パスワード再設定のメールを送る。
+ *
+ * 宛先が登録済みかどうかにかかわらず同じ返事をする。返事を変えると、
+ * どのアドレスが登録されているかを外から確かめられてしまう。
+ */
+export async function requestPasswordReset(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) return { error: "メールアドレスを入力してください。" };
+
+  const origin = (await headers()).get("origin") ?? "";
+  const supabase = await createClient();
+
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/update-password`,
+  });
+
+  return {
+    notice:
+      "再設定用のメールを送信しました。届いていない場合は、迷惑メールもご確認ください。",
+  };
+}
+
+/**
+ * 新しいパスワードを設定する。
+ *
+ * メールのリンクから来た人はすでにセッションを持っている。
+ * 持っていなければリンクが期限切れなので、その旨を返す。
+ */
+export async function updatePassword(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  if (password.length < 8) {
+    return { error: "パスワードは8文字以上で入力してください。" };
+  }
+  if (password !== confirm) {
+    return { error: "確認用のパスワードが一致しません。" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      error:
+        "リンクの有効期限が切れています。お手数ですが、もう一度お送りください。",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: `変更できませんでした: ${error.message}` };
+
+  revalidatePath("/", "layout");
+  redirect(await homeForCurrentUser(supabase));
 }

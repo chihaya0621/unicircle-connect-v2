@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { decideCircle } from "@/app/actions/circles";
+import { decideCircle, decideClosure } from "@/app/actions/circles";
 import { PageHero } from "@/components/PageHero";
 import { CircleCard } from "@/components/CircleCard";
 import { EventCard } from "@/components/EventCard";
@@ -14,9 +14,11 @@ import {
 import {
   getMyCircleIds,
   listApprovedCircles,
+  listClosureRequests,
   listPendingCircles,
   listPublicCircles,
 } from "@/lib/circles";
+import { countApprovals, getRequiredApprovals } from "@/lib/approvals";
 import {
   listCampusDirectory,
   listFavoriteCircleIds,
@@ -110,8 +112,28 @@ export default async function CirclesPage({
     : listed.circles;
 
   // 職員には自分の大学の承認待ちキューを見せる
-  const pending =
-    user?.role === "staff" ? await listPendingCircles(user.id) : [];
+  const isStaff = user?.role === "staff";
+  const [pending, closureRequests, requiredApprovals] = isStaff
+    ? await Promise.all([
+        listPendingCircles(user.id),
+        listClosureRequests(universityId),
+        getRequiredApprovals(universityId),
+      ])
+    : [[], [], 1];
+
+  // 「あと何人か」を出すために、集まっている承認の数を引く
+  const [setupCounts, closureCounts] = isStaff
+    ? await Promise.all([
+        countApprovals(
+          "circle",
+          pending.map((c) => c.id),
+        ),
+        countApprovals(
+          "circle_closure",
+          closureRequests.map((c) => c.id),
+        ),
+      ])
+    : [new Map<string, number>(), new Map<string, number>()];
 
   // 大学を1つ選んだあとは、まとめる意味が無いので平坦に並べる。
   // 描画の分岐もこの値を見る。データ側だけ条件を足すと、
@@ -221,6 +243,9 @@ export default async function CirclesPage({
           <h2 className="mb-3 inline-flex items-center gap-2 rounded-xl border border-rose-300/70 bg-rose-50/70 px-3 py-1.5 text-sm font-semibold text-rose-800 backdrop-blur-md dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
             承認待ちの設立申請が{pending.length}件あります
           </h2>
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            承認は{requiredApprovals}人揃って成立します。却下は1人で成立します。
+          </p>
           <ul className="space-y-3">
             {pending.map((circle) => (
               <li
@@ -235,28 +260,84 @@ export default async function CirclesPage({
                     </p>
                   )}
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  <form action={decideCircle}>
+                <div className="w-full sm:w-auto sm:shrink-0">
+                  <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                    承認 {setupCounts.get(circle.id) ?? 0} / {requiredApprovals}人
+                  </p>
+                  <form action={decideCircle} className="flex flex-wrap gap-2">
                     <input type="hidden" name="circle_id" value={circle.id} />
-                    <input type="hidden" name="approve" value="true" />
+                    <input
+                      name="comment"
+                      maxLength={200}
+                      placeholder="所見（任意）"
+                      className="field-input w-full sm:w-56"
+                    />
                     <button
                       type="submit"
+                      name="approve"
+                      value="true"
                       className="btn-primary px-3 py-1.5 text-xs"
                     >
                       承認
                     </button>
-                  </form>
-                  <form action={decideCircle}>
-                    <input type="hidden" name="circle_id" value={circle.id} />
-                    <input type="hidden" name="approve" value="false" />
                     <button
                       type="submit"
+                      name="approve"
+                      value="false"
                       className="btn-ghost-sm"
                     >
                       却下
                     </button>
                   </form>
                 </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {closureRequests.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-3 inline-flex items-center gap-2 rounded-xl border border-amber-300/70 bg-amber-50/70 px-3 py-1.5 text-sm font-semibold text-amber-800 backdrop-blur-md dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+            廃止の申請が{closureRequests.length}件あります
+          </h2>
+          <ul className="space-y-3">
+            {closureRequests.map((circle) => (
+              <li
+                key={circle.id}
+                className="glass-card tint-amber flex flex-wrap items-center justify-between gap-3 p-4"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium">{circle.name}</p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    承認 {closureCounts.get(circle.id) ?? 0} / {requiredApprovals}人
+                  </p>
+                </div>
+                <form action={decideClosure} className="flex flex-wrap gap-2">
+                  <input type="hidden" name="circle_id" value={circle.id} />
+                  <input
+                    name="comment"
+                    maxLength={200}
+                    placeholder="所見（任意）"
+                    className="field-input w-full sm:w-56"
+                  />
+                  <button
+                    type="submit"
+                    name="approve"
+                    value="true"
+                    className="btn-danger-sm"
+                  >
+                    廃止を承認
+                  </button>
+                  <button
+                    type="submit"
+                    name="approve"
+                    value="false"
+                    className="btn-ghost-sm"
+                  >
+                    却下
+                  </button>
+                </form>
               </li>
             ))}
           </ul>

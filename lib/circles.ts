@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import type {
-  ApprovalStatus,
+  CircleStatus,
   CircleRole,
   MembershipStatus,
   Scope,
@@ -15,7 +15,7 @@ export type CircleListItem = {
   id: string;
   name: string;
   description: string | null;
-  status: ApprovalStatus;
+  status: CircleStatus;
   scope: Scope;
   image_path: string | null;
   university_id: string | null;
@@ -47,14 +47,19 @@ export type CircleDetail = CirclePublicProfile & {
   id: string;
   name: string;
   description: string | null;
-  status: ApprovalStatus;
+  status: CircleStatus;
   scope: Scope;
   image_path: string | null;
   university_id: string | null;
   created_at: string;
+  /** 廃止を申請した日時。承認が揃うまで status は動かさない */
+  closure_requested_at: string | null;
   university: { name: string } | null;
   campus: { name: string; address: string | null } | null;
-  scoped_universities: { university: { name: string } | null }[];
+  scoped_universities: {
+    university_id: string;
+    university: { name: string } | null;
+  }[];
 };
 
 const LIST_SELECT = `
@@ -316,9 +321,11 @@ export const getCircle = cache(
       .select(
         `id, name, description, status, scope, image_path, university_id, created_at,
          public_listed, public_intro, public_schedule, public_contact, campus_id,
+         closure_requested_at,
          university:universities!circles_university_id_fkey(name),
          campus:campuses!circles_campus_id_fkey(name, address),
          scoped_universities:circle_universities(
+           university_id,
            university:universities!circle_universities_university_id_fkey(name)
          )`,
       )
@@ -398,8 +405,29 @@ export async function listMyCircles(userId: string) {
       {
         role: CircleRole;
         status: MembershipStatus;
-        circle: { id: string; name: string; status: ApprovalStatus } | null;
+        circle: { id: string; name: string; status: CircleStatus } | null;
       }[]
     >();
+  return data ?? [];
+}
+
+/**
+ * 廃止の申請が出ているサークル。職員の承認キュー用。
+ *
+ * 申請中も status は 'approved' のままなので、
+ * closure_requested_at の有無で拾う。
+ */
+export async function listClosureRequests(universityId: string | null) {
+  if (!universityId) return [] as CircleListItem[];
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("circles")
+    .select(LIST_SELECT)
+    .eq("university_id", universityId)
+    .not("closure_requested_at", "is", null)
+    .order("closure_requested_at")
+    .returns<CircleListItem[]>();
+
   return data ?? [];
 }
