@@ -317,6 +317,5 @@ export async function setRequiredApprovals(
   if (error) return { error: error.message };
 
   revalidatePath("/circles");
-  revalidatePath("/facilities");
   return { notice: `設立・廃止の承認を${count}人に設定しました。` };
 }

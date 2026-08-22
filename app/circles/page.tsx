@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { decideCircle, decideClosure } from "@/app/actions/circles";
 import { PageHero } from "@/components/PageHero";
+import { ApprovalPolicy } from "@/components/ApprovalPolicy";
 import { CircleCard } from "@/components/CircleCard";
 import { EventCard } from "@/components/EventCard";
 import { SearchForm } from "@/components/SearchForm";
@@ -18,7 +19,11 @@ import {
   listPendingCircles,
   listPublicCircles,
 } from "@/lib/circles";
-import { countApprovals, getRequiredApprovals } from "@/lib/approvals";
+import {
+  countApprovals,
+  countStaff,
+  getRequiredApprovals,
+} from "@/lib/approvals";
 import {
   listCampusDirectory,
   listFavoriteCircleIds,
@@ -113,13 +118,14 @@ export default async function CirclesPage({
 
   // 職員には自分の大学の承認待ちキューを見せる
   const isStaff = user?.role === "staff";
-  const [pending, closureRequests, requiredApprovals] = isStaff
+  const [pending, closureRequests, requiredApprovals, staffCount] = isStaff
     ? await Promise.all([
         listPendingCircles(user.id),
         listClosureRequests(universityId),
         getRequiredApprovals(universityId),
+        countStaff(universityId),
       ])
-    : [[], [], 1];
+    : [[], [], 1, 0];
 
   // 「あと何人か」を出すために、集まっている承認の数を引く
   const [setupCounts, closureCounts] = isStaff
@@ -341,6 +347,16 @@ export default async function CirclesPage({
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {isStaff && (
+        <section className="mb-10 glass-panel">
+          <h2 className="mb-1 text-sm font-semibold">承認のきまり</h2>
+          <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+            サークルの設立と廃止に、何人の職員の承認を求めるかを決めます。
+          </p>
+          <ApprovalPolicy current={requiredApprovals} staffCount={staffCount} />
         </section>
       )}
 
