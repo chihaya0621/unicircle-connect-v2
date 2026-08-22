@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { EventVisibility, UserRole } from "@/lib/database.types";
+import type { EventRelation } from "@/lib/event-sources";
 import { createClient } from "@/lib/supabase-server";
 
 /**
@@ -14,6 +15,9 @@ export type EventListItem = {
   event_date: string;
   visibility: EventVisibility;
   target_grades: string[] | null;
+  /** 学外の方向けの案内に載せるか（0025） */
+  public_listed: boolean;
+  image_path: string | null;
   host_university_id: string | null;
   host_circle_id: string | null;
   host_university: { name: string } | null;
@@ -34,7 +38,13 @@ export type EventHost =
  * ただし埋め込みリソース側は参照先が消えていれば null になり得るため、
  * 名前が取れないケースにもフォールバックを用意している。
  */
-export function eventHost(event: EventListItem): EventHost {
+/** eventHost が実際に読む項目だけ。一覧用の全項目を揃えなくても呼べるようにする */
+export type EventHostFields = Pick<
+  EventListItem,
+  "host_university_id" | "host_university" | "host_circle"
+>;
+
+export function eventHost(event: EventHostFields): EventHost {
   if (event.host_university_id) {
     return { kind: "university", name: event.host_university?.name ?? "大学" };
   }
@@ -48,6 +58,8 @@ const EVENT_SELECT = `
   event_date,
   visibility,
   target_grades,
+  public_listed,
+  image_path,
   host_university_id,
   host_circle_id,
   host_university:universities!events_host_university_id_fkey(name),
@@ -95,38 +107,104 @@ export function eventVisibleTo(
  * アクセス制御になっている。本番では同等のルールを RLS ポリシー側にも
  * 実装しないと、API を直接叩かれた際に学内限定イベントが漏れる。
  */
+/** 1ページに並べる件数 */
+export const EVENTS_PER_PAGE = 20;
+
+/**
+ * 閲覧者に見えるイベントを、開催日の近い順に1ページぶん返す。
+ *
+ * 絞り込みはすべて SQL 側で行う。アプリ側で間引くと、間引く前の件数で
+ * ページを切ることになり、ページ番号と中身が食い違う。
+ *
+ * 公開範囲（internal / scoped）の判定は RLS の events_select が
+ * そのまま行うので、ここでは重ねない。実データで両者の結果が
+ * 一致することを確認済み（74件 = 74件）。
+ * eventVisibleTo は詳細ページの単体判定に残している。
+ */
 export async function listVisibleEvents(
   role: UserRole | null,
-  universityId: string | null = null,
+  {
+    page = 1,
+    perPage = EVENTS_PER_PAGE,
+    watchedUniversityIds = [],
+    search = "",
+  }: {
+    page?: number;
+    perPage?: number;
+    /** 一般ユーザーが指定した大学。空なら絞らない */
+    watchedUniversityIds?: string[];
+    search?: string;
+  } = {},
 ) {
   const supabase = await createClient();
+  const current = Math.max(1, page);
+  const from = (current - 1) * perPage;
 
   let query = supabase
     .from("events")
-    .select(EVENT_SELECT)
+    .select(EVENT_SELECT, { count: "exact" })
     .gte("event_date", new Date().toISOString())
     .order("event_date", { ascending: true })
-    .limit(50);
+    .range(from, from + perPage - 1);
 
   if (role === null || role === "general") {
     query = query.eq("visibility", "public");
   }
 
-  const { data, error } = await query.returns<EventListItem[]>();
+  // 未ログインには、大学主催かつ学外向けに立てられたものだけを出す。
+  // 防災訓練や図書館ガイダンスまで並ぶと、探しているものに辿り着けない。
+  if (role === null) {
+    query = query
+      .not("host_university_id", "is", null)
+      .eq("public_listed", true);
+  }
+
+  // 一般ユーザーが大学を指定していれば、その大学のものに寄せる。
+  // サークル主催は host_circle_id しか持たないので、対象大学の
+  // サークルを引いてから ID で絞る。指定は20校までなので、
+  // ここで組み立てる条件の長さは頭打ちになる。
+  if (role === "general" && watchedUniversityIds.length > 0) {
+    const { data: circles } = await supabase
+      .from("circles")
+      .select("id")
+      .in("university_id", watchedUniversityIds);
+
+    const clauses = [`host_university_id.in.(${watchedUniversityIds.join(",")})`];
+    const circleIds = (circles ?? []).map((c) => c.id);
+    if (circleIds.length > 0) {
+      clauses.push(`host_circle_id.in.(${circleIds.join(",")})`);
+    }
+    query = query.or(clauses.join(","));
+  }
+
+  // 検索も SQL 側で。ilike のパターン記号は落とす。素通しすると
+  // 「全部に一致する」検索語を作れてしまう。
+  const term = search.trim().replace(/[%_,()\\]/g, " ").trim();
+  if (term) {
+    query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
+  }
+
+  const { data, error, count } = await query.returns<EventListItem[]>();
 
   if (error) {
     // 画面全体を落とさず、空一覧＋エラー表示にフォールバックする
     console.error("イベント取得に失敗しました:", error.message);
-    return { events: [] as EventListItem[], error: error.message };
+    return {
+      events: [] as EventListItem[],
+      total: 0,
+      page: current,
+      perPage,
+      error: error.message,
+    };
   }
 
-  const rows = data ?? [];
-  const events =
-    role === null || role === "general"
-      ? rows
-      : rows.filter((e) => eventVisibleTo(e, universityId));
-
-  return { events, error: null };
+  return {
+    events: data ?? [],
+    total: count ?? 0,
+    page: current,
+    perPage,
+    error: null,
+  };
 }
 
 /**
@@ -156,9 +234,15 @@ export type EventDetail = EventListItem & {
   scoped_university_names: { university: { name: string } | null }[];
 };
 
+/**
+ * イベント1件。取得できなければ null。
+ *
+ * エラーは記録する。失敗と不在の区別が付かないと、呼び出し側が
+ * 一律 404 を返して原因が分からなくなる（サークル側で踏んだのと同じ）。
+ */
 export async function getEvent(eventId: string): Promise<EventDetail | null> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("events")
     .select(
       `${EVENT_SELECT},
@@ -170,6 +254,11 @@ export async function getEvent(eventId: string): Promise<EventDetail | null> {
     .eq("id", eventId)
     .maybeSingle()
     .returns<EventDetail>();
+
+  if (error) {
+    console.error(`イベント(${eventId})の取得に失敗しました:`, error.message);
+    return null;
+  }
   return data ?? null;
 }
 
@@ -195,4 +284,138 @@ export async function canManageEvent(
     return data?.role === "admin" && data.status === "active";
   }
   return role === "staff" && event.host_university_id === universityId;
+}
+
+/**
+ * そのサークルが主催する、これからのイベント。
+ *
+ * サークルのページに「次の予定」を出すために使う。
+ * RLS が効くので、閲覧者に見えないイベントは最初から返らない。
+ */
+export async function listUpcomingCircleEvents(circleId: string, limit = 1) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("events")
+    .select(EVENT_SELECT)
+    .eq("host_circle_id", circleId)
+    .gte("event_date", new Date().toISOString())
+    .order("event_date", { ascending: true })
+    .limit(limit)
+    .returns<EventListItem[]>();
+  return data ?? [];
+}
+
+/**
+ * そのサークルが主催した、終了済みのイベント。
+ * 活動の記録として新しい順に返す。
+ */
+export async function listPastCircleEvents(circleId: string, limit = 20) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("events")
+    .select(EVENT_SELECT)
+    .eq("host_circle_id", circleId)
+    .lt("event_date", new Date().toISOString())
+    .order("event_date", { ascending: false })
+    .limit(limit)
+    .returns<EventListItem[]>();
+  return data ?? [];
+}
+
+/**
+ * 閲覧者から見た各イベントの関係を求める。
+ *
+ * 一覧は時系列で並べたままにして、色分けだけで目立たせる。
+ * 並べ替えると「次に何があるか」が読み取れなくなるため。
+ * 絞り込みはカレンダー側の役割。
+ */
+export async function resolveEventRelations(
+  userId: string,
+  events: Pick<EventListItem, "id" | "host_circle_id">[],
+): Promise<Map<string, EventRelation>> {
+  const relations = new Map<string, EventRelation>();
+  if (events.length === 0) return relations;
+
+  const supabase = await createClient();
+  const [{ data: joined }, { data: memberships }] = await Promise.all([
+    supabase
+      .from("event_participants")
+      .select("event_id")
+      .eq("user_id", userId)
+      .eq("status", "going")
+      .in(
+        "event_id",
+        events.map((e) => e.id),
+      ),
+    supabase
+      .from("circle_members")
+      .select("circle_id")
+      .eq("user_id", userId)
+      .eq("status", "active"),
+  ]);
+
+  const joinedIds = new Set((joined ?? []).map((j) => j.event_id));
+  const myCircles = new Set(
+    (memberships ?? []).map((m) => m.circle_id).filter(Boolean) as string[],
+  );
+
+  for (const e of events) {
+    if (joinedIds.has(e.id)) relations.set(e.id, "joined");
+    else if (e.host_circle_id && myCircles.has(e.host_circle_id))
+      relations.set(e.id, "my-circle");
+    else relations.set(e.id, "other");
+  }
+  return relations;
+}
+
+/**
+ * そのイベントに自分が仕掛けているリマインド。未設定なら null。
+ *
+ * RLS で自分の行しか読めないので、利用者の絞り込みは不要。
+ */
+export async function getMyEventReminder(
+  eventId: string,
+): Promise<number | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("event_reminders")
+    .select("lead_minutes")
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("リマインドの取得に失敗しました:", error.message);
+    return null;
+  }
+  return data?.lead_minutes ?? null;
+}
+
+/**
+ * ある大学の、学外向けに案内している開催予定イベント。
+ *
+ * 公開のサークル一覧で大学を選んだときに、その大学の行事も見せる。
+ * サークルだけ出しても、その大学に行ってみたい人の知りたいことに
+ * 半分しか答えられない。
+ */
+export async function listUniversityPublicEvents(
+  universityId: string,
+  limit = 4,
+) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("events")
+    .select(EVENT_SELECT)
+    .eq("host_university_id", universityId)
+    .eq("visibility", "public")
+    .eq("public_listed", true)
+    .gte("event_date", new Date().toISOString())
+    .order("event_date", { ascending: true })
+    .limit(limit)
+    .returns<EventListItem[]>();
+
+  if (error) {
+    console.error("大学のイベント取得に失敗しました:", error.message);
+    return [];
+  }
+  return data ?? [];
 }

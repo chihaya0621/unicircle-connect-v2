@@ -1,72 +1,244 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { decideCircle } from "@/app/actions/circles";
+import { decideCircle, decideClosure } from "@/app/actions/circles";
+import { PageHero } from "@/components/PageHero";
+import { ApprovalPolicy } from "@/components/ApprovalPolicy";
 import { CircleCard } from "@/components/CircleCard";
+import { EventCard } from "@/components/EventCard";
+import { SearchForm } from "@/components/SearchForm";
+import {
+  DirectoryBreadcrumb,
+  PrefectureList,
+  UniversityList,
+} from "@/components/CircleDirectory";
 import {
   getMyCircleIds,
   listApprovedCircles,
+  listClosureRequests,
   listPendingCircles,
+  listPublicCircles,
 } from "@/lib/circles";
-import { getMyUniversityId, requireRole } from "@/lib/dal";
+import {
+  countApprovals,
+  countStaff,
+  getRequiredApprovals,
+} from "@/lib/approvals";
+import {
+  listCampusDirectory,
+  listFavoriteCircleIds,
+  listWatchedUniversityIds,
+} from "@/lib/discovery";
+import { listUniversityPublicEvents } from "@/lib/events";
+import { PREFECTURE_UNKNOWN } from "@/lib/prefectures";
+import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
 
 export const metadata: Metadata = { title: "サークル | UniCircle Connect" };
 
 export default async function CirclesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ others?: string }>;
+  searchParams: Promise<{
+    others?: string;
+    fav?: string;
+    pref?: string;
+    university?: string;
+    campus?: string;
+    q?: string;
+  }>;
 }) {
-  // 一般ユーザーは公開イベントの閲覧のみ可能（要件定義書3章）なので、
-  // サークル画面には学生と職員だけを通す。
-  const user = await requireRole("student", "staff");
+  // 未ログインにも開く。公開設定のサークルだけが見えることは
+  // RLS（0021_circle_public_profile.sql）が担保している。
+  const user = await getCurrentUser();
   const universityId = await getMyUniversityId();
+  const isAnon = user === null;
+  const isGeneral = user?.role === "general";
+  // 所属の文脈が無い人には、大学ごとにまとめて見せる。
+  // 平坦な一覧だと、どこの大学の話なのかが読み取れない。
+  const groupByUniversity = isAnon;
 
   // 他大学のサークル（インカレ・合同）を出すかは URL クエリで持つ。
   // 既定は非表示。インカレが増えるほど自大学の一覧が埋もれるため。
-  const { others } = await searchParams;
+  const { others, fav, pref, university, campus, q } = await searchParams;
+  const search = (q ?? "").trim();
   const showOtherUniversities = others === "1";
+  const favoritesOnly = fav === "1";
 
-  const myCircleIds = await getMyCircleIds(user.id);
-  const { circles, hiddenCount, error } = await listApprovedCircles(
-    universityId,
-    {
-      isStaff: user.role === "staff",
-      showOtherUniversities,
-      myCircleIds,
-    },
-  );
+  // 気になる登録はログインしている人だけのもの
+  const favoriteIds = user ? await listFavoriteCircleIds() : new Set<string>();
+
+  // 一般ユーザーは所属大学を持たないので、本人が指定した大学に寄せる
+  const watchedIds = isGeneral ? await listWatchedUniversityIds() : [];
+
+  const myCircleIds =
+    user && !isGeneral ? await getMyCircleIds(user.id) : new Set<string>();
+
+  // 所属大学を持たない人は、都道府県 → 大学 と辿ってから一覧に着く。
+  // 気になる大学を指定済みの一般ユーザーは、そこから始める必要が無い。
+  const useDirectory = isAnon || (isGeneral && watchedIds.length === 0);
+  const directory =
+    useDirectory || university ? await listCampusDirectory() : [];
+
+  // 拠点まで指定されていればその拠点、なければ大学の代表拠点
+  const selected = university
+    ? (directory.find(
+        (e) =>
+          e.universityId === university &&
+          (campus ? e.campusId === campus : e.isPrimary),
+      ) ?? null)
+    : null;
+
+  const listed = selected
+    ? await listPublicCircles(
+        [selected.universityId],
+        favoriteIds,
+        selected.campusId
+          ? { id: selected.campusId, includeUnassigned: selected.isPrimary }
+          : undefined,
+        search,
+      )
+    : isAnon || isGeneral
+      ? await listPublicCircles(watchedIds, favoriteIds, undefined, search)
+      : await listApprovedCircles(universityId, {
+          isStaff: user.role === "staff",
+          showOtherUniversities,
+          myCircleIds,
+          search,
+        });
+
+  // 大学を選んだときは、その大学の学外向けイベントも一緒に見せる
+  const universityEvents = selected
+    ? await listUniversityPublicEvents(selected.universityId)
+    : [];
+
+  const { hiddenCount, truncated, error } = listed;
+  const circles = favoritesOnly
+    ? listed.circles.filter((c) => favoriteIds.has(c.id))
+    : listed.circles;
 
   // 職員には自分の大学の承認待ちキューを見せる
-  const pending =
-    user.role === "staff" ? await listPendingCircles(user.id) : [];
+  const isStaff = user?.role === "staff";
+  const [pending, closureRequests, requiredApprovals, staffCount] = isStaff
+    ? await Promise.all([
+        listPendingCircles(user.id),
+        listClosureRequests(universityId),
+        getRequiredApprovals(universityId),
+        countStaff(universityId),
+      ])
+    : [[], [], 1, 0];
+
+  // 「あと何人か」を出すために、集まっている承認の数を引く
+  const [setupCounts, closureCounts] = isStaff
+    ? await Promise.all([
+        countApprovals(
+          "circle",
+          pending.map((c) => c.id),
+        ),
+        countApprovals(
+          "circle_closure",
+          closureRequests.map((c) => c.id),
+        ),
+      ])
+    : [new Map<string, number>(), new Map<string, number>()];
+
+  // 大学を1つ選んだあとは、まとめる意味が無いので平坦に並べる。
+  // 描画の分岐もこの値を見る。データ側だけ条件を足すと、
+  // 「まとめる」経路のまま空の配列を描いてしまう。
+  // 検索したときは階層を飛ばして結果だけ出す。
+  // 「都道府県を選び直してから検索」では手間が増えるだけなので。
+  const showDirectory = useDirectory && !selected && !search;
+  const showGrouped = groupByUniversity && !selected;
+
+  // 大学ごとにまとめる。大学名の五十音順、同じ大学の中はサークル名順。
+  const byUniversity = showGrouped
+    ? [...
+        circles
+          .reduce((map, c) => {
+            const name = c.university?.name ?? "所属大学未設定";
+            (map.get(name) ?? map.set(name, []).get(name)!).push(c);
+            return map;
+          }, new Map<string, typeof circles>())
+          .entries(),
+      ].sort((a, b) => a[0].localeCompare(b[0], "ja"))
+    : [];
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">サークル</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {showOtherUniversities
-              ? "他大学のインカレ・合同サークルも含めて表示しています。"
-              : "自大学のサークルと、所属中のサークルを表示しています。"}
-          </p>
-        </div>
-
-        {user.role === "student" && (
-          <Link
-            href="/circles/new"
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-          >
-            サークルを設立する
-          </Link>
-        )}
-      </header>
+      <PageHero
+        variant="arc"
+        eyebrow="CIRCLES"
+        title={isAnon || isGeneral ? "サークルを探す" : "サークル"}
+        description={
+          selected ? (
+            <>
+              {selected.label}の公開サークルです。
+              {selected.isPrimary &&
+                selected.campusId &&
+                "拠点が未設定のサークルもここに含めています。"}
+            </>
+          ) : useDirectory ? (
+            pref ? (
+              <>{pref}の大学から選んでください。</>
+            ) : (
+              <>まず都道府県を選んでください。大学、サークルの順に辿れます。</>
+            )
+          ) : isAnon ? (
+            <>
+              公開されているサークルを大学ごとに表示しています。
+              登録すると、気になるサークルに印を付けておけます。
+            </>
+          ) : isGeneral ? (
+            <>
+              公開されているサークルを表示しています。
+              {watchedIds.length > 0
+                ? "指定した大学のものに絞っています。"
+                : "気になる大学を指定すると絞り込めます。"}
+            </>
+          ) : (
+            <>
+              {showOtherUniversities
+                ? "他大学のインカレ・合同サークルも含めて表示しています。"
+                : "自大学のサークルと、所属中のサークルを表示しています。"}
+              {myCircleIds.size > 0 && " 所属中のものを先頭に並べています。"}
+            </>
+          )
+        }
+        action={
+          <>
+            {favoriteIds.size > 0 && (
+              <Link
+                href={favoritesOnly ? "/circles" : "/circles?fav=1"}
+                className={favoritesOnly ? "btn-primary" : "btn-ghost py-2"}
+              >
+                {favoritesOnly
+                  ? "気になるのみ表示中"
+                  : `気になる ${favoriteIds.size}件`}
+              </Link>
+            )}
+            {isAnon ? (
+              <Link href="/signup" className="btn-primary">
+                新規登録
+              </Link>
+            ) : isGeneral ? (
+              <Link href="/mypage" className="btn-ghost py-2">
+                大学を指定
+                {watchedIds.length > 0 && `（${watchedIds.length}校）`}
+              </Link>
+            ) : (
+              user?.role === "student" && (
+                <Link href="/circles/new" className="btn-primary">
+                  サークルを設立する
+                </Link>
+              )
+            )}
+          </>
+        }
+      />
 
       {error && (
         <p
           role="alert"
-          className="mb-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+          className="mb-6 rounded-xl border border-rose-300/70 bg-rose-50/70 px-3.5 py-2.5 text-sm text-rose-800 backdrop-blur-md dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200"
         >
           サークルの取得に失敗しました: {error}
         </p>
@@ -74,14 +246,17 @@ export default async function CirclesPage({
 
       {pending.length > 0 && (
         <section className="mb-10">
-          <h2 className="mb-3 inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+          <h2 className="mb-3 inline-flex items-center gap-2 rounded-xl border border-rose-300/70 bg-rose-50/70 px-3 py-1.5 text-sm font-semibold text-rose-800 backdrop-blur-md dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
             承認待ちの設立申請が{pending.length}件あります
           </h2>
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            承認は{requiredApprovals}人揃って成立します。却下は1人で成立します。
+          </p>
           <ul className="space-y-3">
             {pending.map((circle) => (
               <li
                 key={circle.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20"
+                className="glass-card tint-amber flex flex-wrap items-center justify-between gap-3 p-4"
               >
                 <div className="min-w-0">
                   <p className="font-medium">{circle.name}</p>
@@ -91,23 +266,31 @@ export default async function CirclesPage({
                     </p>
                   )}
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  <form action={decideCircle}>
+                <div className="w-full sm:w-auto sm:shrink-0">
+                  <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                    承認 {setupCounts.get(circle.id) ?? 0} / {requiredApprovals}人
+                  </p>
+                  <form action={decideCircle} className="flex flex-wrap gap-2">
                     <input type="hidden" name="circle_id" value={circle.id} />
-                    <input type="hidden" name="approve" value="true" />
+                    <input
+                      name="comment"
+                      maxLength={200}
+                      placeholder="所見（任意）"
+                      className="field-input w-full sm:w-56"
+                    />
                     <button
                       type="submit"
-                      className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500"
+                      name="approve"
+                      value="true"
+                      className="btn-primary px-3 py-1.5 text-xs"
                     >
                       承認
                     </button>
-                  </form>
-                  <form action={decideCircle}>
-                    <input type="hidden" name="circle_id" value={circle.id} />
-                    <input type="hidden" name="approve" value="false" />
                     <button
                       type="submit"
-                      className="rounded-lg border border-black/15 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-black/5 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/10"
+                      name="approve"
+                      value="false"
+                      className="btn-ghost-sm"
                     >
                       却下
                     </button>
@@ -119,7 +302,79 @@ export default async function CirclesPage({
         </section>
       )}
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      {closureRequests.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-3 inline-flex items-center gap-2 rounded-xl border border-amber-300/70 bg-amber-50/70 px-3 py-1.5 text-sm font-semibold text-amber-800 backdrop-blur-md dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+            廃止の申請が{closureRequests.length}件あります
+          </h2>
+          <ul className="space-y-3">
+            {closureRequests.map((circle) => (
+              <li
+                key={circle.id}
+                className="glass-card tint-amber flex flex-wrap items-center justify-between gap-3 p-4"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium">{circle.name}</p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    承認 {closureCounts.get(circle.id) ?? 0} / {requiredApprovals}人
+                  </p>
+                </div>
+                <form action={decideClosure} className="flex flex-wrap gap-2">
+                  <input type="hidden" name="circle_id" value={circle.id} />
+                  <input
+                    name="comment"
+                    maxLength={200}
+                    placeholder="所見（任意）"
+                    className="field-input w-full sm:w-56"
+                  />
+                  <button
+                    type="submit"
+                    name="approve"
+                    value="true"
+                    className="btn-danger-sm"
+                  >
+                    廃止を承認
+                  </button>
+                  <button
+                    type="submit"
+                    name="approve"
+                    value="false"
+                    className="btn-ghost-sm"
+                  >
+                    却下
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {isStaff && (
+        <section className="mb-10 glass-panel">
+          <h2 className="mb-1 text-sm font-semibold">承認のきまり</h2>
+          <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+            サークルの設立と廃止に、何人の職員の承認を求めるかを決めます。
+          </p>
+          <ApprovalPolicy current={requiredApprovals} staffCount={staffCount} />
+        </section>
+      )}
+
+      {isGeneral && watchedIds.length === 0 && (
+        <p className="glass-panel mb-4 text-sm text-gray-600 dark:text-gray-400">
+          いまは全大学の公開サークルを表示しています。
+          <Link href="/mypage" className="mx-1 font-medium underline">
+            マイページ
+          </Link>
+          で気になる大学を指定すると、その大学のものだけに絞れます。
+        </p>
+      )}
+
+      <div
+        className={`mb-4 flex flex-wrap items-center gap-3 ${
+          isAnon || isGeneral ? "hidden" : ""
+        }`}
+      >
         <Link
           href={showOtherUniversities ? "/circles" : "/circles?others=1"}
           className="rounded-lg border border-black/15 px-3 py-1.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
@@ -135,16 +390,119 @@ export default async function CirclesPage({
         )}
       </div>
 
-      {circles.length === 0 && !error ? (
-        <p className="rounded-xl border border-dashed border-black/15 px-4 py-12 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
-          {showOtherUniversities
-            ? "参加できるサークルはまだありません。"
-            : "自大学のサークルはまだありません。「他大学のサークルも表示する」で範囲を広げられます。"}
+      {(useDirectory || selected) && (
+        <DirectoryBreadcrumb
+          prefecture={pref ?? selected?.prefecture}
+          universityName={selected?.label}
+        />
+      )}
+
+      <SearchForm
+        action="/circles"
+        placeholder="サークル名・活動内容で検索"
+        value={search}
+        hidden={{ pref, university, campus, others, fav }}
+      />
+
+      {truncated && (
+        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+          該当が多いため一部だけ表示しています。検索語を足すか、
+          大学を選んで絞り込んでください。
         </p>
+      )}
+
+      {universityEvents.length > 0 && !search && (
+        <section className="mb-8">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold">
+              {selected?.universityName}の公開イベント
+            </h2>
+            <Link
+              href="/events"
+              className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              イベントを一覧で見る
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {universityEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {selected && !search && (
+        <h2 className="mb-3 text-lg font-semibold">サークル</h2>
+      )}
+
+      {selected?.websiteUrl && (
+        <p className="mb-4 text-sm">
+          <a
+            href={selected.websiteUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+          >
+            {selected.universityName}の公式サイト
+          </a>
+        </p>
+      )}
+
+      {showDirectory ? (
+        pref ? (
+          <UniversityList
+            prefecture={pref}
+            entries={directory.filter(
+              (e) => (e.prefecture ?? PREFECTURE_UNKNOWN) === pref,
+            )}
+          />
+        ) : (
+          <PrefectureList entries={directory} />
+        )
+      ) : circles.length === 0 && !error ? (
+        <p className="glass-empty py-12">
+          {search
+            ? `「${search}」に一致するサークルはありません。`
+            : favoritesOnly
+            ? "気になるサークルはまだありません。カードのハートで印を付けられます。"
+            : isAnon
+              ? "公開されているサークルはまだありません。"
+              : isGeneral
+                ? watchedIds.length > 0
+                  ? "指定した大学に公開サークルがありません。指定を見直してみてください。"
+                  : "公開されているサークルはまだありません。"
+                : showOtherUniversities
+                  ? "参加できるサークルはまだありません。"
+                  : "自大学のサークルはまだありません。「他大学のサークルも表示する」で範囲を広げられます。"}
+        </p>
+      ) : showGrouped ? (
+        <div className="space-y-10">
+          {byUniversity.map(([universityName, list]) => (
+            <section key={universityName}>
+              <div className="mb-3 flex items-baseline gap-3">
+                <h2 className="text-lg font-semibold">{universityName}</h2>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {list.length}件
+                </span>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {list.map((circle) => (
+                  <CircleCard key={circle.id} circle={circle} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {circles.map((circle) => (
-            <CircleCard key={circle.id} circle={circle} />
+            <CircleCard
+              key={circle.id}
+              circle={circle}
+              isMember={myCircleIds.has(circle.id)}
+              isFavorite={favoriteIds.has(circle.id)}
+            />
           ))}
         </div>
       )}

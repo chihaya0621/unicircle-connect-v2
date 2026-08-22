@@ -25,7 +25,7 @@ export function EventRoster({
 
   if (roster.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-black/15 px-4 py-8 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+      <p className="glass-empty py-8">
         まだ参加登録している人がいません。
       </p>
     );
@@ -38,7 +38,7 @@ export function EventRoster({
         {unrecorded > 0 && `・未記録 ${unrecorded}`}
       </p>
 
-      <ul className="divide-y divide-black/5 rounded-xl border border-black/10 bg-white dark:divide-white/5 dark:border-white/10 dark:bg-white/5">
+      <ul className="glass divide-y divide-black/5 dark:divide-white/5">
         {roster.map((r) => (
           <li
             key={r.roster_user_id}

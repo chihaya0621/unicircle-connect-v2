@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { homeForRole } from "@/lib/home";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase";
 
 /**
@@ -14,7 +15,16 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase";
  */
 
 /** 未ログインでも閲覧できるパス。前方一致で判定する。 */
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/events", "/auth"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/signup",
+  "/reset",
+  "/update-password",
+  "/events",
+  "/circles",
+  "/auth",
+];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some(
@@ -63,8 +73,18 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // ログイン済みの人がログイン画面に来たら、その人のホームへ戻す。
+  // 役割を引くのはこの2パスに来たときだけなので、往復が増えるのは稀。
   if (user && (pathname === "/login" || pathname === "/signup")) {
-    return NextResponse.redirect(new URL("/dashboard", request.nextUrl));
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    return NextResponse.redirect(
+      new URL(homeForRole(profile?.role), request.nextUrl),
+    );
   }
 
   return response;

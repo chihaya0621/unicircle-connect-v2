@@ -84,7 +84,7 @@ export function EventForm({
           rows={5}
           maxLength={2000}
           placeholder="会場、持ち物、参加方法などを書きましょう。"
-          className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-white/15 dark:bg-white/5 dark:text-gray-100 dark:focus:ring-indigo-900"
+          className="field-input"
         />
       </Field>
 
@@ -109,6 +109,25 @@ export function EventForm({
         </Select>
       </Field>
 
+      {/* 学外向けの案内に載せるかは、全体公開のときだけ意味がある */}
+      {visibility === "public" && (
+        <label className="flex items-start gap-2.5 text-sm">
+          <input
+            type="checkbox"
+            name="public_listed"
+            className="field-check mt-0.5"
+          />
+          <span>
+            学外の方向けの案内にも載せる
+            <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+              未ログインの方が見るイベント一覧に出ます。
+              オープンキャンパスや学園祭など、学外の方を迎える行事に使ってください。
+              学内向けの行事（防災訓練・ガイダンスなど）には付けないでください。
+            </span>
+          </span>
+        </label>
+      )}
+
       {visibility === "scoped" && (
         <fieldset className="rounded-lg border border-black/10 p-4 dark:border-white/10">
           <legend className="px-1 text-sm font-medium">公開する大学</legend>
@@ -124,7 +143,7 @@ export function EventForm({
                     type="checkbox"
                     name="university_ids"
                     value={u.id}
-                    className="rounded border-black/20 text-indigo-600 focus:ring-indigo-500"
+                    className="field-check"
                   />
                   {u.name}
                 </label>
@@ -146,7 +165,7 @@ export function EventForm({
                 type="checkbox"
                 name="target_grades"
                 value={g}
-                className="rounded border-black/20 text-indigo-600 focus:ring-indigo-500"
+                className="field-check"
               />
               {g}
             </label>

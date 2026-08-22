@@ -1,10 +1,25 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { deleteEvent, joinEvent, leaveEvent } from "@/app/actions/events";
+import {
+  removeEventImage,
+  uploadEventImage,
+} from "@/app/actions/images";
+import { EventReminderPicker } from "@/components/EventReminderPicker";
 import { EventRoster, type RosterEntry } from "@/components/EventRoster";
+import { ImageUploader } from "@/components/ImageUploader";
 import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
-import { canManageEvent, eventHost, eventVisibleTo, getEvent } from "@/lib/events";
+import {
+  canManageEvent,
+  eventHost,
+  eventVisibleTo,
+  getEvent,
+  getMyEventReminder,
+} from "@/lib/events";
+import { imageUrl } from "@/lib/images";
 import { createClient } from "@/lib/supabase-server";
 
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
@@ -49,8 +64,10 @@ export default async function EventDetailPage({
     ? await canManageEvent(event, user.id, universityId, user.role)
     : false;
 
-  // 参加状態。職員は運営側なので参加登録の対象外。
-  const canParticipate = user !== null && user.role !== "staff";
+  // 参加登録できるのは学生だけ。職員は運営側で、一般ユーザー
+  // （高校生・企業）は公開情報を見に来る立場なので名簿には載せない。
+  // 同じ判定を join_event（0020）が DB 側でも行う。
+  const canParticipate = user?.role === "student";
   let isGoing = false;
   if (canParticipate && user) {
     const supabase = await createClient();
@@ -64,6 +81,11 @@ export default async function EventDetailPage({
   }
   const isPast = new Date(event.event_date) < new Date();
 
+  // リマインドは、参加登録している未来のイベントにだけ仕掛けられる
+  const reminderLead =
+    isGoing && !isPast ? await getMyEventReminder(event.id) : null;
+  const image = imageUrl(event.image_path);
+
   // 参加名簿は主催者のみ。RPC 側でも主催者判定を行う。
   let roster: RosterEntry[] = [];
   if (canManage) {
@@ -76,6 +98,20 @@ export default async function EventDetailPage({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
+      {/* フライヤーは縦長・正方形など比率がまちまちなので、切らずに全体を見せる */}
+      {image && (
+        <div className="relative mb-6 aspect-video w-full overflow-hidden rounded-xl border border-black/10 bg-black/[0.03] dark:border-white/10 dark:bg-white/5">
+          <Image
+            src={image}
+            alt=""
+            fill
+            sizes="(max-width: 768px) 100vw, 768px"
+            priority
+            className="object-contain"
+          />
+        </div>
+      )}
+
       <header className="mb-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight">{event.title}</h1>
@@ -117,27 +153,41 @@ export default async function EventDetailPage({
           )}
       </header>
 
+      {user?.role === "general" && !isPast && (
+        <p className="mb-8 text-sm text-gray-500 dark:text-gray-400">
+          公開されている情報の閲覧のみ行えます。参加を希望する場合は、
+          主催団体の案内をご確認ください。
+        </p>
+      )}
+
       {canParticipate && !isPast && (
         <div className="mb-8">
           {isGoing ? (
-            <form action={leaveEvent} className="flex items-center gap-3">
-              <input type="hidden" name="event_id" value={event.id} />
-              <span className="text-sm font-medium text-rose-700 dark:text-rose-300">
-                参加予定です
-              </span>
-              <button
-                type="submit"
-                className="rounded-lg border border-black/15 px-3 py-1.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-              >
-                参加を取り消す
-              </button>
-            </form>
+            <div className="space-y-3">
+              <form action={leaveEvent} className="flex items-center gap-3">
+                <input type="hidden" name="event_id" value={event.id} />
+                <span className="text-sm font-medium text-rose-700 dark:text-rose-300">
+                  参加予定です
+                </span>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-black/15 px-3 py-1.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+                >
+                  参加を取り消す
+                </button>
+              </form>
+
+              <EventReminderPicker
+                eventId={event.id}
+                leadMinutes={reminderLead}
+              />
+            </div>
           ) : (
             <form action={joinEvent}>
               <input type="hidden" name="event_id" value={event.id} />
               <button
                 type="submit"
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                className="btn-primary"
               >
                 参加する
               </button>
@@ -159,13 +209,37 @@ export default async function EventDetailPage({
             {event.target_grades.map((g) => (
               <li
                 key={g}
-                className="rounded-md bg-black/5 px-2 py-0.5 text-xs text-gray-700 dark:bg-white/10 dark:text-gray-300"
+                className="rounded-md bg-black/[0.06] px-2 py-0.5 text-xs text-gray-700 backdrop-blur-sm dark:bg-white/10 dark:text-gray-300"
               >
                 {g}
               </li>
             ))}
           </ul>
         </div>
+      )}
+
+      {canManage && (
+        <p className="mb-6">
+          <Link href={`/events/${event.id}/edit`} className="btn-ghost-sm">
+            イベントを編集
+          </Link>
+        </p>
+      )}
+
+      {canManage && (
+        <section className="mt-10 border-t border-black/10 pt-6 dark:border-white/10">
+          <h2 className="mb-4 text-lg font-semibold">イベントの画像</h2>
+          <ImageUploader
+            action={uploadEventImage}
+            removeAction={removeEventImage}
+            idField="event_id"
+            idValue={event.id}
+            currentUrl={image}
+            label="イベントの画像"
+            shape="contain"
+            hint="縦長・正方形など、比率はそのままに全体を表示します。一覧では正方形に切り出されます。JPEG / PNG / WebP / GIF、5MBまで。"
+          />
+        </section>
       )}
 
       {canManage && (
@@ -181,7 +255,7 @@ export default async function EventDetailPage({
             <input type="hidden" name="event_id" value={event.id} />
             <button
               type="submit"
-              className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/40"
+              className="btn-danger"
             >
               このイベントを削除する
             </button>

@@ -15,9 +15,23 @@
 --  10. migrations/0009_profile.sql
 --  11. migrations/0010_student_registration.sql
 --  12. migrations/0011_circle_posts.sql
---  13. migrations/0012_activities.sql
---  14. migrations/0013_event_attendance.sql
---  15. seed.sql
+--  13. migrations/0013_event_attendance.sql
+--  14. migrations/0014_notifications.sql
+--  15. migrations/0015_images.sql
+--  16. migrations/0016_theme.sql
+--  17. migrations/0017_theme_variants.sql
+--  18. migrations/0018_circle_event_stats.sql
+--  19. migrations/0019_public_discovery.sql
+--  20. migrations/0020_event_participation_roles.sql
+--  21. migrations/0021_circle_public_profile.sql
+--  22. migrations/0022_event_reminders.sql
+--  23. migrations/0023_university_details.sql
+--  24. migrations/0024_campus_location.sql
+--  25. migrations/0025_public_events.sql
+--  26. migrations/0026_membership_and_edits.sql
+--  27. migrations/0027_approvals.sql
+--  28. migrations/0028_reservation_log_and_account.sql
+--  29. seed.sql
 --
 -- 再生成: npm run db:bundle
 --
@@ -2492,204 +2506,6 @@ BEGIN
 END;
 $$;
 
--- ▼▼▼ migrations/0012_activities.sql ▼▼▼
-
--- =============================================================================
--- 活動記録と出欠管理
--- =============================================================================
--- 「いつ活動して、誰が来たか」を残す。
---
--- イベント (events) とは目的が違うので別テーブルにする。
---   events              … 対外的な告知。可視範囲があり、他大学にも見せる
---   circle_activities   … 内部の活動記録。メンバーしか見ない
--- 週2回の練習をイベントとして毎回告知するのは実態に合わない。
---
--- 【出欠の考え方】
---   本人が事前に「出席／欠席」を登録し、管理者が実績として上書きもできる。
---   欄を分けず1つの状態にまとめているのは、二重管理を避けるため。
---   誰が最後に記録したかは recorded_by で分かる。
--- =============================================================================
-
-CREATE TABLE IF NOT EXISTS circle_activities (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  circle_id     UUID NOT NULL REFERENCES circles(id) ON DELETE CASCADE,
-  title         TEXT NOT NULL CHECK (btrim(title) <> ''),
-  activity_date TIMESTAMPTZ NOT NULL,
-  location      TEXT,
-  note          TEXT,
-  created_by    UUID REFERENCES users(id) ON DELETE SET NULL,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_circle_activities_circle
-  ON circle_activities(circle_id, activity_date DESC);
-
-CREATE TABLE IF NOT EXISTS activity_attendances (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  activity_id UUID NOT NULL REFERENCES circle_activities(id) ON DELETE CASCADE,
-  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  status      TEXT NOT NULL CHECK (status IN ('present', 'absent')),
-  -- 本人が登録したのか管理者が記録したのかを残す
-  recorded_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (activity_id, user_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_activity_attendances_activity
-  ON activity_attendances(activity_id);
-CREATE INDEX IF NOT EXISTS idx_activity_attendances_user
-  ON activity_attendances(user_id);
-
-ALTER TABLE circle_activities    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE activity_attendances ENABLE ROW LEVEL SECURITY;
-
--- 読み取りのみ。書き込みは RPC 経由に限る（0008 の方針）。
-DROP POLICY IF EXISTS circle_activities_select ON circle_activities;
-CREATE POLICY circle_activities_select ON circle_activities
-  FOR SELECT TO authenticated USING (public.app_is_circle_member(circle_id));
-
--- 出欠は同じサークルのメンバー同士で見える。
--- 「誰が来ているか」が分からないと出欠管理として機能しないため。
-DROP POLICY IF EXISTS activity_attendances_select ON activity_attendances;
-CREATE POLICY activity_attendances_select ON activity_attendances
-  FOR SELECT TO authenticated USING (
-    EXISTS (
-      SELECT 1 FROM circle_activities a
-      WHERE a.id = activity_id AND public.app_is_circle_member(a.circle_id)
-    )
-  );
-
-
--- -----------------------------------------------------------------------------
--- 活動の登録・削除（管理者のみ）
--- -----------------------------------------------------------------------------
-
-CREATE OR REPLACE FUNCTION public.create_activity(
-  p_circle_id     UUID,
-  p_title         TEXT,
-  p_activity_date TIMESTAMPTZ,
-  p_location      TEXT DEFAULT NULL,
-  p_note          TEXT DEFAULT NULL
-)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-DECLARE
-  v_uid   UUID := auth.uid();
-  v_title TEXT;
-  v_id    UUID;
-BEGIN
-  IF NOT public.app_is_circle_admin(p_circle_id) THEN
-    RAISE EXCEPTION '活動を登録できるのはサークル管理者のみです';
-  END IF;
-
-  v_title := nullif(btrim(coalesce(p_title, '')), '');
-  IF v_title IS NULL THEN
-    RAISE EXCEPTION '活動名を入力してください';
-  END IF;
-  IF p_activity_date IS NULL THEN
-    RAISE EXCEPTION '活動日時を入力してください';
-  END IF;
-
-  INSERT INTO public.circle_activities
-    (circle_id, title, activity_date, location, note, created_by)
-  VALUES (
-    p_circle_id, v_title, p_activity_date,
-    nullif(btrim(coalesce(p_location, '')), ''),
-    nullif(btrim(coalesce(p_note, '')), ''),
-    v_uid
-  )
-  RETURNING id INTO v_id;
-
-  RETURN v_id;
-END;
-$$;
-
-
-CREATE OR REPLACE FUNCTION public.delete_activity(p_activity_id UUID)
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-DECLARE v_circle UUID;
-BEGIN
-  SELECT circle_id INTO v_circle
-  FROM public.circle_activities WHERE id = p_activity_id;
-
-  IF v_circle IS NULL THEN
-    RAISE EXCEPTION '活動が見つかりません';
-  END IF;
-  IF NOT public.app_is_circle_admin(v_circle) THEN
-    RAISE EXCEPTION '活動を削除できるのはサークル管理者のみです';
-  END IF;
-
-  DELETE FROM public.circle_activities WHERE id = p_activity_id;
-END;
-$$;
-
-
--- -----------------------------------------------------------------------------
--- 出欠の登録
--- -----------------------------------------------------------------------------
--- 本人は自分の出欠のみ。管理者は同じサークルの誰の出欠でも記録できる。
--- 対象ユーザーを省略すると自分自身になる。
--- -----------------------------------------------------------------------------
-
-CREATE OR REPLACE FUNCTION public.set_attendance(
-  p_activity_id UUID,
-  p_status      TEXT,
-  p_user_id     UUID DEFAULT NULL
-)
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-DECLARE
-  v_uid    UUID := auth.uid();
-  v_target UUID := coalesce(p_user_id, auth.uid());
-  v_circle UUID;
-BEGIN
-  IF v_uid IS NULL THEN
-    RAISE EXCEPTION 'ログインが必要です';
-  END IF;
-
-  IF p_status NOT IN ('present', 'absent') THEN
-    RAISE EXCEPTION '出欠の指定が不正です';
-  END IF;
-
-  SELECT circle_id INTO v_circle
-  FROM public.circle_activities WHERE id = p_activity_id;
-  IF v_circle IS NULL THEN
-    RAISE EXCEPTION '活動が見つかりません';
-  END IF;
-
-  -- 他人の出欠を記録できるのは管理者だけ
-  IF v_target <> v_uid AND NOT public.app_is_circle_admin(v_circle) THEN
-    RAISE EXCEPTION '他のメンバーの出欠を記録できるのは管理者のみです';
-  END IF;
-
-  -- 対象が実際にそのサークルのメンバーであること
-  IF NOT EXISTS (
-    SELECT 1 FROM public.circle_members
-    WHERE circle_id = v_circle AND user_id = v_target AND status = 'active'
-  ) THEN
-    RAISE EXCEPTION 'そのサークルのメンバーではありません';
-  END IF;
-
-  INSERT INTO public.activity_attendances
-    (activity_id, user_id, status, recorded_by, recorded_at)
-  VALUES (p_activity_id, v_target, p_status, v_uid, NOW())
-  ON CONFLICT (activity_id, user_id) DO UPDATE
-    SET status      = excluded.status,
-        recorded_by = excluded.recorded_by,
-        recorded_at = excluded.recorded_at;
-END;
-$$;
-
 -- ▼▼▼ migrations/0013_event_attendance.sql ▼▼▼
 
 -- =============================================================================
@@ -2710,6 +2526,9 @@ $$;
 -- 0012 の撤去
 -- -----------------------------------------------------------------------------
 
+-- 0012 は 0013 に置き換わったため削除済み。ただしここの DROP は残す。
+-- 0012 を一度でも流した DB には実体が残っており、消す経路がここしか無い。
+-- 新規のセットアップでは IF EXISTS で素通りする。
 DROP FUNCTION IF EXISTS public.set_attendance(UUID, TEXT, UUID);
 DROP FUNCTION IF EXISTS public.create_activity(UUID, TEXT, TIMESTAMPTZ, TEXT, TEXT);
 DROP FUNCTION IF EXISTS public.delete_activity(UUID);
@@ -2823,6 +2642,2786 @@ END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.list_event_roster(UUID) FROM public, anon;
+
+-- ▼▼▼ migrations/0014_notifications.sql ▼▼▼
+
+-- =============================================================================
+-- 通知
+-- =============================================================================
+-- アプリ内通知。ヘッダーのベルと通知一覧に出す。
+--
+-- 【生成箇所】
+--   RPC の中ではなくトリガーで作る。RPC に書くと、後から書き込み経路を
+--   追加したときに通知の実装を入れ忘れる。状態の変化そのものを捉える方が
+--   取りこぼしがない。
+--
+-- 【自分の操作は通知しない】
+--   承認した本人や投稿者本人に「承認されました」「投稿がありました」と
+--   届いても意味がないので、auth.uid() と一致する相手には送らない。
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type       TEXT NOT NULL CHECK (type IN (
+    'approval_result',   -- 承認・却下の結果
+    'request_received',  -- 自分への申請が届いた
+    'board_post',        -- 掲示板の新着投稿
+    'new_event'          -- 新しいイベントの告知
+  )),
+  title      TEXT NOT NULL,
+  body       TEXT,
+  /** 遷移先。アプリ内の相対パス */
+  link       TEXT,
+  read_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 未読の絞り込みと新着順の取得が主な用途
+CREATE INDEX IF NOT EXISTS idx_notifications_user
+  ON notifications(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread
+  ON notifications(user_id) WHERE read_at IS NULL;
+
+
+-- -----------------------------------------------------------------------------
+-- 通知設定（種類ごとの受け取り可否）
+-- -----------------------------------------------------------------------------
+-- 行が無い場合はすべて受け取る扱いにする。全ユーザーぶんを先に作らなくて
+-- 済むよう、既定値を「行の不在」で表現している。
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  user_id          UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  approval_result  BOOLEAN NOT NULL DEFAULT true,
+  request_received BOOLEAN NOT NULL DEFAULT true,
+  board_post       BOOLEAN NOT NULL DEFAULT true,
+  new_event        BOOLEAN NOT NULL DEFAULT true,
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE notifications             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_preferences  ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS notifications_select ON notifications;
+CREATE POLICY notifications_select ON notifications
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS notification_preferences_select ON notification_preferences;
+CREATE POLICY notification_preferences_select ON notification_preferences
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+
+-- -----------------------------------------------------------------------------
+-- 通知を1件作る（内部用）
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.app_notify(
+  p_user_id UUID,
+  p_type    TEXT,
+  p_title   TEXT,
+  p_body    TEXT DEFAULT NULL,
+  p_link    TEXT DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_wants BOOLEAN;
+BEGIN
+  IF p_user_id IS NULL THEN RETURN; END IF;
+
+  -- 自分の操作の結果を自分に通知しない
+  IF p_user_id = auth.uid() THEN RETURN; END IF;
+
+  -- 設定行が無ければ受け取る（既定は全ON）
+  SELECT CASE p_type
+    WHEN 'approval_result'  THEN np.approval_result
+    WHEN 'request_received' THEN np.request_received
+    WHEN 'board_post'       THEN np.board_post
+    WHEN 'new_event'        THEN np.new_event
+    ELSE true
+  END INTO v_wants
+  FROM public.notification_preferences np
+  WHERE np.user_id = p_user_id;
+
+  IF v_wants IS FALSE THEN RETURN; END IF;
+
+  INSERT INTO public.notifications (user_id, type, title, body, link)
+  VALUES (p_user_id, p_type, p_title, p_body, p_link);
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- サークル参加申請 → 管理者へ / 承認・却下 → 本人へ
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.notify_circle_member_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_circle TEXT;
+  v_name   TEXT;
+  admin_id UUID;
+BEGIN
+  SELECT name INTO v_circle FROM public.circles WHERE id = NEW.circle_id;
+
+  IF TG_OP = 'INSERT' AND NEW.status = 'pending' THEN
+    SELECT name INTO v_name FROM public.users WHERE id = NEW.user_id;
+    FOR admin_id IN
+      SELECT user_id FROM public.circle_members
+      WHERE circle_id = NEW.circle_id AND role = 'admin' AND status = 'active'
+    LOOP
+      PERFORM public.app_notify(
+        admin_id, 'request_received',
+        v_circle || ' に参加申請が届きました',
+        coalesce(v_name, '') || ' さんが参加を希望しています',
+        '/circles/' || NEW.circle_id
+      );
+    END LOOP;
+
+  ELSIF TG_OP = 'UPDATE' AND OLD.status = 'pending' AND NEW.status <> 'pending' THEN
+    PERFORM public.app_notify(
+      NEW.user_id, 'approval_result',
+      v_circle || ' への参加が' ||
+        CASE WHEN NEW.status = 'active' THEN '承認されました' ELSE '見送られました' END,
+      NULL,
+      '/circles/' || NEW.circle_id
+    );
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_notify_circle_member ON circle_members;
+CREATE TRIGGER trg_notify_circle_member
+  AFTER INSERT OR UPDATE OF status ON circle_members
+  FOR EACH ROW EXECUTE FUNCTION public.notify_circle_member_change();
+
+
+-- -----------------------------------------------------------------------------
+-- サークル設立申請 → 職員へ / 承認・却下 → 管理者へ
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.notify_circle_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE target UUID;
+BEGIN
+  IF TG_OP = 'INSERT' AND NEW.status = 'pending' THEN
+    FOR target IN
+      SELECT sp.user_id FROM public.staff_profiles sp
+      JOIN public.users u ON u.id = sp.user_id
+      WHERE sp.university_id = NEW.university_id AND u.role = 'staff'
+    LOOP
+      PERFORM public.app_notify(
+        target, 'request_received',
+        'サークル設立の申請が届きました',
+        NEW.name, '/circles'
+      );
+    END LOOP;
+
+  ELSIF TG_OP = 'UPDATE' AND OLD.status = 'pending' AND NEW.status <> 'pending' THEN
+    FOR target IN
+      SELECT user_id FROM public.circle_members
+      WHERE circle_id = NEW.id AND role = 'admin' AND status = 'active'
+    LOOP
+      PERFORM public.app_notify(
+        target, 'approval_result',
+        NEW.name || ' の設立が' ||
+          CASE WHEN NEW.status = 'approved' THEN '承認されました' ELSE '見送られました' END,
+        NULL, '/circles/' || NEW.id
+      );
+    END LOOP;
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_notify_circle ON circles;
+CREATE TRIGGER trg_notify_circle
+  AFTER INSERT OR UPDATE OF status ON circles
+  FOR EACH ROW EXECUTE FUNCTION public.notify_circle_change();
+
+
+-- -----------------------------------------------------------------------------
+-- 施設予約 申請 → 職員へ / 承認・却下 → 予約者へ
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.notify_reservation_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_facility TEXT;
+  v_univ     UUID;
+  target     UUID;
+BEGIN
+  SELECT name, university_id INTO v_facility, v_univ
+  FROM public.facilities WHERE id = NEW.facility_id;
+
+  IF TG_OP = 'INSERT' AND NEW.status = 'pending' THEN
+    FOR target IN
+      SELECT sp.user_id FROM public.staff_profiles sp
+      JOIN public.users u ON u.id = sp.user_id
+      WHERE sp.university_id = v_univ AND u.role = 'staff'
+    LOOP
+      PERFORM public.app_notify(
+        target, 'request_received',
+        '施設の予約申請が届きました',
+        coalesce(v_facility, '施設'), '/reservations'
+      );
+    END LOOP;
+
+  ELSIF TG_OP = 'UPDATE' AND OLD.status = 'pending' AND NEW.status <> 'pending' THEN
+    -- 予約主体の排他的関連に合わせて宛先を決める
+    IF NEW.booked_by_user_id IS NOT NULL THEN
+      PERFORM public.app_notify(
+        NEW.booked_by_user_id, 'approval_result',
+        coalesce(v_facility, '施設') || ' の予約が' ||
+          CASE WHEN NEW.status = 'approved' THEN '承認されました' ELSE '見送られました' END,
+        NULL, '/reservations'
+      );
+    ELSE
+      FOR target IN
+        SELECT user_id FROM public.circle_members
+        WHERE circle_id = NEW.group_circle_id AND status = 'active'
+      LOOP
+        PERFORM public.app_notify(
+          target, 'approval_result',
+          coalesce(v_facility, '施設') || ' の予約が' ||
+            CASE WHEN NEW.status = 'approved' THEN '承認されました' ELSE '見送られました' END,
+          NULL, '/reservations'
+        );
+      END LOOP;
+    END IF;
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_notify_reservation ON facility_reservations;
+CREATE TRIGGER trg_notify_reservation
+  AFTER INSERT OR UPDATE OF status ON facility_reservations
+  FOR EACH ROW EXECUTE FUNCTION public.notify_reservation_change();
+
+
+-- -----------------------------------------------------------------------------
+-- 掲示板の新着 → サークルのメンバーへ
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.notify_circle_post()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_circle TEXT;
+  target   UUID;
+BEGIN
+  SELECT name INTO v_circle FROM public.circles WHERE id = NEW.circle_id;
+
+  FOR target IN
+    SELECT user_id FROM public.circle_members
+    WHERE circle_id = NEW.circle_id AND status = 'active'
+  LOOP
+    PERFORM public.app_notify(
+      target, 'board_post',
+      v_circle || (CASE WHEN NEW.is_pinned THEN ' のお知らせ' ELSE ' に新しい投稿' END),
+      left(NEW.body, 80),
+      '/board'
+    );
+  END LOOP;
+
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_notify_circle_post ON circle_posts;
+CREATE TRIGGER trg_notify_circle_post
+  AFTER INSERT ON circle_posts
+  FOR EACH ROW EXECUTE FUNCTION public.notify_circle_post();
+
+
+-- -----------------------------------------------------------------------------
+-- 新しいイベント → サークルのメンバー / 主催大学の学生へ
+-- -----------------------------------------------------------------------------
+-- scoped イベントで対象に含まれる他大学の学生には送らない。
+-- 「見えること」と「通知されること」は別で、他大学の予定まで
+-- 通知されると多すぎるため。見たい人はカレンダーの設定で追える。
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.notify_new_event()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_host TEXT;
+  target UUID;
+BEGIN
+  IF NEW.host_circle_id IS NOT NULL THEN
+    SELECT name INTO v_host FROM public.circles WHERE id = NEW.host_circle_id;
+    FOR target IN
+      SELECT user_id FROM public.circle_members
+      WHERE circle_id = NEW.host_circle_id AND status = 'active'
+    LOOP
+      PERFORM public.app_notify(
+        target, 'new_event',
+        v_host || ' のイベント: ' || NEW.title,
+        to_char(NEW.event_date AT TIME ZONE 'Asia/Tokyo', 'MM月DD日 HH24:MI'),
+        '/events/' || NEW.id
+      );
+    END LOOP;
+  ELSE
+    SELECT name INTO v_host FROM public.universities WHERE id = NEW.host_university_id;
+    FOR target IN
+      SELECT sp.user_id FROM public.student_profiles sp
+      WHERE sp.university_id = NEW.host_university_id
+    LOOP
+      PERFORM public.app_notify(
+        target, 'new_event',
+        coalesce(v_host, '大学') || ' のイベント: ' || NEW.title,
+        to_char(NEW.event_date AT TIME ZONE 'Asia/Tokyo', 'MM月DD日 HH24:MI'),
+        '/events/' || NEW.id
+      );
+    END LOOP;
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_notify_new_event ON events;
+CREATE TRIGGER trg_notify_new_event
+  AFTER INSERT ON events
+  FOR EACH ROW EXECUTE FUNCTION public.notify_new_event();
+
+
+-- -----------------------------------------------------------------------------
+-- 既読・設定の操作
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.mark_notifications_read(p_ids UUID[] DEFAULT NULL)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  -- 引数を省略するとすべて既読にする
+  UPDATE public.notifications
+  SET read_at = NOW()
+  WHERE user_id = auth.uid()
+    AND read_at IS NULL
+    AND (p_ids IS NULL OR id = ANY(p_ids));
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION public.update_notification_preferences(
+  p_approval_result  BOOLEAN,
+  p_request_received BOOLEAN,
+  p_board_post       BOOLEAN,
+  p_new_event        BOOLEAN
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  INSERT INTO public.notification_preferences
+    (user_id, approval_result, request_received, board_post, new_event, updated_at)
+  VALUES (
+    auth.uid(), coalesce(p_approval_result, true), coalesce(p_request_received, true),
+    coalesce(p_board_post, true), coalesce(p_new_event, true), NOW()
+  )
+  ON CONFLICT (user_id) DO UPDATE SET
+    approval_result  = excluded.approval_result,
+    request_received = excluded.request_received,
+    board_post       = excluded.board_post,
+    new_event        = excluded.new_event,
+    updated_at       = NOW();
+END;
+$$;
+
+-- ▼▼▼ migrations/0015_images.sql ▼▼▼
+
+-- =============================================================================
+-- 画像（サークル・イベント）
+-- =============================================================================
+-- Supabase Storage を使う。バケットの作成もポリシーも SQL で書けるので、
+-- ダッシュボードでの手作業は不要。
+--
+-- 【公開バケットにしている理由】
+--   サークルのロゴやイベントのフライヤーは元々公開される性質のもので、
+--   署名付きURLにすると有効期限の管理が必要になる。
+--   ただし URL を知っていれば誰でも参照できるため、機微な画像は
+--   載せない前提。学内限定イベントの画像も同様。
+--
+-- 【書き込みの制御】
+--   他のテーブルは RPC を唯一の書き込み経路にしているが、Storage への
+--   アップロードは Storage API を直接叩くしかない。そのため
+--   storage.objects に INSERT / UPDATE / DELETE のポリシーを書き、
+--   パスから対象を判別して権限を確認する。
+--
+-- 【パスの規約】
+--   circles/<circle_id>/<ファイル名>
+--   events/<event_id>/<ファイル名>
+-- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- バケット
+-- -----------------------------------------------------------------------------
+-- 5MB / 画像形式のみ。Storage 側で弾けるものはアプリに到達させない。
+-- -----------------------------------------------------------------------------
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'images', 'images', true, 5242880,
+  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public             = excluded.public,
+  file_size_limit    = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+
+-- -----------------------------------------------------------------------------
+-- 画像を保存する列
+-- -----------------------------------------------------------------------------
+-- URL ではなくバケット内のパスを持つ。プロジェクトの URL が変わっても
+-- 追随でき、公開／非公開を後から切り替えても壊れないため。
+-- -----------------------------------------------------------------------------
+
+ALTER TABLE circles ADD COLUMN IF NOT EXISTS image_path TEXT;
+ALTER TABLE events  ADD COLUMN IF NOT EXISTS image_path TEXT;
+
+COMMENT ON COLUMN circles.image_path IS
+  'images バケット内のパス。例: circles/<id>/logo.png';
+
+
+-- -----------------------------------------------------------------------------
+-- パスから書き込み権限を判定する
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.app_can_write_image(p_path TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_kind TEXT;
+  v_id   UUID;
+BEGIN
+  v_kind := split_part(p_path, '/', 1);
+
+  -- 不正な UUID でも例外にせず、単に権限なしとして扱う
+  BEGIN
+    v_id := split_part(p_path, '/', 2)::uuid;
+  EXCEPTION WHEN others THEN
+    RETURN false;
+  END;
+
+  IF v_kind = 'circles' THEN
+    RETURN public.app_is_circle_admin(v_id);
+  ELSIF v_kind = 'events' THEN
+    RETURN public.app_can_manage_event(v_id);
+  END IF;
+
+  RETURN false;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- Storage のポリシー
+-- -----------------------------------------------------------------------------
+-- 公開バケットなので読み取りは誰でも可。書き込みのみ制限する。
+-- -----------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS images_read   ON storage.objects;
+DROP POLICY IF EXISTS images_insert ON storage.objects;
+DROP POLICY IF EXISTS images_update ON storage.objects;
+DROP POLICY IF EXISTS images_delete ON storage.objects;
+
+CREATE POLICY images_read ON storage.objects
+  FOR SELECT USING (bucket_id = 'images');
+
+CREATE POLICY images_insert ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'images' AND public.app_can_write_image(name));
+
+CREATE POLICY images_update ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (bucket_id = 'images' AND public.app_can_write_image(name))
+  WITH CHECK (bucket_id = 'images' AND public.app_can_write_image(name));
+
+CREATE POLICY images_delete ON storage.objects
+  FOR DELETE TO authenticated
+  USING (bucket_id = 'images' AND public.app_can_write_image(name));
+
+
+-- -----------------------------------------------------------------------------
+-- 画像パスの登録（アップロード後に呼ぶ）
+-- -----------------------------------------------------------------------------
+-- パスの妥当性も確認する。アップロード先とは別の対象を指す値を
+-- 書き込めないようにするため。
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.set_circle_image(
+  p_circle_id UUID,
+  p_path      TEXT
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NOT public.app_is_circle_admin(p_circle_id) THEN
+    RAISE EXCEPTION '画像を設定できるのはサークル管理者のみです';
+  END IF;
+
+  IF p_path IS NOT NULL
+     AND p_path NOT LIKE 'circles/' || p_circle_id::text || '/%' THEN
+    RAISE EXCEPTION '画像のパスが不正です';
+  END IF;
+
+  UPDATE public.circles SET image_path = p_path WHERE id = p_circle_id;
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION public.set_event_image(
+  p_event_id UUID,
+  p_path     TEXT
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NOT public.app_can_manage_event(p_event_id) THEN
+    RAISE EXCEPTION '画像を設定できるのはイベントの主催者のみです';
+  END IF;
+
+  IF p_path IS NOT NULL
+     AND p_path NOT LIKE 'events/' || p_event_id::text || '/%' THEN
+    RAISE EXCEPTION '画像のパスが不正です';
+  END IF;
+
+  UPDATE public.events SET image_path = p_path WHERE id = p_event_id;
+END;
+$$;
+
+-- ▼▼▼ migrations/0016_theme.sql ▼▼▼
+
+-- =============================================================================
+-- 表示テーマの個人設定
+-- =============================================================================
+-- 見た目の好みは人によるので、ユーザーごとに選べるようにする。
+--
+-- 保存先を Cookie ではなく DB にしているのは、端末を変えても設定が
+-- 保たれるようにするため。サーバー側で読んで html に属性を付けるので、
+-- 切り替え時にちらつかない（localStorage だと一瞬既定のテーマが見える）。
+-- =============================================================================
+
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT 'glass';
+
+-- 既存行にも既定値が入るので、そのあとに制約を付ける
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_theme_check;
+ALTER TABLE users
+  ADD CONSTRAINT users_theme_check CHECK (theme IN ('glass', 'pop'));
+
+COMMENT ON COLUMN users.theme IS
+  'glass=グラスモーフィズム / pop=フラットで彩度の高いポップスタイル';
+
+
+-- -----------------------------------------------------------------------------
+-- テーマの変更
+-- -----------------------------------------------------------------------------
+-- 対象は常に自分自身。0008 の方針どおり、書き込みは RPC のみ。
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.set_my_theme(p_theme TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  IF p_theme NOT IN ('glass', 'pop') THEN
+    RAISE EXCEPTION 'テーマの指定が不正です';
+  END IF;
+
+  UPDATE public.users SET theme = p_theme WHERE id = auth.uid();
+END;
+$$;
+
+-- ▼▼▼ migrations/0017_theme_variants.sql ▼▼▼
+
+-- =============================================================================
+-- テーマの配色バリエーションを追加し、既定を pop にする
+-- =============================================================================
+-- 構造（角丸・影・ボタン形状）は pop 系で共通、配色だけが違う4種と、
+-- 質感の異なる glass の計5種から選べるようにする。
+-- =============================================================================
+
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_theme_check;
+ALTER TABLE users
+  ADD CONSTRAINT users_theme_check
+  CHECK (theme IN ('pop', 'citrus', 'mint', 'berry', 'glass'));
+
+-- 既定を pop に。既に glass を明示的に選んだ人の設定は変えない。
+ALTER TABLE users ALTER COLUMN theme SET DEFAULT 'pop';
+
+COMMENT ON COLUMN users.theme IS
+  'pop/citrus/mint/berry=フラットなポップ系（配色違い） / glass=グラスモーフィズム';
+
+
+CREATE OR REPLACE FUNCTION public.set_my_theme(p_theme TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  IF p_theme NOT IN ('pop', 'citrus', 'mint', 'berry', 'glass') THEN
+    RAISE EXCEPTION 'テーマの指定が不正です';
+  END IF;
+
+  UPDATE public.users SET theme = p_theme WHERE id = auth.uid();
+END;
+$$;
+
+-- ▼▼▼ migrations/0018_circle_event_stats.sql ▼▼▼
+
+-- =============================================================================
+-- サークルの活動記録に出す参加人数
+-- =============================================================================
+-- 活動記録に「出席N人 / 参加登録N人」を出しているが、event_participants は
+-- RLS により「本人の登録」と「主催者から見た参加者一覧」しか読めない。
+-- そのため一般メンバーには自分の1件しか返らず、常に「1人」と表示されていた。
+--
+-- 「誰が参加したか」は伏せたままにしたいので RLS は緩めない。
+-- 代わりに人数だけを返す関数を用意する。個人を特定できる情報は返さない。
+--
+-- 【RETURNS TABLE の列名について】
+-- 列名は関数内で変数として扱われ、本体クエリの同名列と衝突する。
+-- stat_ 接頭辞を付けて避けている（0010 で踏んだのと同じ問題）。
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.circle_event_stats(p_circle_id UUID)
+RETURNS TABLE (
+  stat_event_id   UUID,
+  stat_registered INT,
+  stat_present    INT
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  -- そのサークルのメンバーだけが見られる。
+  -- 部外者が任意のサークルの活動量を調べられないようにするため。
+  IF NOT public.app_is_circle_member(p_circle_id) THEN
+    RAISE EXCEPTION 'このサークルのメンバーのみ参照できます';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    e.id,
+    count(*) FILTER (WHERE ep.status = 'going')::INT,
+    count(*) FILTER (WHERE ep.status = 'going' AND ep.attended IS TRUE)::INT
+  FROM public.events e
+  LEFT JOIN public.event_participants ep ON ep.event_id = e.id
+  -- 引数のサークルが主催するイベントに限る。
+  -- 他サークルのイベントIDを混ぜて集計を引き出せないようにしている。
+  WHERE e.host_circle_id = p_circle_id
+  GROUP BY e.id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.circle_event_stats(UUID) FROM public, anon;
+
+-- ▼▼▼ migrations/0019_public_discovery.sql ▼▼▼
+
+-- =============================================================================
+-- 公開情報の閲覧（一般ユーザー向け）
+-- =============================================================================
+-- 高校生や企業の人が、志望校・取引先の大学で何が起きているかを
+-- 見に来られるようにする。見せるのは公開設定のものだけ。
+--
+-- 追加するのは2つ。
+--   watched_universities … 気にしている大学。一覧の既定の絞り込みに使う
+--   circle_favorites     … 気になるサークル
+--
+-- どちらも「自分の行だけ読める」。書き込みポリシーは作らず、
+-- SECURITY DEFINER の関数だけを書き込み口にする方針は既存と揃える。
+-- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- 1. サークルの可視範囲を scope に従わせる
+-- -----------------------------------------------------------------------------
+-- これまでは status='approved' でありさえすれば誰でも読めた。
+-- サークル画面を学生・職員に限定していたので表には出ていなかったが、
+-- 一般ユーザーに開くとそのまま非公開サークルまで見えてしまう。
+--
+-- 学生・職員の見え方は変えない。合同・インカレを探す動きを
+-- 妨げたくないので、これまでどおり承認済みなら全部見える。
+-- 変わるのは一般ユーザーと未ログインで、公開サークルだけになる。
+
+DROP POLICY IF EXISTS circles_select ON circles;
+
+CREATE POLICY circles_select ON circles
+  FOR SELECT USING (
+    public.app_is_circle_member(id)
+    OR public.app_is_staff_of(university_id)
+    OR (
+      status = 'approved'
+      AND (
+        public.app_role() IN ('student', 'staff')
+        OR scope = 'public'
+      )
+    )
+  );
+
+COMMENT ON POLICY circles_select ON circles IS
+  '学生・職員は承認済みを全て。一般と未ログインは scope=public のみ。'
+  'メンバーと主管大学の職員は承認前でも読める。';
+
+
+-- -----------------------------------------------------------------------------
+-- 2. 気にしている大学
+-- -----------------------------------------------------------------------------
+-- 一般ユーザーは所属大学を持たないので、何を既定で見せるかの手がかりがない。
+-- 本人に選んでもらい、それを一覧の既定の絞り込みに使う。
+-- 学生・職員が他大学を追いかける用途にも使えるよう、ロールは問わない。
+
+CREATE TABLE IF NOT EXISTS watched_universities (
+  user_id       UUID NOT NULL REFERENCES users(id)        ON DELETE CASCADE,
+  university_id UUID NOT NULL REFERENCES universities(id) ON DELETE CASCADE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, university_id)
+);
+
+COMMENT ON TABLE watched_universities IS
+  '閲覧者が指定した、気にしている大学。表示の既定値にのみ使い、認可には使わない。';
+
+ALTER TABLE watched_universities ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS watched_universities_select ON watched_universities;
+CREATE POLICY watched_universities_select ON watched_universities
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+
+-- -----------------------------------------------------------------------------
+-- 3. 気になるサークル
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS circle_favorites (
+  user_id    UUID NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+  circle_id  UUID NOT NULL REFERENCES circles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, circle_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_circle_favorites_circle
+  ON circle_favorites(circle_id);
+
+COMMENT ON TABLE circle_favorites IS
+  '閲覧者が気になったサークル。誰が入れたかは本人以外に見せない。';
+
+ALTER TABLE circle_favorites ENABLE ROW LEVEL SECURITY;
+
+-- 誰が何を気にしているかは行動履歴なので、他人からは読めない。
+-- サークル側から「何人が気にしているか」も出さない。
+-- 少人数のサークルでは人数の増減から個人が割れるため。
+DROP POLICY IF EXISTS circle_favorites_select ON circle_favorites;
+CREATE POLICY circle_favorites_select ON circle_favorites
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+
+-- -----------------------------------------------------------------------------
+-- 4. 書き込み口
+-- -----------------------------------------------------------------------------
+
+/**
+ * 気にしている大学を置き換える。
+ *
+ * 差分ではなく総入れ替えにしているのは、画面が「チェックした集合」を
+ * そのまま送る形になるため。途中で失敗して片側だけ反映されることがない。
+ */
+CREATE OR REPLACE FUNCTION public.set_watched_universities(
+  p_university_ids UUID[]
+)
+RETURNS INT
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_count INT;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  IF coalesce(array_length(p_university_ids, 1), 0) > 20 THEN
+    RAISE EXCEPTION '指定できる大学は20校までです';
+  END IF;
+
+  DELETE FROM watched_universities WHERE user_id = auth.uid();
+
+  -- universities と突き合わせるので、存在しない ID は黙って落ちる
+  INSERT INTO watched_universities (user_id, university_id)
+  SELECT auth.uid(), u.id
+    FROM universities u
+   WHERE u.id = ANY(p_university_ids);
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$$;
+
+/**
+ * 気になるサークルの登録・解除。
+ *
+ * 戻り値は登録後の状態（true=気になる）。
+ *
+ * SECURITY DEFINER なので RLS を通らない。見えないサークルを
+ * 登録できてしまうと、ID を総当たりすることで非公開サークルの
+ * 存在を確かめられるので、可視かどうかをここで自分で確認する。
+ */
+CREATE OR REPLACE FUNCTION public.toggle_circle_favorite(
+  p_circle_id UUID
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_removed INT;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM circles c
+     WHERE c.id = p_circle_id
+       AND c.status = 'approved'
+       AND (
+         public.app_role() IN ('student', 'staff')
+         OR c.scope = 'public'
+       )
+  ) THEN
+    RAISE EXCEPTION 'このサークルは参照できません';
+  END IF;
+
+  DELETE FROM circle_favorites
+   WHERE user_id = auth.uid() AND circle_id = p_circle_id;
+  GET DIAGNOSTICS v_removed = ROW_COUNT;
+
+  IF v_removed > 0 THEN
+    RETURN FALSE;
+  END IF;
+
+  INSERT INTO circle_favorites (user_id, circle_id)
+  VALUES (auth.uid(), p_circle_id);
+
+  RETURN TRUE;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 5. 権限
+-- -----------------------------------------------------------------------------
+
+-- Supabase は public スキーマの新規テーブルを既定で anon にも GRANT する。
+-- ポリシーを TO authenticated にしてあるので anon は1行も読めないが、
+-- 権限の側でも閉じておく。
+REVOKE ALL ON watched_universities FROM anon;
+REVOKE ALL ON circle_favorites     FROM anon;
+
+GRANT SELECT ON watched_universities TO authenticated;
+GRANT SELECT ON circle_favorites     TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.set_watched_universities(UUID[]) FROM public, anon;
+REVOKE EXECUTE ON FUNCTION public.toggle_circle_favorite(UUID)     FROM public, anon;
+
+GRANT EXECUTE ON FUNCTION public.set_watched_universities(UUID[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.toggle_circle_favorite(UUID)     TO authenticated;
+
+-- ▼▼▼ migrations/0020_event_participation_roles.sql ▼▼▼
+
+-- =============================================================================
+-- 参加登録できる人を学生に限る
+-- =============================================================================
+-- 一般ユーザー（高校生・企業）は公開イベントを「見に来る」立場であって、
+-- 参加者名簿に載る立場ではない。職員も同じで、画面上も参加導線は無い。
+--
+-- これまで join_event は役割を見ていなかった。公開イベントであれば
+-- 誰でも登録が通る状態で、画面に出していなかっただけだった。
+-- 名簿は出欠管理に使われるので、ここは画面ではなく DB で塞ぐ。
+--
+-- 退会（leave_event）は塞がない。すでに登録が残っている人が
+-- 自分で取り消せなくなると、名簿から降りる手段が無くなるため。
+--
+-- 【CREATE OR REPLACE の注意】
+-- 0008_rls.sql が join_event を SECURITY DEFINER に変えている。
+-- 書き込みポリシーは存在せず、この関数が唯一の書き込み経路なので、
+-- 作り直すときに SECURITY DEFINER を書き忘れると INVOKER に戻り、
+-- 学生も含めて誰も参加登録できなくなる。
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.join_event(p_event_id UUID)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_uid   UUID := auth.uid();
+  v_role  TEXT;
+  v_univ  UUID;
+  v_date  TIMESTAMPTZ;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  SELECT event_date INTO v_date FROM public.events WHERE id = p_event_id;
+  IF v_date IS NULL THEN
+    RAISE EXCEPTION 'イベントが見つかりません';
+  END IF;
+  IF v_date < now() THEN
+    RAISE EXCEPTION '終了したイベントには参加登録できません';
+  END IF;
+
+  SELECT role INTO v_role FROM public.users WHERE id = v_uid;
+
+  IF v_role IS DISTINCT FROM 'student' THEN
+    RAISE EXCEPTION '参加登録できるのは学生のみです';
+  END IF;
+
+  v_univ := (SELECT university_id FROM public.student_profiles WHERE user_id = v_uid);
+
+  IF NOT public.event_visible_to_university(p_event_id, v_univ) THEN
+    RAISE EXCEPTION 'このイベントには参加できません';
+  END IF;
+
+  INSERT INTO public.event_participants (event_id, user_id, status)
+  VALUES (p_event_id, v_uid, 'going')
+  ON CONFLICT (event_id, user_id)
+  DO UPDATE SET status = 'going';
+
+  RETURN 'going';
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.join_event(UUID) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.join_event(UUID) TO authenticated;
+
+-- ▼▼▼ migrations/0021_circle_public_profile.sql ▼▼▼
+
+-- =============================================================================
+-- サークルの公開プロフィール
+-- =============================================================================
+-- 一般ユーザー（高校生・企業）に「どんなサークルなのか」を伝えたい。
+--
+-- これまで一般ユーザーに見えるのは scope='public'（インカレ）だけだった。
+-- しかし scope は「誰が参加できるか」の軸であって、「外部に紹介してよいか」
+-- とは別の話。自大学のみの募集でも、活動内容は知ってもらいたい。
+-- そこで掲載可否を独立した列として持たせる。
+--
+-- 既定は掲載する（TRUE）。大学のサークルは名前と活動内容を知ってもらう
+-- ことに意味があるため。名簿・掲示板・活動記録はこれまでどおり
+-- メンバー以外には見えない。掲載したくないサークルは管理者が下ろせる。
+-- =============================================================================
+
+ALTER TABLE circles
+  ADD COLUMN IF NOT EXISTS public_listed   BOOLEAN NOT NULL DEFAULT TRUE,
+  ADD COLUMN IF NOT EXISTS public_intro    TEXT,
+  ADD COLUMN IF NOT EXISTS public_schedule TEXT,
+  ADD COLUMN IF NOT EXISTS public_contact  TEXT;
+
+COMMENT ON COLUMN circles.public_listed IS
+  '一般ユーザー・未ログインの一覧に載せるか。scope（参加できる範囲）とは別の軸。';
+COMMENT ON COLUMN circles.public_intro IS    '公開用の活動紹介';
+COMMENT ON COLUMN circles.public_schedule IS '公開用の活動日・場所';
+COMMENT ON COLUMN circles.public_contact IS  '公開用の連絡先・SNS';
+
+
+-- -----------------------------------------------------------------------------
+-- 可視範囲を scope から public_listed に付け替える
+-- -----------------------------------------------------------------------------
+-- 0019 では scope='public' を条件にしていたが、上記のとおり軸が違う。
+-- インカレでも掲載を下ろしたサークルは載せない。管理者の判断を優先する。
+
+DROP POLICY IF EXISTS circles_select ON circles;
+
+CREATE POLICY circles_select ON circles
+  FOR SELECT USING (
+    public.app_is_circle_member(id)
+    OR public.app_is_staff_of(university_id)
+    OR (
+      status = 'approved'
+      AND (
+        public.app_role() IN ('student', 'staff')
+        OR public_listed
+      )
+    )
+  );
+
+COMMENT ON POLICY circles_select ON circles IS
+  '学生・職員は承認済みを全て。一般と未ログインは public_listed のものだけ。'
+  'メンバーと主管大学の職員は承認前でも読める。';
+
+
+-- -----------------------------------------------------------------------------
+-- 編集口
+-- -----------------------------------------------------------------------------
+
+/**
+ * 公開プロフィールの更新。サークル管理者のみ。
+ *
+ * circles には UPDATE ポリシーが無いので、書き込めるのはこの関数だけ。
+ * 更新する列も4つに限っているため、名前や scope、承認状態が
+ * この経路から書き換わることはない。
+ */
+CREATE OR REPLACE FUNCTION public.update_circle_public_profile(
+  p_circle_id UUID,
+  p_listed    BOOLEAN,
+  p_intro     TEXT DEFAULT NULL,
+  p_schedule  TEXT DEFAULT NULL,
+  p_contact   TEXT DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  IF NOT public.app_is_circle_admin(p_circle_id) THEN
+    RAISE EXCEPTION 'このサークルの管理者のみ編集できます';
+  END IF;
+
+  IF char_length(coalesce(p_intro, '')) > 1000 THEN
+    RAISE EXCEPTION '活動紹介は1000文字までです';
+  END IF;
+  IF char_length(coalesce(p_schedule, '')) > 200 THEN
+    RAISE EXCEPTION '活動日・場所は200文字までです';
+  END IF;
+  IF char_length(coalesce(p_contact, '')) > 200 THEN
+    RAISE EXCEPTION '連絡先は200文字までです';
+  END IF;
+
+  UPDATE circles
+     SET public_listed   = coalesce(p_listed, TRUE),
+         -- 空欄は NULL に寄せる。空文字と未入力を画面側で区別したくない
+         public_intro    = nullif(btrim(coalesce(p_intro, '')), ''),
+         public_schedule = nullif(btrim(coalesce(p_schedule, '')), ''),
+         public_contact  = nullif(btrim(coalesce(p_contact, '')), '')
+   WHERE id = p_circle_id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.update_circle_public_profile(UUID, BOOLEAN, TEXT, TEXT, TEXT)
+  FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.update_circle_public_profile(UUID, BOOLEAN, TEXT, TEXT, TEXT)
+  TO authenticated;
+
+-- ▼▼▼ migrations/0022_event_reminders.sql ▼▼▼
+
+-- =============================================================================
+-- 参加イベントのリマインド
+-- =============================================================================
+-- 参加登録したイベントについて、開始の何分前に知らせるかを
+-- イベントごと・利用者ごとに決められるようにする。
+--
+-- 【なぜ既存のトリガー方式ではないか】
+-- 既存の通知は「状態が変わった瞬間」に作られる。リマインドは
+-- 「時刻が来たら」なので、変化を捉えるトリガーでは表現できない。
+-- 予約表（event_reminders）を持ち、定期実行で期限の来たものを配る。
+--
+-- 【app_notify を経由しない理由】
+-- app_notify は p_user_id = auth.uid() のとき送信を止める。
+-- 自分の操作の結果を自分に通知しないための仕組みだが、リマインドは
+-- 本人が本人のために仕掛けるものなので、この判定に掛かると必ず消える。
+-- 受け取り設定だけ自分で確認して、notifications へ直接入れる。
+-- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- 1. 通知の種類を増やす
+-- -----------------------------------------------------------------------------
+
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+ALTER TABLE notifications ADD CONSTRAINT notifications_type_check
+  CHECK (type IN (
+    'approval_result',
+    'request_received',
+    'board_post',
+    'new_event',
+    'event_reminder'
+  ));
+
+ALTER TABLE notification_preferences
+  ADD COLUMN IF NOT EXISTS event_reminder BOOLEAN NOT NULL DEFAULT true;
+
+
+-- -----------------------------------------------------------------------------
+-- 2. 受け取り設定の更新（引数が1つ増える）
+-- -----------------------------------------------------------------------------
+-- CREATE OR REPLACE は引数の並びが違うと「置き換え」ではなく
+-- 「多重定義の追加」になる。古い4引数版が残ると、どちらが呼ばれるか
+-- 分からなくなるので先に落とす（0003 で踏んだのと同じ問題）。
+
+DROP FUNCTION IF EXISTS public.update_notification_preferences(
+  BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN
+);
+
+CREATE OR REPLACE FUNCTION public.update_notification_preferences(
+  p_approval_result  BOOLEAN,
+  p_request_received BOOLEAN,
+  p_board_post       BOOLEAN,
+  p_new_event        BOOLEAN,
+  p_event_reminder   BOOLEAN DEFAULT true
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  INSERT INTO public.notification_preferences
+    (user_id, approval_result, request_received, board_post, new_event,
+     event_reminder, updated_at)
+  VALUES (
+    auth.uid(),
+    coalesce(p_approval_result, true),
+    coalesce(p_request_received, true),
+    coalesce(p_board_post, true),
+    coalesce(p_new_event, true),
+    coalesce(p_event_reminder, true),
+    NOW()
+  )
+  ON CONFLICT (user_id) DO UPDATE SET
+    approval_result  = EXCLUDED.approval_result,
+    request_received = EXCLUDED.request_received,
+    board_post       = EXCLUDED.board_post,
+    new_event        = EXCLUDED.new_event,
+    event_reminder   = EXCLUDED.event_reminder,
+    updated_at       = NOW();
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.update_notification_preferences(
+  BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.update_notification_preferences(
+  BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN) TO authenticated;
+
+-- app_notify の受け取り判定にも新しい種類を足す
+CREATE OR REPLACE FUNCTION public.app_notify(
+  p_user_id UUID,
+  p_type    TEXT,
+  p_title   TEXT,
+  p_body    TEXT DEFAULT NULL,
+  p_link    TEXT DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_wants BOOLEAN;
+BEGIN
+  IF p_user_id IS NULL THEN RETURN; END IF;
+  IF p_user_id = auth.uid() THEN RETURN; END IF;
+
+  SELECT CASE p_type
+    WHEN 'approval_result'  THEN np.approval_result
+    WHEN 'request_received' THEN np.request_received
+    WHEN 'board_post'       THEN np.board_post
+    WHEN 'new_event'        THEN np.new_event
+    WHEN 'event_reminder'   THEN np.event_reminder
+    ELSE true
+  END INTO v_wants
+  FROM public.notification_preferences np
+  WHERE np.user_id = p_user_id;
+
+  IF v_wants IS FALSE THEN RETURN; END IF;
+
+  INSERT INTO public.notifications (user_id, type, title, body, link)
+  VALUES (p_user_id, p_type, p_title, p_body, p_link);
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 3. リマインドの予約表
+-- -----------------------------------------------------------------------------
+-- 1イベントにつき1件。複数の時刻を仕掛けたくなったら主キーを崩す。
+
+CREATE TABLE IF NOT EXISTS event_reminders (
+  user_id      UUID NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+  event_id     UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  /** 開始の何分前に知らせるか */
+  lead_minutes INT  NOT NULL CHECK (lead_minutes BETWEEN 5 AND 10080),
+  /** 送信済みなら時刻。時刻を変えたら NULL に戻して送り直す */
+  notified_at  TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, event_id)
+);
+
+COMMENT ON TABLE event_reminders IS
+  '参加イベントのリマインド予約。定期実行で期限の来たものを通知に変える。';
+
+-- 定期実行が「まだ送っていないもの」だけを走査できるようにする
+CREATE INDEX IF NOT EXISTS idx_event_reminders_pending
+  ON event_reminders(event_id) WHERE notified_at IS NULL;
+
+ALTER TABLE event_reminders ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS event_reminders_select ON event_reminders;
+CREATE POLICY event_reminders_select ON event_reminders
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+REVOKE ALL ON event_reminders FROM anon;
+GRANT SELECT ON event_reminders TO authenticated;
+
+
+-- -----------------------------------------------------------------------------
+-- 4. 設定する
+-- -----------------------------------------------------------------------------
+
+/**
+ * リマインドの設定・解除。p_lead_minutes に NULL を渡すと解除。
+ *
+ * 参加登録しているイベントにしか仕掛けられない。参加していない
+ * イベントに仕掛けられると、開始時刻を知る手段として使えてしまう。
+ */
+CREATE OR REPLACE FUNCTION public.set_event_reminder(
+  p_event_id     UUID,
+  p_lead_minutes INT
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_date TIMESTAMPTZ;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  IF p_lead_minutes IS NULL THEN
+    DELETE FROM public.event_reminders
+     WHERE user_id = auth.uid() AND event_id = p_event_id;
+    RETURN;
+  END IF;
+
+  IF p_lead_minutes < 5 OR p_lead_minutes > 10080 THEN
+    RAISE EXCEPTION 'リマインドは5分前から1週間前までの間で指定してください';
+  END IF;
+
+  SELECT event_date INTO v_date FROM public.events WHERE id = p_event_id;
+  IF v_date IS NULL THEN
+    RAISE EXCEPTION 'イベントが見つかりません';
+  END IF;
+  IF v_date < now() THEN
+    RAISE EXCEPTION '終了したイベントには設定できません';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.event_participants
+     WHERE event_id = p_event_id
+       AND user_id = auth.uid()
+       AND status = 'going'
+  ) THEN
+    RAISE EXCEPTION '参加登録しているイベントにのみ設定できます';
+  END IF;
+
+  INSERT INTO public.event_reminders (user_id, event_id, lead_minutes)
+  VALUES (auth.uid(), p_event_id, p_lead_minutes)
+  ON CONFLICT (user_id, event_id) DO UPDATE
+    SET lead_minutes = EXCLUDED.lead_minutes,
+        -- 時刻を変えたら送り直せるように未送信へ戻す
+        notified_at  = NULL;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.set_event_reminder(UUID, INT) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.set_event_reminder(UUID, INT) TO authenticated;
+
+
+-- -----------------------------------------------------------------------------
+-- 5. 期限の来たリマインドを配る
+-- -----------------------------------------------------------------------------
+
+/**
+ * 送信した件数を返す。定期実行から呼ぶ。
+ *
+ * 参加を取り消した人には送らない（結合条件で status='going' を要求）。
+ * 終了済みのイベントにも送らない。設定を切っている人にも送らない。
+ */
+CREATE OR REPLACE FUNCTION public.deliver_due_event_reminders()
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_count INT;
+BEGIN
+  -- 実行が重なっても二重に送らない。前の回がまだ走っていれば何もしない
+  IF NOT pg_try_advisory_xact_lock(hashtext('deliver_due_event_reminders')) THEN
+    RETURN 0;
+  END IF;
+
+  WITH due AS (
+    SELECT r.user_id, r.event_id, e.title, e.event_date
+      FROM public.event_reminders r
+      JOIN public.events e ON e.id = r.event_id
+      JOIN public.event_participants p
+        ON p.event_id = r.event_id
+       AND p.user_id  = r.user_id
+       AND p.status   = 'going'
+      LEFT JOIN public.notification_preferences np ON np.user_id = r.user_id
+     WHERE r.notified_at IS NULL
+       AND e.event_date > now()
+       AND now() >= e.event_date - make_interval(mins => r.lead_minutes)
+       AND coalesce(np.event_reminder, true)
+  ),
+  sent AS (
+    INSERT INTO public.notifications (user_id, type, title, body, link)
+    SELECT d.user_id,
+           'event_reminder',
+           d.title || ' がまもなく始まります',
+           to_char(d.event_date AT TIME ZONE 'Asia/Tokyo',
+                   'MM"月"DD"日" HH24:MI') || ' 開始',
+           '/events/' || d.event_id
+      FROM due d
+    RETURNING 1
+  ),
+  marked AS (
+    UPDATE public.event_reminders r
+       SET notified_at = now()
+      FROM due d
+     WHERE r.user_id = d.user_id AND r.event_id = d.event_id
+    RETURNING 1
+  )
+  SELECT count(*)::INT INTO v_count FROM marked;
+
+  RETURN coalesce(v_count, 0);
+END;
+$$;
+
+-- 呼ぶのは定期実行だけ。利用者から直接叩ける必要はない
+REVOKE EXECUTE ON FUNCTION public.deliver_due_event_reminders()
+  FROM public, anon, authenticated;
+
+
+-- -----------------------------------------------------------------------------
+-- 6. 定期実行の登録
+-- -----------------------------------------------------------------------------
+-- pg_cron が有効でなければ登録を飛ばす。ここで失敗させると
+-- 上の定義まで巻き戻ってしまうため。
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    RAISE NOTICE
+      'pg_cron が有効でないため、リマインドの定期実行は登録しませんでした。'
+      'Supabase の Database > Extensions で pg_cron を有効にしてから、'
+      'このファイルを流し直してください。';
+    RETURN;
+  END IF;
+
+  PERFORM cron.unschedule(jobid)
+     FROM cron.job WHERE jobname = 'deliver-event-reminders';
+
+  PERFORM cron.schedule(
+    'deliver-event-reminders',
+    '*/5 * * * *',
+    'SELECT public.deliver_due_event_reminders();'
+  );
+
+  RAISE NOTICE 'リマインドの定期実行を5分間隔で登録しました。';
+END;
+$$;
+
+-- ▼▼▼ migrations/0023_university_details.sql ▼▼▼
+
+-- =============================================================================
+-- 大学マスタの拡充とキャンパス
+-- =============================================================================
+-- 多くの大学が載ることを想定すると、公開のサークル一覧に全大学を
+-- 平坦に並べるのは成り立たない。都道府県 → 大学 → サークル と
+-- 辿れるようにするため、大学に所在地を持たせる。
+--
+-- あわせてキャンパスを別テーブルにする。複数キャンパスを持つ大学では、
+-- サークルの拠点がどこなのかが名前だけでは分からないため。
+-- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- 1. 大学の属性
+-- -----------------------------------------------------------------------------
+-- prefecture は表記ゆれがあると絞り込みが壊れるので、47都道府県に限る。
+-- name_kana は並び順のため。漢字の localeCompare は読みを当てられず、
+-- 「青空大学」と「海原大学」の前後すら安定しない。
+
+ALTER TABLE universities
+  ADD COLUMN IF NOT EXISTS prefecture  TEXT,
+  ADD COLUMN IF NOT EXISTS name_kana   TEXT,
+  ADD COLUMN IF NOT EXISTS website_url TEXT;
+
+ALTER TABLE universities DROP CONSTRAINT IF EXISTS universities_prefecture_check;
+ALTER TABLE universities ADD CONSTRAINT universities_prefecture_check
+  CHECK (prefecture IS NULL OR prefecture IN (
+    '北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県',
+    '茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県',
+    '新潟県','富山県','石川県','福井県','山梨県','長野県',
+    '岐阜県','静岡県','愛知県','三重県',
+    '滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県',
+    '鳥取県','島根県','岡山県','広島県','山口県',
+    '徳島県','香川県','愛媛県','高知県',
+    '福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'
+  ));
+
+CREATE INDEX IF NOT EXISTS idx_universities_prefecture
+  ON universities(prefecture);
+
+COMMENT ON COLUMN universities.prefecture  IS '所在地の都道府県。公開一覧の絞り込みに使う。';
+COMMENT ON COLUMN universities.name_kana   IS '並び順のための読み。';
+COMMENT ON COLUMN universities.website_url IS '公式サイト。公開ページから案内する。';
+
+
+-- -----------------------------------------------------------------------------
+-- 2. キャンパス
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS campuses (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  university_id UUID NOT NULL REFERENCES universities(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,
+  address       TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (university_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_campuses_university ON campuses(university_id);
+
+COMMENT ON TABLE campuses IS
+  '大学のキャンパス。サークルの拠点を示すのに使う。管理するのはその大学の職員。';
+
+ALTER TABLE campuses ENABLE ROW LEVEL SECURITY;
+
+-- 大学と同じく誰でも読める。どこで活動しているかは公開情報。
+DROP POLICY IF EXISTS campuses_select ON campuses;
+CREATE POLICY campuses_select ON campuses FOR SELECT USING (true);
+
+GRANT SELECT ON campuses TO anon, authenticated;
+
+
+-- -----------------------------------------------------------------------------
+-- 3. サークルの拠点
+-- -----------------------------------------------------------------------------
+-- 「そのサークルの大学のキャンパスか」は複合外部キーでも表せるが、
+-- ON DELETE SET NULL が両方の列を NULL にしてしまい、
+-- キャンパスを消すとサークルの所属大学まで外れる。
+-- 単純な外部キーにして、大学の一致は書き込み口の関数で担保する。
+-- circles には UPDATE ポリシーが無く、書き込めるのは関数だけなので、
+-- 実質的にはここが唯一の入口になる。
+
+ALTER TABLE circles
+  ADD COLUMN IF NOT EXISTS campus_id UUID REFERENCES campuses(id) ON DELETE SET NULL;
+
+COMMENT ON COLUMN circles.campus_id IS
+  '主な活動拠点。同じ大学のキャンパスであることは update_circle_public_profile が確認する。';
+
+
+-- -----------------------------------------------------------------------------
+-- 4. キャンパスの管理（その大学の職員のみ）
+-- -----------------------------------------------------------------------------
+
+/** 追加・更新。p_id が NULL なら追加。大学は職員自身の所属で固定する。 */
+CREATE OR REPLACE FUNCTION public.upsert_campus(
+  p_id      UUID,
+  p_name    TEXT,
+  p_address TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_university UUID := public.app_university_id();
+  v_name       TEXT := btrim(coalesce(p_name, ''));
+  v_id         UUID;
+BEGIN
+  IF public.app_role() IS DISTINCT FROM 'staff' OR v_university IS NULL THEN
+    RAISE EXCEPTION 'キャンパスを管理できるのは大学職員のみです';
+  END IF;
+  IF v_name = '' THEN
+    RAISE EXCEPTION 'キャンパス名を入力してください';
+  END IF;
+  IF char_length(v_name) > 60 THEN
+    RAISE EXCEPTION 'キャンパス名は60文字までです';
+  END IF;
+
+  IF p_id IS NULL THEN
+    INSERT INTO public.campuses (university_id, name, address)
+    VALUES (v_university, v_name, nullif(btrim(coalesce(p_address, '')), ''))
+    RETURNING id INTO v_id;
+    RETURN v_id;
+  END IF;
+
+  UPDATE public.campuses
+     SET name    = v_name,
+         address = nullif(btrim(coalesce(p_address, '')), '')
+   WHERE id = p_id
+     -- 他大学のキャンパスは触れない
+     AND university_id = v_university
+  RETURNING id INTO v_id;
+
+  IF v_id IS NULL THEN
+    RAISE EXCEPTION 'キャンパスが見つかりません';
+  END IF;
+  RETURN v_id;
+END;
+$$;
+
+/** 削除。参照しているサークルの campus_id は外部キーで NULL に戻る。 */
+CREATE OR REPLACE FUNCTION public.delete_campus(p_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_university UUID := public.app_university_id();
+BEGIN
+  IF public.app_role() IS DISTINCT FROM 'staff' OR v_university IS NULL THEN
+    RAISE EXCEPTION 'キャンパスを管理できるのは大学職員のみです';
+  END IF;
+
+  DELETE FROM public.campuses
+   WHERE id = p_id AND university_id = v_university;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.upsert_campus(UUID, TEXT, TEXT) FROM public, anon;
+REVOKE EXECUTE ON FUNCTION public.delete_campus(UUID)             FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.upsert_campus(UUID, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_campus(UUID)             TO authenticated;
+
+
+-- -----------------------------------------------------------------------------
+-- 5. 公開プロフィールに拠点を足す
+-- -----------------------------------------------------------------------------
+-- 引数が増えるので、多重定義にならないよう古い版を先に落とす。
+
+DROP FUNCTION IF EXISTS public.update_circle_public_profile(
+  UUID, BOOLEAN, TEXT, TEXT, TEXT
+);
+
+CREATE OR REPLACE FUNCTION public.update_circle_public_profile(
+  p_circle_id UUID,
+  p_listed    BOOLEAN,
+  p_intro     TEXT DEFAULT NULL,
+  p_schedule  TEXT DEFAULT NULL,
+  p_contact   TEXT DEFAULT NULL,
+  p_campus_id UUID DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_university UUID;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  IF NOT public.app_is_circle_admin(p_circle_id) THEN
+    RAISE EXCEPTION 'このサークルの管理者のみ編集できます';
+  END IF;
+
+  IF char_length(coalesce(p_intro, '')) > 1000 THEN
+    RAISE EXCEPTION '活動紹介は1000文字までです';
+  END IF;
+  IF char_length(coalesce(p_schedule, '')) > 200 THEN
+    RAISE EXCEPTION '活動日・場所は200文字までです';
+  END IF;
+  IF char_length(coalesce(p_contact, '')) > 200 THEN
+    RAISE EXCEPTION '連絡先は200文字までです';
+  END IF;
+
+  SELECT university_id INTO v_university FROM public.circles WHERE id = p_circle_id;
+
+  -- よその大学のキャンパスを拠点にはできない
+  IF p_campus_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.campuses c
+     WHERE c.id = p_campus_id AND c.university_id = v_university
+  ) THEN
+    RAISE EXCEPTION 'そのキャンパスは選べません';
+  END IF;
+
+  UPDATE public.circles
+     SET public_listed   = coalesce(p_listed, TRUE),
+         public_intro    = nullif(btrim(coalesce(p_intro, '')), ''),
+         public_schedule = nullif(btrim(coalesce(p_schedule, '')), ''),
+         public_contact  = nullif(btrim(coalesce(p_contact, '')), ''),
+         campus_id       = p_campus_id
+   WHERE id = p_circle_id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.update_circle_public_profile(
+  UUID, BOOLEAN, TEXT, TEXT, TEXT, UUID) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.update_circle_public_profile(
+  UUID, BOOLEAN, TEXT, TEXT, TEXT, UUID) TO authenticated;
+
+
+-- -----------------------------------------------------------------------------
+-- 6. 既存データの補完
+-- -----------------------------------------------------------------------------
+-- 都道府県が空だと、公開の一覧で全大学が「未設定」に落ちて絞り込みの
+-- 意味が無くなる。デモ用の大学にだけ、未設定のときに限って埋める。
+-- 実運用の大学を上書きしないよう、ID を指定して当てている。
+
+UPDATE universities SET prefecture = v.pref, name_kana = v.kana
+  FROM (VALUES
+    ('a0000000-0000-4000-8000-000000000001'::uuid, '東京都',   'あおぞらだいがく'),
+    ('a0000000-0000-4000-8000-000000000002'::uuid, '神奈川県', 'うなばらだいがく'),
+    ('a0000000-0000-4000-8000-000000000003'::uuid, '東京都',   'やまてこうかだいがく'),
+    ('a0000000-0000-4000-8000-000000000004'::uuid, '大阪府',   'さくらがおかだいがく'),
+    ('a0000000-0000-4000-8000-000000000005'::uuid, '北海道',   'ほくとだいがく'),
+    ('a0000000-0000-4000-8000-000000000006'::uuid, '福岡県',   'せいりょうがくいんだいがく')
+  ) AS v(id, pref, kana)
+ WHERE universities.id = v.id AND universities.prefecture IS NULL;
+
+-- 各大学に本部キャンパスを1つ用意しておく。複数拠点の大学は職員が足す。
+INSERT INTO campuses (university_id, name)
+SELECT u.id, '本部キャンパス'
+  FROM universities u
+ WHERE NOT EXISTS (SELECT 1 FROM campuses c WHERE c.university_id = u.id);
+
+-- ▼▼▼ migrations/0024_campus_location.sql ▼▼▼
+
+-- =============================================================================
+-- キャンパスに所在地を持たせる
+-- =============================================================================
+-- 0023 では都道府県を大学に持たせたが、これだと県をまたいで
+-- キャンパスを構える大学が、片方の県からしか見つからない。
+-- 「神奈川県」を選んだ人に、横浜キャンパスを持つ東京の大学が出てこない。
+--
+-- 大学の行を分けて「○○大学（横浜キャンパス）」という名前にする手もあるが、
+-- それをすると同じ大学が複数行になり、サークル・職員・施設が
+-- どちらにぶら下がるのかが決まらなくなる。
+-- 大学は1行のまま、所在地をキャンパス側に持たせる。
+-- 「○○大学（横浜キャンパス）」という見せ方は、画面で組み立てればよい。
+--
+-- universities.prefecture は残す。本部の所在地として意味があり、
+-- キャンパスの所在地が未設定のときの既定値にも使う。
+-- =============================================================================
+
+ALTER TABLE campuses
+  ADD COLUMN IF NOT EXISTS prefecture TEXT;
+
+ALTER TABLE campuses DROP CONSTRAINT IF EXISTS campuses_prefecture_check;
+ALTER TABLE campuses ADD CONSTRAINT campuses_prefecture_check
+  CHECK (prefecture IS NULL OR prefecture IN (
+    '北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県',
+    '茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県',
+    '新潟県','富山県','石川県','福井県','山梨県','長野県',
+    '岐阜県','静岡県','愛知県','三重県',
+    '滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県',
+    '鳥取県','島根県','岡山県','広島県','山口県',
+    '徳島県','香川県','愛媛県','高知県',
+    '福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'
+  ));
+
+CREATE INDEX IF NOT EXISTS idx_campuses_prefecture ON campuses(prefecture);
+
+COMMENT ON COLUMN campuses.prefecture IS
+  'キャンパスの所在地。公開一覧はこちらで絞る。大学の prefecture は本部の所在地。';
+
+-- 既存のキャンパスは、大学の所在地を引き継ぐ
+UPDATE campuses c
+   SET prefecture = u.prefecture
+  FROM universities u
+ WHERE c.university_id = u.id AND c.prefecture IS NULL;
+
+
+-- -----------------------------------------------------------------------------
+-- 管理関数に所在地を足す
+-- -----------------------------------------------------------------------------
+-- 引数が増えるので、多重定義にならないよう古い版を先に落とす。
+
+DROP FUNCTION IF EXISTS public.upsert_campus(UUID, TEXT, TEXT);
+
+CREATE OR REPLACE FUNCTION public.upsert_campus(
+  p_id         UUID,
+  p_name       TEXT,
+  p_address    TEXT DEFAULT NULL,
+  p_prefecture TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_university UUID := public.app_university_id();
+  v_name       TEXT := btrim(coalesce(p_name, ''));
+  v_pref       TEXT := nullif(btrim(coalesce(p_prefecture, '')), '');
+  v_id         UUID;
+BEGIN
+  IF public.app_role() IS DISTINCT FROM 'staff' OR v_university IS NULL THEN
+    RAISE EXCEPTION 'キャンパスを管理できるのは大学職員のみです';
+  END IF;
+  IF v_name = '' THEN
+    RAISE EXCEPTION 'キャンパス名を入力してください';
+  END IF;
+  IF char_length(v_name) > 60 THEN
+    RAISE EXCEPTION 'キャンパス名は60文字までです';
+  END IF;
+
+  -- 所在地の指定が無ければ大学の所在地を引き継ぐ。
+  -- 値の妥当性は CHECK 制約が受け持つ。
+  IF v_pref IS NULL THEN
+    SELECT prefecture INTO v_pref FROM public.universities WHERE id = v_university;
+  END IF;
+
+  IF p_id IS NULL THEN
+    INSERT INTO public.campuses (university_id, name, address, prefecture)
+    VALUES (v_university, v_name, nullif(btrim(coalesce(p_address, '')), ''), v_pref)
+    RETURNING id INTO v_id;
+    RETURN v_id;
+  END IF;
+
+  UPDATE public.campuses
+     SET name       = v_name,
+         address    = nullif(btrim(coalesce(p_address, '')), ''),
+         prefecture = v_pref
+   WHERE id = p_id
+     -- 他大学のキャンパスは触れない
+     AND university_id = v_university
+  RETURNING id INTO v_id;
+
+  IF v_id IS NULL THEN
+    RAISE EXCEPTION 'キャンパスが見つかりません';
+  END IF;
+  RETURN v_id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.upsert_campus(UUID, TEXT, TEXT, TEXT)
+  FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.upsert_campus(UUID, TEXT, TEXT, TEXT)
+  TO authenticated;
+
+-- ▼▼▼ migrations/0025_public_events.sql ▼▼▼
+
+-- =============================================================================
+-- 学外の方に案内するイベント
+-- =============================================================================
+-- 未ログインのイベント一覧には、公開設定の大学主催イベントが全部並ぶ。
+-- 大学が増えれば何万件にもなるうえ、防災訓練や図書館ガイダンスのような
+-- 学内向けの行事まで混ざる。学外の人が探しているのは
+-- オープンキャンパスや学園祭であって、それらではない。
+--
+-- visibility は「誰が見てよいか」の軸で、「学外の方に案内する行事か」とは別。
+-- 掲載可否を独立した列に分ける（サークルの public_listed と同じ考え方）。
+--
+-- 既定は false。サークルと違い、イベントは学内向けのものが大半なので、
+-- 黙って外に出る側の既定にはしない。
+-- =============================================================================
+
+ALTER TABLE events
+  ADD COLUMN IF NOT EXISTS public_listed BOOLEAN NOT NULL DEFAULT false;
+
+COMMENT ON COLUMN events.public_listed IS
+  '学外の方向けの案内に載せるか。オープンキャンパスや学園祭を想定。'
+  'visibility（誰が見てよいか）とは別の軸。';
+
+-- 未ログインの一覧はこの3条件で引く
+CREATE INDEX IF NOT EXISTS idx_events_public_listed
+  ON events(event_date)
+  WHERE public_listed AND host_university_id IS NOT NULL;
+
+
+-- -----------------------------------------------------------------------------
+-- 作成時に指定できるようにする
+-- -----------------------------------------------------------------------------
+-- 引数が増えるので、多重定義にならないよう古い版を先に落とす。
+--
+-- 【SECURITY DEFINER の注意】
+-- 0005 では INVOKER で定義しているが、0008 が DEFINER に変えている。
+-- events には INSERT ポリシーが無く、この関数が唯一の書き込み経路なので、
+-- 作り直すときに DEFINER を書き忘れると誰もイベントを作れなくなる。
+
+DROP FUNCTION IF EXISTS public.create_event(
+  TEXT, TIMESTAMPTZ, TEXT, TEXT, UUID, TEXT[], UUID[]
+);
+
+CREATE OR REPLACE FUNCTION public.create_event(
+  p_title          TEXT,
+  p_event_date     TIMESTAMPTZ,
+  p_description    TEXT   DEFAULT NULL,
+  p_visibility     TEXT   DEFAULT 'internal',
+  p_circle_id      UUID   DEFAULT NULL,
+  p_target_grades  TEXT[] DEFAULT NULL,
+  p_university_ids UUID[] DEFAULT NULL,
+  p_public_listed  BOOLEAN DEFAULT false
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_uid        UUID := auth.uid();
+  v_role       TEXT;
+  v_title      TEXT;
+  v_visibility TEXT;
+  v_univ       UUID;
+  v_event_id   UUID;
+  v_listed     BOOLEAN;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  v_title := nullif(btrim(coalesce(p_title, '')), '');
+  IF v_title IS NULL THEN
+    RAISE EXCEPTION 'イベント名を入力してください';
+  END IF;
+
+  IF p_event_date IS NULL THEN
+    RAISE EXCEPTION '開催日時を入力してください';
+  END IF;
+  IF p_event_date < now() THEN
+    RAISE EXCEPTION '過去の日時にはイベントを作成できません';
+  END IF;
+
+  v_visibility := coalesce(p_visibility, 'internal');
+  IF v_visibility NOT IN ('internal', 'scoped', 'public') THEN
+    RAISE EXCEPTION '公開範囲の指定が不正です';
+  END IF;
+  IF v_visibility = 'scoped'
+     AND (p_university_ids IS NULL OR array_length(p_university_ids, 1) IS NULL) THEN
+    RAISE EXCEPTION '範囲を指定する場合は対象大学を1つ以上選んでください';
+  END IF;
+
+  -- 学内限定のものを学外に案内することはできない
+  v_listed := coalesce(p_public_listed, false) AND v_visibility = 'public';
+
+  SELECT role INTO v_role FROM public.users WHERE id = v_uid;
+
+  IF p_circle_id IS NOT NULL THEN
+    ----------------------------------------------------------------- サークル主催
+    IF NOT EXISTS (
+      SELECT 1 FROM public.circle_members cm
+      JOIN public.circles c ON c.id = cm.circle_id
+      WHERE cm.circle_id = p_circle_id
+        AND cm.user_id = v_uid
+        AND cm.role = 'admin'
+        AND cm.status = 'active'
+        AND c.status = 'approved'
+    ) THEN
+      RAISE EXCEPTION '承認済みサークルの管理者のみイベントを作成できます';
+    END IF;
+
+    INSERT INTO public.events
+      (host_university_id, host_circle_id, title, description,
+       event_date, visibility, target_grades, public_listed)
+    VALUES
+      (NULL, p_circle_id, v_title,
+       nullif(btrim(coalesce(p_description, '')), ''),
+       p_event_date, v_visibility, p_target_grades, v_listed)
+    RETURNING id INTO v_event_id;
+  ELSE
+    ----------------------------------------------------------------- 大学主催
+    IF v_role IS DISTINCT FROM 'staff' THEN
+      RAISE EXCEPTION '大学公式イベントを作成できるのは職員のみです';
+    END IF;
+
+    SELECT university_id INTO v_univ
+    FROM public.staff_profiles WHERE user_id = v_uid;
+
+    IF v_univ IS NULL THEN
+      RAISE EXCEPTION '所属大学が未設定です';
+    END IF;
+
+    INSERT INTO public.events
+      (host_university_id, host_circle_id, title, description,
+       event_date, visibility, target_grades, public_listed)
+    VALUES
+      (v_univ, NULL, v_title,
+       nullif(btrim(coalesce(p_description, '')), ''),
+       p_event_date, v_visibility, p_target_grades, v_listed)
+    RETURNING id INTO v_event_id;
+  END IF;
+
+  IF v_visibility = 'scoped' THEN
+    INSERT INTO public.event_universities (event_id, university_id)
+    SELECT v_event_id, u
+    FROM unnest(p_university_ids) AS u
+    WHERE EXISTS (SELECT 1 FROM public.universities WHERE id = u)
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  RETURN v_event_id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.create_event(
+  TEXT, TIMESTAMPTZ, TEXT, TEXT, UUID, TEXT[], UUID[], BOOLEAN) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.create_event(
+  TEXT, TIMESTAMPTZ, TEXT, TEXT, UUID, TEXT[], UUID[], BOOLEAN) TO authenticated;
+
+
+-- -----------------------------------------------------------------------------
+-- 既存データの補完
+-- -----------------------------------------------------------------------------
+-- デモの大学主催イベントのうち、名前から学外向けと分かるものだけ立てる。
+-- 防災訓練・図書館ガイダンス・履修登録のような学内向けは対象にしない。
+
+UPDATE events
+   SET public_listed = true
+ WHERE visibility = 'public'
+   AND host_university_id IS NOT NULL
+   AND public_listed = false
+   AND (title LIKE '%オープンキャンパス%'
+     OR title LIKE '%学園祭%'
+     OR title LIKE '%大学祭%'
+     OR title LIKE '%見学会%'
+     OR title LIKE '%公開講座%');
+
+-- ▼▼▼ migrations/0026_membership_and_edits.sql ▼▼▼
+
+-- =============================================================================
+-- 退会・除名と、サークル／イベントの編集
+-- =============================================================================
+-- 入る導線はあるのに出る導線が無く、作った後に直す手段も無かった。
+-- 打ち間違えたら作り直すしかなく、作り直すとメンバーも掲示板も消える。
+-- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- 1. サークルを抜ける
+-- -----------------------------------------------------------------------------
+
+/**
+ * 自分でサークルを抜ける。
+ *
+ * 管理者が自分ひとりのときは抜けられない。抜けられると、
+ * 誰も承認・編集・掲示ができないサークルが残る。
+ * 先に他のメンバーを管理者にしてもらう。
+ */
+CREATE OR REPLACE FUNCTION public.leave_circle(p_circle_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_role   TEXT;
+  v_admins INT;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  SELECT role INTO v_role
+    FROM public.circle_members
+   WHERE circle_id = p_circle_id AND user_id = auth.uid();
+
+  IF v_role IS NULL THEN
+    RAISE EXCEPTION 'このサークルに所属していません';
+  END IF;
+
+  IF v_role = 'admin' THEN
+    SELECT count(*) INTO v_admins
+      FROM public.circle_members
+     WHERE circle_id = p_circle_id AND role = 'admin' AND status = 'active';
+
+    IF v_admins <= 1 THEN
+      RAISE EXCEPTION
+        '管理者が自分だけのため退会できません。先に他のメンバーを管理者にしてください';
+    END IF;
+  END IF;
+
+  DELETE FROM public.circle_members
+   WHERE circle_id = p_circle_id AND user_id = auth.uid();
+END;
+$$;
+
+
+/**
+ * メンバーを外す。サークル管理者のみ。
+ *
+ * 自分自身は外せない（leave_circle を使う）。最後の管理者も外せない。
+ */
+CREATE OR REPLACE FUNCTION public.remove_circle_member(
+  p_circle_id UUID,
+  p_user_id   UUID
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_role   TEXT;
+  v_admins INT;
+BEGIN
+  IF NOT public.app_is_circle_admin(p_circle_id) THEN
+    RAISE EXCEPTION 'このサークルの管理者のみ操作できます';
+  END IF;
+
+  IF p_user_id = auth.uid() THEN
+    RAISE EXCEPTION '自分を外すことはできません。退会を使ってください';
+  END IF;
+
+  SELECT role INTO v_role
+    FROM public.circle_members
+   WHERE circle_id = p_circle_id AND user_id = p_user_id;
+
+  IF v_role IS NULL THEN
+    RAISE EXCEPTION 'そのメンバーは見つかりません';
+  END IF;
+
+  IF v_role = 'admin' THEN
+    SELECT count(*) INTO v_admins
+      FROM public.circle_members
+     WHERE circle_id = p_circle_id AND role = 'admin' AND status = 'active';
+
+    IF v_admins <= 1 THEN
+      RAISE EXCEPTION '最後の管理者は外せません';
+    END IF;
+  END IF;
+
+  DELETE FROM public.circle_members
+   WHERE circle_id = p_circle_id AND user_id = p_user_id;
+END;
+$$;
+
+
+/**
+ * メンバーを管理者にする／外す。サークル管理者のみ。
+ *
+ * 退会の前提として必要になる。管理者がひとりしか居ないサークルで、
+ * その人が抜けたいときに引き継ぐ手段が無いと詰む。
+ */
+CREATE OR REPLACE FUNCTION public.set_circle_member_role(
+  p_circle_id UUID,
+  p_user_id   UUID,
+  p_admin     BOOLEAN
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_admins INT;
+BEGIN
+  IF NOT public.app_is_circle_admin(p_circle_id) THEN
+    RAISE EXCEPTION 'このサークルの管理者のみ操作できます';
+  END IF;
+
+  IF NOT p_admin THEN
+    SELECT count(*) INTO v_admins
+      FROM public.circle_members
+     WHERE circle_id = p_circle_id AND role = 'admin' AND status = 'active';
+
+    IF v_admins <= 1 THEN
+      RAISE EXCEPTION '管理者が居なくなるため外せません';
+    END IF;
+  END IF;
+
+  UPDATE public.circle_members
+     SET role = CASE WHEN p_admin THEN 'admin' ELSE 'member' END
+   WHERE circle_id = p_circle_id
+     AND user_id = p_user_id
+     AND status = 'active';
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 2. サークル情報の編集
+-- -----------------------------------------------------------------------------
+
+/**
+ * 名前・説明・参加できる範囲を直す。サークル管理者のみ。
+ *
+ * 所属大学と承認状態はここでは変えない。前者を変えると
+ * 施設や職員の担当が丸ごとずれ、後者は職員の承認を迂回できてしまう。
+ */
+CREATE OR REPLACE FUNCTION public.update_circle(
+  p_circle_id      UUID,
+  p_name           TEXT,
+  p_description    TEXT DEFAULT NULL,
+  p_scope          TEXT DEFAULT NULL,
+  p_university_ids UUID[] DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_name  TEXT := nullif(btrim(coalesce(p_name, '')), '');
+  v_scope TEXT;
+BEGIN
+  IF NOT public.app_is_circle_admin(p_circle_id) THEN
+    RAISE EXCEPTION 'このサークルの管理者のみ編集できます';
+  END IF;
+
+  IF v_name IS NULL THEN
+    RAISE EXCEPTION 'サークル名を入力してください';
+  END IF;
+  IF char_length(v_name) > 60 THEN
+    RAISE EXCEPTION 'サークル名は60文字までです';
+  END IF;
+  IF char_length(coalesce(p_description, '')) > 1000 THEN
+    RAISE EXCEPTION '説明は1000文字までです';
+  END IF;
+
+  SELECT coalesce(p_scope, scope) INTO v_scope
+    FROM public.circles WHERE id = p_circle_id;
+
+  IF v_scope NOT IN ('university', 'scoped', 'public') THEN
+    RAISE EXCEPTION '参加できる範囲の指定が不正です';
+  END IF;
+  IF v_scope = 'scoped'
+     AND (p_university_ids IS NULL OR array_length(p_university_ids, 1) IS NULL) THEN
+    RAISE EXCEPTION '範囲を指定する場合は対象大学を1つ以上選んでください';
+  END IF;
+
+  UPDATE public.circles
+     SET name        = v_name,
+         description = nullif(btrim(coalesce(p_description, '')), ''),
+         scope       = v_scope
+   WHERE id = p_circle_id;
+
+  -- 対象大学は総入れ替え。差分にすると、範囲を狭めたときに
+  -- 古い指定が残って「外したはずの大学から参加できる」状態になる。
+  DELETE FROM public.circle_universities WHERE circle_id = p_circle_id;
+
+  IF v_scope = 'scoped' THEN
+    INSERT INTO public.circle_universities (circle_id, university_id)
+    SELECT p_circle_id, u
+      FROM unnest(p_university_ids) AS u
+     WHERE EXISTS (SELECT 1 FROM public.universities WHERE id = u)
+    ON CONFLICT DO NOTHING;
+  END IF;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 3. イベントの編集
+-- -----------------------------------------------------------------------------
+
+/**
+ * イベントを直す。主催者のみ（app_can_manage_event と同じ判定）。
+ *
+ * 主催（大学かサークルか）は変えない。変えられると、
+ * 誰が管理してよいかの判定そのものが動いてしまう。
+ *
+ * 日時を動かしたらリマインドの送信済みを解除する。
+ * 「3時間前」に送った後で開催が1週間ずれたら、その通知は
+ * もう役に立たないので、新しい日時で送り直す。
+ */
+CREATE OR REPLACE FUNCTION public.update_event(
+  p_event_id       UUID,
+  p_title          TEXT,
+  p_event_date     TIMESTAMPTZ,
+  p_description    TEXT DEFAULT NULL,
+  p_visibility     TEXT DEFAULT NULL,
+  p_target_grades  TEXT[] DEFAULT NULL,
+  p_university_ids UUID[] DEFAULT NULL,
+  p_public_listed  BOOLEAN DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_title      TEXT := nullif(btrim(coalesce(p_title, '')), '');
+  v_visibility TEXT;
+  v_listed     BOOLEAN;
+  v_old_date   TIMESTAMPTZ;
+BEGIN
+  IF NOT public.app_can_manage_event(p_event_id) THEN
+    RAISE EXCEPTION 'このイベントの主催者のみ編集できます';
+  END IF;
+
+  IF v_title IS NULL THEN
+    RAISE EXCEPTION 'イベント名を入力してください';
+  END IF;
+  IF p_event_date IS NULL THEN
+    RAISE EXCEPTION '開催日時を入力してください';
+  END IF;
+
+  SELECT event_date,
+         coalesce(p_visibility, visibility),
+         coalesce(p_public_listed, public_listed)
+    INTO v_old_date, v_visibility, v_listed
+    FROM public.events WHERE id = p_event_id;
+
+  IF v_old_date IS NULL THEN
+    RAISE EXCEPTION 'イベントが見つかりません';
+  END IF;
+
+  IF v_visibility NOT IN ('internal', 'scoped', 'public') THEN
+    RAISE EXCEPTION '公開範囲の指定が不正です';
+  END IF;
+  IF v_visibility = 'scoped'
+     AND (p_university_ids IS NULL OR array_length(p_university_ids, 1) IS NULL) THEN
+    RAISE EXCEPTION '範囲を指定する場合は対象大学を1つ以上選んでください';
+  END IF;
+
+  -- 学内限定のものを学外に案内することはできない（0025 と同じ規則）
+  v_listed := v_listed AND v_visibility = 'public';
+
+  UPDATE public.events
+     SET title         = v_title,
+         description   = nullif(btrim(coalesce(p_description, '')), ''),
+         event_date    = p_event_date,
+         visibility    = v_visibility,
+         target_grades = p_target_grades,
+         public_listed = v_listed
+   WHERE id = p_event_id;
+
+  DELETE FROM public.event_universities WHERE event_id = p_event_id;
+
+  IF v_visibility = 'scoped' THEN
+    INSERT INTO public.event_universities (event_id, university_id)
+    SELECT p_event_id, u
+      FROM unnest(p_university_ids) AS u
+     WHERE EXISTS (SELECT 1 FROM public.universities WHERE id = u)
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  IF p_event_date IS DISTINCT FROM v_old_date THEN
+    UPDATE public.event_reminders
+       SET notified_at = NULL
+     WHERE event_id = p_event_id;
+  END IF;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 4. 権限
+-- -----------------------------------------------------------------------------
+
+DO $$
+DECLARE f TEXT;
+BEGIN
+  FOREACH f IN ARRAY ARRAY[
+    'leave_circle(uuid)',
+    'remove_circle_member(uuid,uuid)',
+    'set_circle_member_role(uuid,uuid,boolean)',
+    'update_circle(uuid,text,text,text,uuid[])',
+    'update_event(uuid,text,timestamptz,text,text,text[],uuid[],boolean)'
+  ] LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM public, anon', f);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated', f);
+  END LOOP;
+END;
+$$;
+
+-- ▼▼▼ migrations/0027_approvals.sql ▼▼▼
+
+-- =============================================================================
+-- 承認の記録と、複数人による承認
+-- =============================================================================
+-- 紙の運用では、設立のような重い決裁に複数人の印鑑が要る。
+-- 誰が押したかも残る。いまの実装は「職員が1人押せば通る・記録は残らない」
+-- なので、そこを合わせる。
+--
+-- 何人必要かは大学ごとに違うので、大学の属性として持つ。
+-- 施設の利用は日々の運用なので1人のままにする（既定値が1）。
+-- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- 1. 承認の記録
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS approvals (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  target_type TEXT NOT NULL CHECK (target_type IN (
+    'circle',          -- サークルの設立
+    'circle_closure',  -- サークルの廃止
+    'reservation'      -- 施設の予約
+  )),
+  target_id   UUID NOT NULL,
+  approver_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  /** 記録した時点の氏名。退職などで行が消えても誰が押したか残す */
+  approver_name TEXT NOT NULL,
+  decision    TEXT NOT NULL CHECK (decision IN ('approved', 'rejected')),
+  comment     TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- 同じ人が同じ案件に二度は押せない
+  UNIQUE (target_type, target_id, approver_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_approvals_target
+  ON approvals(target_type, target_id, created_at);
+
+COMMENT ON TABLE approvals IS
+  '誰がいつ何を承認・却下したかの記録。取り消しはせず、積み上げる。';
+
+ALTER TABLE approvals ENABLE ROW LEVEL SECURITY;
+
+-- 対象そのものが読めるなら、その承認履歴も読める。
+-- EXISTS の中で対象テーブルの RLS が効くので、可視範囲は自動で揃う。
+DROP POLICY IF EXISTS approvals_select ON approvals;
+CREATE POLICY approvals_select ON approvals
+  FOR SELECT TO authenticated USING (
+    CASE target_type
+      WHEN 'reservation' THEN EXISTS (
+        SELECT 1 FROM facility_reservations r WHERE r.id = target_id)
+      ELSE EXISTS (
+        SELECT 1 FROM circles c WHERE c.id = target_id)
+    END
+  );
+
+REVOKE ALL ON approvals FROM anon;
+GRANT SELECT ON approvals TO authenticated;
+
+
+-- -----------------------------------------------------------------------------
+-- 2. 何人の承認が要るか
+-- -----------------------------------------------------------------------------
+-- 既定は1。いまの挙動を変えずに移行できる。
+-- 職員が2人以上いる大学は、必要に応じて引き上げる。
+
+ALTER TABLE universities
+  ADD COLUMN IF NOT EXISTS required_circle_approvals INT NOT NULL DEFAULT 1;
+
+ALTER TABLE universities
+  DROP CONSTRAINT IF EXISTS universities_required_circle_approvals_check;
+ALTER TABLE universities
+  ADD CONSTRAINT universities_required_circle_approvals_check
+  CHECK (required_circle_approvals BETWEEN 1 AND 5);
+
+COMMENT ON COLUMN universities.required_circle_approvals IS
+  'サークルの設立・廃止に必要な承認者数。施設の予約には使わない。';
+
+/** 承認に必要な人数を変える。その大学の職員のみ。 */
+CREATE OR REPLACE FUNCTION public.set_required_circle_approvals(p_count INT)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_university UUID := public.app_university_id();
+  v_staff      INT;
+BEGIN
+  IF public.app_role() IS DISTINCT FROM 'staff' OR v_university IS NULL THEN
+    RAISE EXCEPTION '設定できるのは大学職員のみです';
+  END IF;
+  IF p_count IS NULL OR p_count < 1 OR p_count > 5 THEN
+    RAISE EXCEPTION '承認者数は1〜5人で指定してください';
+  END IF;
+
+  -- 職員の人数を超えると、誰も承認を完了できない状態になる
+  SELECT count(*) INTO v_staff
+    FROM public.staff_profiles WHERE university_id = v_university;
+
+  IF p_count > v_staff THEN
+    RAISE EXCEPTION
+      '職員が%人しか登録されていないため、%人の承認は設定できません', v_staff, p_count;
+  END IF;
+
+  UPDATE public.universities
+     SET required_circle_approvals = p_count
+   WHERE id = v_university;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 3. 廃止の申請
+-- -----------------------------------------------------------------------------
+-- 申請中も活動は続くので status は動かさない。承認が揃った時点で closed。
+-- status を途中で変えると、可視範囲の判定（circles_select）まで
+-- 巻き込むことになる。
+
+ALTER TABLE circles
+  ADD COLUMN IF NOT EXISTS closure_requested_at TIMESTAMPTZ;
+
+ALTER TABLE circles DROP CONSTRAINT IF EXISTS circles_status_check;
+ALTER TABLE circles ADD CONSTRAINT circles_status_check
+  CHECK (status IN ('pending', 'approved', 'rejected', 'closed'));
+
+COMMENT ON COLUMN circles.closure_requested_at IS
+  '廃止を申請した日時。承認が揃うまでは活動を続けるので status は変えない。';
+
+/** 廃止を申請する。サークル管理者のみ。取り下げは NULL を渡す。 */
+CREATE OR REPLACE FUNCTION public.request_circle_closure(
+  p_circle_id UUID,
+  p_cancel    BOOLEAN DEFAULT false
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NOT public.app_is_circle_admin(p_circle_id) THEN
+    RAISE EXCEPTION 'このサークルの管理者のみ申請できます';
+  END IF;
+
+  IF p_cancel THEN
+    UPDATE public.circles SET closure_requested_at = NULL WHERE id = p_circle_id;
+    -- 取り下げたら、集まりかけていた承認も無かったことにする
+    DELETE FROM public.approvals
+     WHERE target_type = 'circle_closure' AND target_id = p_circle_id;
+    RETURN;
+  END IF;
+
+  UPDATE public.circles
+     SET closure_requested_at = now()
+   WHERE id = p_circle_id AND status = 'approved';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION '承認済みのサークルのみ廃止を申請できます';
+  END IF;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 4. 承認そのもの
+-- -----------------------------------------------------------------------------
+
+/**
+ * 承認・却下を1件記録し、揃ったかどうかを判定する共通処理。
+ *
+ * 却下は1人で成立させる。紙の決裁と同じで、誰か1人が判を押さないと
+ * そこで止まる。承認だけが人数を要する。
+ *
+ * 戻り値は 'pending'（まだ足りない）/ 'approved' / 'rejected'。
+ */
+CREATE OR REPLACE FUNCTION public.app_record_approval(
+  p_target_type TEXT,
+  p_target_id   UUID,
+  p_approve     BOOLEAN,
+  p_required    INT,
+  p_comment     TEXT
+)
+RETURNS TEXT
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_name  TEXT;
+  v_count INT;
+BEGIN
+  SELECT name INTO v_name FROM public.users WHERE id = auth.uid();
+
+  INSERT INTO public.approvals
+    (target_type, target_id, approver_id, approver_name, decision, comment)
+  VALUES (
+    p_target_type, p_target_id, auth.uid(), coalesce(v_name, '不明'),
+    CASE WHEN p_approve THEN 'approved' ELSE 'rejected' END,
+    nullif(btrim(coalesce(p_comment, '')), '')
+  )
+  ON CONFLICT (target_type, target_id, approver_id) DO NOTHING;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'すでにこの案件を処理しています';
+  END IF;
+
+  IF NOT p_approve THEN
+    RETURN 'rejected';
+  END IF;
+
+  SELECT count(*) INTO v_count
+    FROM public.approvals
+   WHERE target_type = p_target_type
+     AND target_id = p_target_id
+     AND decision = 'approved';
+
+  RETURN CASE WHEN v_count >= p_required THEN 'approved' ELSE 'pending' END;
+END;
+$$;
+
+
+DROP FUNCTION IF EXISTS public.decide_circle(UUID, BOOLEAN);
+
+/**
+ * サークル設立の承認・却下。
+ *
+ * 大学が定めた人数ぶんの承認が集まって初めて approved になる。
+ * それまでは pending のまま、承認の記録だけが積み上がる。
+ */
+CREATE OR REPLACE FUNCTION public.decide_circle(
+  p_circle_id UUID,
+  p_approve   BOOLEAN,
+  p_comment   TEXT DEFAULT NULL
+)
+RETURNS TEXT
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_circle_univ UUID;
+  v_required    INT;
+  v_result      TEXT;
+BEGIN
+  IF public.app_role() IS DISTINCT FROM 'staff' THEN
+    RAISE EXCEPTION 'サークルの承認は大学職員のみ行えます';
+  END IF;
+
+  SELECT university_id INTO v_circle_univ
+    FROM public.circles WHERE id = p_circle_id AND status = 'pending';
+
+  IF v_circle_univ IS NULL THEN
+    RAISE EXCEPTION '承認待ちのサークルが見つかりません';
+  END IF;
+
+  IF public.app_university_id() IS DISTINCT FROM v_circle_univ THEN
+    RAISE EXCEPTION '所属大学のサークルのみ承認できます';
+  END IF;
+
+  SELECT required_circle_approvals INTO v_required
+    FROM public.universities WHERE id = v_circle_univ;
+
+  v_result := public.app_record_approval(
+    'circle', p_circle_id, p_approve, coalesce(v_required, 1), p_comment);
+
+  IF v_result <> 'pending' THEN
+    UPDATE public.circles SET status = v_result WHERE id = p_circle_id;
+  END IF;
+
+  RETURN v_result;
+END;
+$$;
+
+
+/** サークル廃止の承認・却下。必要人数は設立と同じ。 */
+CREATE OR REPLACE FUNCTION public.decide_circle_closure(
+  p_circle_id UUID,
+  p_approve   BOOLEAN,
+  p_comment   TEXT DEFAULT NULL
+)
+RETURNS TEXT
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_circle_univ UUID;
+  v_required    INT;
+  v_result      TEXT;
+BEGIN
+  IF public.app_role() IS DISTINCT FROM 'staff' THEN
+    RAISE EXCEPTION 'サークルの廃止は大学職員のみ判断できます';
+  END IF;
+
+  SELECT university_id INTO v_circle_univ
+    FROM public.circles
+   WHERE id = p_circle_id AND closure_requested_at IS NOT NULL;
+
+  IF v_circle_univ IS NULL THEN
+    RAISE EXCEPTION '廃止の申請が出ているサークルが見つかりません';
+  END IF;
+
+  IF public.app_university_id() IS DISTINCT FROM v_circle_univ THEN
+    RAISE EXCEPTION '所属大学のサークルのみ判断できます';
+  END IF;
+
+  SELECT required_circle_approvals INTO v_required
+    FROM public.universities WHERE id = v_circle_univ;
+
+  v_result := public.app_record_approval(
+    'circle_closure', p_circle_id, p_approve, coalesce(v_required, 1), p_comment);
+
+  IF v_result = 'approved' THEN
+    UPDATE public.circles
+       SET status = 'closed', closure_requested_at = NULL
+     WHERE id = p_circle_id;
+  ELSIF v_result = 'rejected' THEN
+    -- 却下されたら申請を取り下げた状態に戻す。活動はそのまま続く
+    UPDATE public.circles
+       SET closure_requested_at = NULL
+     WHERE id = p_circle_id;
+  END IF;
+
+  RETURN v_result;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 5. 権限
+-- -----------------------------------------------------------------------------
+
+REVOKE EXECUTE ON FUNCTION public.app_record_approval(TEXT, UUID, BOOLEAN, INT, TEXT)
+  FROM public, anon, authenticated;
+
+DO $$
+DECLARE f TEXT;
+BEGIN
+  FOREACH f IN ARRAY ARRAY[
+    'set_required_circle_approvals(integer)',
+    'request_circle_closure(uuid,boolean)',
+    'decide_circle(uuid,boolean,text)',
+    'decide_circle_closure(uuid,boolean,text)'
+  ] LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM public, anon', f);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated', f);
+  END LOOP;
+END;
+$$;
+
+-- ▼▼▼ migrations/0028_reservation_log_and_account.sql ▼▼▼
+
+-- =============================================================================
+-- 施設予約の承認記録と、アカウントの削除
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- 1. 施設予約の承認も記録する
+-- -----------------------------------------------------------------------------
+-- 予約は1人の承認で通す運用のままにする（日々の運用なので）。
+-- 記録だけを残す。
+--
+-- 承認の判定そのものはサークルと違って人数を数えないので、
+-- RPC ではなくトリガーで拾う。状態の変化を捉える方が、
+-- 後から書き込み経路が増えても取りこぼさない（通知と同じ考え方）。
+
+CREATE OR REPLACE FUNCTION public.log_reservation_decision()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_name TEXT;
+BEGIN
+  IF NEW.status = OLD.status OR NEW.status NOT IN ('approved', 'rejected') THEN
+    RETURN NEW;
+  END IF;
+
+  -- 誰の操作か分からないとき（定期処理など）は記録しない
+  IF auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT name INTO v_name FROM public.users WHERE id = auth.uid();
+
+  INSERT INTO public.approvals
+    (target_type, target_id, approver_id, approver_name, decision)
+  VALUES ('reservation', NEW.id, auth.uid(), coalesce(v_name, '不明'), NEW.status)
+  ON CONFLICT (target_type, target_id, approver_id) DO NOTHING;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_log_reservation_decision ON facility_reservations;
+CREATE TRIGGER trg_log_reservation_decision
+  AFTER UPDATE OF status ON facility_reservations
+  FOR EACH ROW EXECUTE FUNCTION public.log_reservation_decision();
+
+
+-- -----------------------------------------------------------------------------
+-- 2. アカウントの削除
+-- -----------------------------------------------------------------------------
+-- 一般アカウントのみ。学生と職員は大学が管理する立場なので、
+-- 本人の操作で消せると在籍管理や承認の履歴が壊れる。
+-- 消したいときは大学側の手続きに乗せる。
+--
+-- auth.users を消すと public.users へ ON DELETE CASCADE が伝わり、
+-- 気になる大学・気になるサークル・通知まで一緒に消える。
+-- 承認の記録（approvals）だけは approver_id が NULL になって残る。
+-- 誰が押したかは approver_name に控えてあるので、履歴は途切れない。
+
+CREATE OR REPLACE FUNCTION public.delete_my_account()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp, auth
+AS $$
+DECLARE
+  v_role TEXT;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ログインが必要です';
+  END IF;
+
+  SELECT role INTO v_role FROM public.users WHERE id = auth.uid();
+
+  IF v_role IS DISTINCT FROM 'general' THEN
+    RAISE EXCEPTION
+      '学生・職員アカウントはご自身では削除できません。大学の担当窓口にお問い合わせください';
+  END IF;
+
+  DELETE FROM auth.users WHERE id = auth.uid();
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.delete_my_account() FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.delete_my_account() TO authenticated;
 
 -- ▼▼▼ seed.sql ▼▼▼
 

@@ -16,6 +16,9 @@
 -- 0012 の撤去
 -- -----------------------------------------------------------------------------
 
+-- 0012 は 0013 に置き換わったため削除済み。ただしここの DROP は残す。
+-- 0012 を一度でも流した DB には実体が残っており、消す経路がここしか無い。
+-- 新規のセットアップでは IF EXISTS で素通りする。
 DROP FUNCTION IF EXISTS public.set_attendance(UUID, TEXT, UUID);
 DROP FUNCTION IF EXISTS public.create_activity(UUID, TEXT, TIMESTAMPTZ, TEXT, TEXT);
 DROP FUNCTION IF EXISTS public.delete_activity(UUID);

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { HomeHero } from "@/components/HomeHero";
 import { getCurrentUser } from "@/lib/dal";
 
 const FEATURES = [
@@ -22,39 +23,25 @@ export default async function Home() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-16">
-      <section className="max-w-2xl">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          大学生活の「つながる」を、
-          <br />
-          ひとつの場所に。
-        </h1>
-        <p className="mt-5 text-lg text-gray-600 dark:text-gray-400">
-          UniCircle Connect
-          は、サークル活動の管理・イベントの告知・大学施設の予約をシームレスにつなぐプラットフォームです。
-        </p>
+      <HomeHero
+        action={
+          <>
+            <Link
+              href={user ? "/calendar" : "/signup"}
+              className="btn-primary px-5"
+            >
+              {user ? "カレンダーを見る" : "はじめる"}
+            </Link>
+            <Link href="/events" className="btn-ghost px-5">
+              公開イベントを見る
+            </Link>
+          </>
+        }
+      />
 
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            href={user ? "/dashboard" : "/signup"}
-            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
-          >
-            {user ? "ダッシュボードへ" : "はじめる"}
-          </Link>
-          <Link
-            href="/events"
-            className="rounded-lg border border-black/15 px-5 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-          >
-            公開イベントを見る
-          </Link>
-        </div>
-      </section>
-
-      <section className="mt-16 grid gap-4 sm:grid-cols-3">
+      <section className="mt-20 grid gap-4 sm:grid-cols-3">
         {FEATURES.map((feature) => (
-          <div
-            key={feature.title}
-            className="rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5"
-          >
+          <div key={feature.title} className="glass-panel">
             <h2 className="font-semibold">{feature.title}</h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               {feature.body}

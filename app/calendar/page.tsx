@@ -2,13 +2,23 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CalendarFilterPanel } from "@/components/CalendarFilterPanel";
+import { EventDeck } from "@/components/EventDeck";
+import { PageHero } from "@/components/PageHero";
 import { CalendarGrid } from "@/components/CalendarGrid";
-import { listCalendarEvents } from "@/lib/calendar";
+import { listCalendarEvents, listUpcomingJoinedEvents } from "@/lib/calendar";
+import { listMyCircles } from "@/lib/circles";
+import { listWatchedUniversityIds } from "@/lib/discovery";
 import { SOURCE_COLOR, SOURCE_LABEL } from "@/lib/event-sources";
 import { getMyUniversityId, requireUser } from "@/lib/dal";
 import { createClient } from "@/lib/supabase-server";
 
 export const metadata: Metadata = { title: "カレンダー | UniCircle Connect" };
+
+/** 見出しに出す英語の月名。参考にした卓上カレンダーの体裁に合わせている */
+const MONTH_EN = [
+  "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+  "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
+];
 
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   month: "short",
@@ -60,11 +70,19 @@ export default async function CalendarPage({
   const gridEnd = new Date(gridStart);
   gridEnd.setDate(gridStart.getDate() + 42);
 
-  const selectedUniversities = sp.universities
+  const isGeneral = user.role === "general";
+
+  const requested = sp.universities
     ? Array.isArray(sp.universities)
       ? sp.universities
       : [sp.universities]
-    : [];
+    : null;
+
+  // 一般ユーザーは所属大学を持たないので、URL に指定が無ければ
+  // マイページで選んだ大学を初期値にする。何も選んでいなければ空のまま
+  // ＝全大学の公開イベントを表示する（lib/calendar.ts 側の扱い）。
+  const selectedUniversities =
+    requested ?? (isGeneral ? await listWatchedUniversityIds() : []);
 
   const filters = {
     universities: selectedUniversities,
@@ -72,22 +90,38 @@ export default async function CalendarPage({
     search: sp.search ?? "",
   };
 
-  const [{ events, error }, { data: universities }] = await Promise.all([
-    listCalendarEvents({
-      userId: user.id,
-      role: user.role,
-      universityId,
-      from: gridStart,
-      to: gridEnd,
-      filters,
-    }),
-    (await createClient()).from("universities").select("id, name").order("name"),
-  ]);
+  const supabase = await createClient();
+
+  // ダッシュボードを廃してここが入口になったので、
+  // 「次に何があるか」と「どこに属しているか」も併せて出す。
+  const [{ events, error }, { data: universities }, upcoming, myCircles] =
+    await Promise.all([
+      listCalendarEvents({
+        userId: user.id,
+        role: user.role,
+        universityId,
+        from: gridStart,
+        to: gridEnd,
+        filters,
+      }),
+      supabase.from("universities").select("id, name").order("name"),
+      user.role === "general"
+        ? Promise.resolve([])
+        : listUpcomingJoinedEvents(user.id, 5),
+      // 一般ユーザーはサークルに所属しないので問い合わせ自体を省く
+      user.role === "general"
+        ? Promise.resolve([])
+        : listMyCircles(user.id),
+    ]);
+
+  const activeCircles = myCircles.filter(
+    (m) => m.status === "active" && m.circle,
+  );
 
   const prev = new Date(year, month - 1, 1);
   const next = new Date(year, month + 1, 1);
 
-  // 当月ぶんだけを下の一覧に出す（前後の月のはみ出しは除く）
+  // 当月ぶんだけを見出しの件数と下の一覧に使う（前後の月のはみ出しは除く）
   const thisMonth = events.filter((e) => {
     const d = new Date(e.event_date);
     return d.getFullYear() === year && d.getMonth() === month;
@@ -95,42 +129,88 @@ export default async function CalendarPage({
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">
-            {year}年{month + 1}月
-          </h1>
-          <div className="flex gap-1">
+      {/* 卓上カレンダー風の見出し。月番号を lead に渡して大きく見せる。
+          図形の配置はページごとに変えているので、ここは circles を使う。 */}
+      <PageHero
+        variant="circles"
+        eyebrow={MONTH_EN[month]}
+        title={`${year}年${month + 1}月`}
+        description={`${thisMonth.length}件の予定`}
+        lead={
+          <span
+            className="text-5xl font-extrabold leading-none tracking-tighter tabular-nums sm:text-8xl"
+            style={{ color: "rgb(var(--accent))" }}
+          >
+            {String(month + 1).padStart(2, "0")}
+          </span>
+        }
+        action={
+          <>
             <Link
               href={`/calendar?ym=${ymString(prev.getFullYear(), prev.getMonth())}`}
-              className="rounded-lg border border-black/15 px-2.5 py-1 text-sm transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              className="btn-ghost-sm px-3 py-1.5"
               aria-label="前の月"
             >
               ←
             </Link>
-            <Link
-              href="/calendar"
-              className="rounded-lg border border-black/15 px-2.5 py-1 text-sm transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-            >
+            <Link href="/calendar" className="btn-ghost-sm px-3 py-1.5">
               今月
             </Link>
             <Link
               href={`/calendar?ym=${ymString(next.getFullYear(), next.getMonth())}`}
-              className="rounded-lg border border-black/15 px-2.5 py-1 text-sm transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              className="btn-ghost-sm px-3 py-1.5"
               aria-label="次の月"
             >
               →
             </Link>
-          </div>
-        </div>
+            <Link href="/events" className="btn-ghost-sm px-3 py-1.5">
+              一覧で見る
+            </Link>
+          </>
+        }
+      />
 
-        <Link
-          href="/events"
-          className="rounded-lg border border-black/15 px-4 py-2 text-sm font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-        >
-          一覧で見る
-        </Link>
-      </header>
+      {/* 一般ユーザーは参加登録をしないので、枠ごと出さない。
+          常に空の「参加予定はありません」が出ると、登録できるのに
+          していないだけ、と読めてしまう。 */}
+      {user.role !== "general" &&
+        (upcoming.length > 0 ? (
+          <section className="mb-6">
+            <EventDeck events={upcoming} />
+          </section>
+        ) : (
+          <p className="glass-empty mb-6 py-6">
+            参加予定のイベントはありません。
+            <Link href="/events" className="ml-1 font-medium underline">
+              イベントを探す
+            </Link>
+          </p>
+        ))}
+
+      {activeCircles.length > 0 && (
+        <section className="mb-6">
+          <h2 className="mb-2 text-sm font-semibold">
+            所属サークル {activeCircles.length}件
+          </h2>
+          <ul className="flex flex-wrap gap-2">
+            {activeCircles.map((m) => (
+              <li key={m.circle!.id}>
+                <Link
+                  href={`/circles/${m.circle!.id}`}
+                  className="btn-ghost-sm"
+                >
+                  {m.circle!.name}
+                  {m.role === "admin" && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      管理者
+                    </span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <CalendarFilterPanel
         universities={universities ?? []}
@@ -138,25 +218,28 @@ export default async function CalendarPage({
         selectedUniversities={selectedUniversities}
         showUnjoinedCircles={filters.showUnjoinedCircles}
         search={filters.search}
+        isGeneral={isGeneral}
       />
 
       {error && (
         <p
           role="alert"
-          className="mb-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+          className="mb-6 rounded-xl border border-rose-300/70 bg-rose-50/70 px-3.5 py-2.5 text-sm text-rose-800 backdrop-blur-md dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200"
         >
           カレンダーの取得に失敗しました: {error}
         </p>
       )}
 
-      <CalendarGrid year={year} month={month} events={events} />
+      <div className="glass-panel">
+        <CalendarGrid year={year} month={month} events={events} />
+      </div>
 
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-semibold">
           {month + 1}月の予定 {thisMonth.length}件
         </h2>
         {thisMonth.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-black/15 px-4 py-10 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+          <p className="glass-empty">
             {filters.search
               ? "検索条件に一致するイベントはありません。"
               : "表示できるイベントはありません。「表示する範囲」から他大学を追加できます。"}
@@ -167,12 +250,12 @@ export default async function CalendarPage({
               <li key={e.id}>
                 <Link
                   href={`/events/${e.id}`}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-black/10 bg-white px-4 py-3 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 glass-card px-4 py-3"
                 >
-                  <span className="w-24 shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="w-20 shrink-0 text-xs text-gray-500 dark:text-gray-400 sm:w-24">
                     {dateFormatter.format(new Date(e.event_date))}
                   </span>
-                  <span className="w-14 shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="w-12 shrink-0 text-xs text-gray-500 dark:text-gray-400 sm:w-14">
                     {timeFormatter.format(new Date(e.event_date))}
                   </span>
                   <span className="min-w-0 flex-1">

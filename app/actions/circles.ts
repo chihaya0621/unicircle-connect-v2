@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import type { Scope } from "@/lib/database.types";
-import { requireUser } from "@/lib/dal";
+import { requireRole, requireUser } from "@/lib/dal";
 import { createClient } from "@/lib/supabase-server";
 
 export type ActionState = { error?: string; notice?: string } | null;
@@ -58,7 +58,7 @@ export async function createCircle(
   if (error) return { error: error.message };
 
   revalidatePath("/circles");
-  revalidatePath("/dashboard");
+  revalidatePath("/calendar");
   redirect(`/circles/${data}`);
 }
 
@@ -76,7 +76,7 @@ export async function requestJoin(formData: FormData): Promise<void> {
   if (error) console.error("参加申請に失敗しました:", error.message);
 
   revalidatePath(`/circles/${circleId}`);
-  revalidatePath("/dashboard");
+  revalidatePath("/calendar");
 }
 
 /** メンバーの承認 / 却下（サークル管理者のみ。判定は DB 側） */
@@ -110,10 +110,212 @@ export async function decideCircle(formData: FormData): Promise<void> {
   const { error } = await supabase.rpc("decide_circle", {
     p_circle_id: circleId,
     p_approve: approve,
+    p_comment: String(formData.get("comment") ?? "").trim() || undefined,
   });
 
   if (error) console.error("サークル審査に失敗しました:", error.message);
 
   revalidatePath("/circles");
   revalidatePath(`/circles/${circleId}`);
+}
+
+/**
+ * 公開プロフィールの更新。
+ *
+ * 権限判定と文字数の上限は DB 関数側が最終判定する。ここでの検査は
+ * 往復する前に気づけるようにするためのもの。
+ */
+export async function updateCirclePublicProfile(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireUser();
+
+  const circleId = String(formData.get("circle_id") ?? "");
+  if (!circleId) return { error: "サークルが指定されていません。" };
+
+  const intro = String(formData.get("public_intro") ?? "").trim();
+  const schedule = String(formData.get("public_schedule") ?? "").trim();
+  const contact = String(formData.get("public_contact") ?? "").trim();
+  // チェックボックスは未チェックだと送られてこない
+  const listed = formData.get("public_listed") !== null;
+  // 「指定しない」は空文字で届く
+  const campusId = String(formData.get("campus_id") ?? "") || null;
+
+  if (intro.length > 1000) {
+    return { error: "活動紹介は1000文字までです。" };
+  }
+  if (schedule.length > 200 || contact.length > 200) {
+    return { error: "活動日・場所と連絡先は200文字までです。" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_circle_public_profile", {
+    p_circle_id: circleId,
+    p_listed: listed,
+    p_intro: intro,
+    p_schedule: schedule,
+    p_contact: contact,
+    p_campus_id: campusId,
+  });
+
+  if (error) return { error: `保存に失敗しました: ${error.message}` };
+
+  revalidatePath(`/circles/${circleId}`);
+  revalidatePath("/circles");
+
+  return {
+    notice: listed
+      ? "公開プロフィールを保存しました。一般の方にも表示されます。"
+      : "公開プロフィールを保存しました。一覧には掲載していません。",
+  };
+}
+
+/** サークルを抜ける。管理者がひとりのときは DB 側で止まる。 */
+export async function leaveCircle(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireUser();
+  const circleId = String(formData.get("circle_id") ?? "");
+  if (!circleId) return { error: "サークルが指定されていません。" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("leave_circle", {
+    p_circle_id: circleId,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/circles/${circleId}`);
+  revalidatePath("/circles");
+  revalidatePath("/mypage");
+  return { notice: "退会しました。" };
+}
+
+/** メンバーを外す。管理者のみ。 */
+export async function removeMember(formData: FormData) {
+  await requireUser();
+  const circleId = String(formData.get("circle_id") ?? "");
+  const userId = String(formData.get("user_id") ?? "");
+  if (!circleId || !userId) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("remove_circle_member", {
+    p_circle_id: circleId,
+    p_user_id: userId,
+  });
+  if (error) console.error("メンバーを外せませんでした:", error.message);
+
+  revalidatePath(`/circles/${circleId}`);
+}
+
+/** 管理者にする／外す。管理者のみ。 */
+export async function setMemberRole(formData: FormData) {
+  await requireUser();
+  const circleId = String(formData.get("circle_id") ?? "");
+  const userId = String(formData.get("user_id") ?? "");
+  if (!circleId || !userId) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_circle_member_role", {
+    p_circle_id: circleId,
+    p_user_id: userId,
+    p_admin: formData.get("admin") === "true",
+  });
+  if (error) console.error("権限を変更できませんでした:", error.message);
+
+  revalidatePath(`/circles/${circleId}`);
+}
+
+/** サークル情報の編集。管理者のみ。 */
+export async function updateCircle(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireUser();
+
+  const circleId = String(formData.get("circle_id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const scope = String(formData.get("scope") ?? "university") as Scope;
+  const universityIds = formData
+    .getAll("university_ids")
+    .map(String)
+    .filter(Boolean);
+
+  if (!circleId) return { error: "サークルが指定されていません。" };
+  if (!name) return { error: "サークル名を入力してください。" };
+  if (name.length > 60) return { error: "サークル名は60文字までです。" };
+  if (scope === "scoped" && universityIds.length === 0) {
+    return { error: "範囲を指定する場合は対象大学を1つ以上選んでください。" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_circle", {
+    p_circle_id: circleId,
+    p_name: name,
+    p_description: description,
+    p_scope: scope,
+    p_university_ids: scope === "scoped" ? universityIds : undefined,
+  });
+  if (error) return { error: `保存に失敗しました: ${error.message}` };
+
+  revalidatePath(`/circles/${circleId}`);
+  revalidatePath("/circles");
+  return { notice: "サークル情報を更新しました。" };
+}
+
+/** 廃止の申請・取り下げ。管理者のみ。 */
+export async function requestClosure(formData: FormData) {
+  await requireUser();
+  const circleId = String(formData.get("circle_id") ?? "");
+  if (!circleId) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("request_circle_closure", {
+    p_circle_id: circleId,
+    p_cancel: formData.get("cancel") === "true",
+  });
+  if (error) console.error("廃止の申請に失敗しました:", error.message);
+
+  revalidatePath(`/circles/${circleId}`);
+  revalidatePath("/circles");
+}
+
+/** 廃止の承認・却下。職員のみ。 */
+export async function decideClosure(formData: FormData) {
+  await requireUser();
+  const circleId = String(formData.get("circle_id") ?? "");
+  if (!circleId) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("decide_circle_closure", {
+    p_circle_id: circleId,
+    p_approve: formData.get("approve") === "true",
+    p_comment: String(formData.get("comment") ?? "").trim() || undefined,
+  });
+  if (error) console.error("廃止の判断に失敗しました:", error.message);
+
+  revalidatePath("/circles");
+  revalidatePath(`/circles/${circleId}`);
+}
+
+/** 承認に必要な人数の変更。職員のみ。 */
+export async function setRequiredApprovals(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireRole("staff");
+
+  const count = Number(formData.get("count"));
+  if (!Number.isInteger(count)) return { error: "人数の指定が不正です。" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_required_circle_approvals", {
+    p_count: count,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/circles");
+  return { notice: `設立・廃止の承認を${count}人に設定しました。` };
 }

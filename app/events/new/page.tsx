@@ -27,7 +27,7 @@ export default async function NewEventPage() {
     return (
       <div className="mx-auto max-w-xl px-4 py-10">
         <h1 className="text-2xl font-bold tracking-tight">イベント作成</h1>
-        <p className="mt-4 rounded-xl border border-dashed border-black/15 px-4 py-10 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+        <p className="mt-4 glass-empty">
           イベントを作成するには、承認済みサークルの管理者である必要があります。
           <br />
           <Link

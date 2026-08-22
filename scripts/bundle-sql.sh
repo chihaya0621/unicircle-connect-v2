@@ -3,8 +3,10 @@
 # supabase/setup_all.sql を生成する。
 #
 # SQL Editor に何度も貼り付けるのは手間なので、セットアップに必要な
-# 3ファイルを1つに連結したものを用意する。個別ファイルから機械的に
+# ファイルを1つに連結したものを用意する。個別ファイルから機械的に
 # 生成するため、内容が食い違うことはない。
+#
+# マイグレーションを追加したら、下の SOURCES にも足すこと。
 #
 # 使い方: npm run db:bundle
 #
@@ -25,35 +27,44 @@ SOURCES=(
   "migrations/0009_profile.sql"
   "migrations/0010_student_registration.sql"
   "migrations/0011_circle_posts.sql"
-  "migrations/0012_activities.sql"
   "migrations/0013_event_attendance.sql"
+  "migrations/0014_notifications.sql"
+  "migrations/0015_images.sql"
+  "migrations/0016_theme.sql"
+  "migrations/0017_theme_variants.sql"
+  "migrations/0018_circle_event_stats.sql"
+  "migrations/0019_public_discovery.sql"
+  "migrations/0020_event_participation_roles.sql"
+  "migrations/0021_circle_public_profile.sql"
+  "migrations/0022_event_reminders.sql"
+  "migrations/0023_university_details.sql"
+  "migrations/0024_campus_location.sql"
+  "migrations/0025_public_events.sql"
+  "migrations/0026_membership_and_edits.sql"
+  "migrations/0027_approvals.sql"
+  "migrations/0028_reservation_log_and_account.sql"
   "seed.sql"
 )
 
 OUT="supabase/setup_all.sql"
 
 {
-  cat <<'HEADER'
+  cat <<'HEADER_TOP'
 -- =============================================================================
 -- UniCircle Connect セットアップ一括実行ファイル（自動生成）
 -- =============================================================================
 --
 -- このファイルは以下を連結した生成物です。直接編集しないでください。
---   1. migrations/0000_initial_schema.sql
---   2. migrations/0001_handle_new_user.sql
---   3. migrations/0002_circles.sql
---   4. migrations/0003_scopes.sql
---   5. migrations/0004_facilities.sql
---   6. migrations/0005_events.sql
---   7. migrations/0006_facility_management.sql
---   8. migrations/0007_event_participants.sql
---   9. migrations/0008_rls.sql
---  10. migrations/0009_profile.sql
---  11. migrations/0010_student_registration.sql
---  12. migrations/0011_circle_posts.sql
---  13. migrations/0012_activities.sql
---  14. migrations/0013_event_attendance.sql
---  15. seed.sql
+HEADER_TOP
+
+  # 一覧は SOURCES から組み立てる。手書きだと追加のたびに実体とずれる
+  i=0
+  for src in "${SOURCES[@]}"; do
+    i=$((i + 1))
+    printf -- '--  %2d. %s\n' "$i" "$src"
+  done
+
+  cat <<'HEADER'
 --
 -- 再生成: npm run db:bundle
 --

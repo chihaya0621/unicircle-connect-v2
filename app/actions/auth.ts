@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { DEV_PASSWORD, DEV_USERS, IS_DEV } from "@/lib/dev-users";
+import { DEV_PASSWORD, DEV_USERS, QUICK_LOGIN_ENABLED } from "@/lib/dev-users";
+import { DEFAULT_HOME, HOME_BY_ROLE, homeForRole } from "@/lib/home";
 import { createClient } from "@/lib/supabase-server";
 
 export type AuthFormState = {
@@ -12,13 +14,28 @@ export type AuthFormState = {
   notice?: string;
 } | null;
 
-/** 認証済みユーザーの初期到達点 */
-const DEFAULT_REDIRECT = "/dashboard";
+/** ログイン直後の行き先。役割が分からなければ既定へ。 */
+async function homeForCurrentUser(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<string> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return DEFAULT_HOME;
+
+  const { data } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return homeForRole(data?.role);
+}
 
 /** オープンリダイレクト防止: 自サイト内の相対パスのみ許可する */
-function safeRedirect(next: FormDataEntryValue | null): string {
-  if (typeof next !== "string") return DEFAULT_REDIRECT;
-  if (!next.startsWith("/") || next.startsWith("//")) return DEFAULT_REDIRECT;
+function safeRedirect(next: FormDataEntryValue | null): string | null {
+  if (typeof next !== "string") return null;
+  if (!next.startsWith("/") || next.startsWith("//")) return null;
   return next;
 }
 
@@ -66,7 +83,8 @@ export async function signUp(
   }
 
   revalidatePath("/", "layout");
-  redirect(DEFAULT_REDIRECT);
+  // ここで作れるのは一般ユーザーだけなので、役割を引き直す必要はない
+  redirect(HOME_BY_ROLE.general);
 }
 
 export async function signIn(
@@ -91,7 +109,7 @@ export async function signIn(
   }
 
   revalidatePath("/", "layout");
-  redirect(next);
+  redirect(next ?? (await homeForCurrentUser(supabase)));
 }
 
 export async function signOut() {
@@ -105,17 +123,17 @@ export async function signOut() {
 /**
  * 開発用クイックログイン。
  *
- * 【安全性】本番では絶対に動かないよう、ここで環境を再チェックする。
- * 画面を出すかどうかの判断（ページ側）とは独立に、Server Action 自体が
- * 拒否するので、万一 UI が本番に混入しても呼び出せない。
+ * 【安全性】開発環境か、明示的に立てた公開デモ環境でしか動かないよう、
+ * ここで再チェックする。画面を出すかどうかの判断（ページ側）とは独立に
+ * Server Action 自体が拒否するので、万一 UI だけが混入しても呼べない。
  *
  * さらに、渡されたメールアドレスが DEV_USERS に載っているものだけを
  * 受け付ける。任意のアドレスに共通パスワードでログインを試せる
- * 踏み台にしないため。
+ * 踏み台にしないため。環境変数を切り替えても、この名簿の縛りは残る。
  */
 export async function devQuickLogin(formData: FormData): Promise<void> {
-  if (!IS_DEV) {
-    throw new Error("この機能は開発環境でのみ利用できます。");
+  if (!QUICK_LOGIN_ENABLED) {
+    throw new Error("この機能は開発環境とデモ環境でのみ利用できます。");
   }
 
   const email = String(formData.get("email") ?? "");
@@ -139,5 +157,70 @@ export async function devQuickLogin(formData: FormData): Promise<void> {
   }
 
   revalidatePath("/", "layout");
-  redirect(next);
+  redirect(next ?? (await homeForCurrentUser(supabase)));
+}
+
+/**
+ * パスワード再設定のメールを送る。
+ *
+ * 宛先が登録済みかどうかにかかわらず同じ返事をする。返事を変えると、
+ * どのアドレスが登録されているかを外から確かめられてしまう。
+ */
+export async function requestPasswordReset(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) return { error: "メールアドレスを入力してください。" };
+
+  const origin = (await headers()).get("origin") ?? "";
+  const supabase = await createClient();
+
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/update-password`,
+  });
+
+  return {
+    notice:
+      "再設定用のメールを送信しました。届いていない場合は、迷惑メールもご確認ください。",
+  };
+}
+
+/**
+ * 新しいパスワードを設定する。
+ *
+ * メールのリンクから来た人はすでにセッションを持っている。
+ * 持っていなければリンクが期限切れなので、その旨を返す。
+ */
+export async function updatePassword(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  if (password.length < 8) {
+    return { error: "パスワードは8文字以上で入力してください。" };
+  }
+  if (password !== confirm) {
+    return { error: "確認用のパスワードが一致しません。" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      error:
+        "リンクの有効期限が切れています。お手数ですが、もう一度お送りください。",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: `変更できませんでした: ${error.message}` };
+
+  revalidatePath("/", "layout");
+  redirect(await homeForCurrentUser(supabase));
 }

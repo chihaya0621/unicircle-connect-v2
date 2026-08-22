@@ -18,13 +18,20 @@ const ROLE_LABEL: Record<DevUser["role"], string> = {
 };
 
 /**
- * 開発用のユーザー切り替えパネル。
+ * ユーザー切り替えパネル。
  *
- * 表示可否の判断は呼び出し側（Server Component）が行う。
- * このコンポーネント自体は本番バンドルに含まれても実害がないよう、
+ * 開発中の動作確認と、公開しているデモ環境の「その場で触ってもらう」
+ * 導線を兼ねる。表示可否の判断は呼び出し側（Server Component）が行い、
  * 実際のサインインは Server Action 側でも環境を再チェックしている。
  */
-export function DevQuickLogin({ next }: { next?: string }) {
+export function DevQuickLogin({
+  next,
+  isDemo = false,
+}: {
+  next?: string;
+  /** 公開しているデモ環境か。見出しと注意書きが変わる */
+  isDemo?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
 
@@ -41,7 +48,7 @@ export function DevQuickLogin({ next }: { next?: string }) {
         className="flex w-full items-center justify-between text-left"
       >
         <span className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-          開発用クイックログイン
+          {isDemo ? "デモ用アカウントで試す" : "開発用クイックログイン"}
         </span>
         <span className="text-xs text-amber-700 dark:text-amber-400">
           {open ? "閉じる" : "開く"}
@@ -86,10 +93,19 @@ export function DevQuickLogin({ next }: { next?: string }) {
             </div>
           ))}
 
-          <p className="text-xs text-amber-800 dark:text-amber-300">
-            アカウントが無い場合は <code>npm run db:users</code> を実行してください。
-            職員は <code>supabase/promote_staff.sql</code> の実行も必要です。
-          </p>
+          {isDemo ? (
+            <p className="text-xs text-amber-800 dark:text-amber-300">
+              これは公開デモです。載っている大学名・サークル名・氏名は
+              すべて動作確認用に生成した架空のものです。
+              誰でも同じアカウントに入れるので、書き込んだ内容は
+              他の人からも見えます。実在の情報は入力しないでください。
+            </p>
+          ) : (
+            <p className="text-xs text-amber-800 dark:text-amber-300">
+              アカウントが無い場合は <code>npm run db:users</code> を実行してください。
+              職員は <code>supabase/promote_staff.sql</code> の実行も必要です。
+            </p>
+          )}
         </div>
       )}
     </section>

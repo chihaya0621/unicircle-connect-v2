@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import type {
-  ApprovalStatus,
+  CircleStatus,
   CircleRole,
   MembershipStatus,
   Scope,
@@ -15,9 +15,11 @@ export type CircleListItem = {
   id: string;
   name: string;
   description: string | null;
-  status: ApprovalStatus;
+  status: CircleStatus;
   scope: Scope;
+  image_path: string | null;
   university_id: string | null;
+  campus_id: string | null;
   university: { name: string } | null;
   member_count: { count: number }[];
   scoped_universities: { university_id: string }[];
@@ -31,20 +33,37 @@ export type CircleMember = {
   user: { name: string; role: UserRole } | null;
 };
 
-export type CircleDetail = {
+export type CirclePublicProfile = {
+  /** 一般ユーザー・未ログインの一覧に載せるか */
+  public_listed: boolean;
+  public_intro: string | null;
+  public_schedule: string | null;
+  public_contact: string | null;
+  /** 主な活動拠点。同じ大学のキャンパスのみ */
+  campus_id: string | null;
+};
+
+export type CircleDetail = CirclePublicProfile & {
   id: string;
   name: string;
   description: string | null;
-  status: ApprovalStatus;
+  status: CircleStatus;
   scope: Scope;
+  image_path: string | null;
   university_id: string | null;
   created_at: string;
+  /** 廃止を申請した日時。承認が揃うまで status は動かさない */
+  closure_requested_at: string | null;
   university: { name: string } | null;
-  scoped_universities: { university: { name: string } | null }[];
+  campus: { name: string; address: string | null } | null;
+  scoped_universities: {
+    university_id: string;
+    university: { name: string } | null;
+  }[];
 };
 
 const LIST_SELECT = `
-  id, name, description, status, scope, university_id,
+  id, name, description, status, scope, image_path, university_id, campus_id,
   university:universities!circles_university_id_fkey(name),
   member_count:circle_members(count),
   scoped_universities:circle_universities(university_id)
@@ -70,26 +89,37 @@ export async function listApprovedCircles(
     isStaff = false,
     showOtherUniversities = false,
     myCircleIds = new Set<string>(),
+    search = "",
   }: {
     isStaff?: boolean;
     showOtherUniversities?: boolean;
     myCircleIds?: Set<string>;
+    search?: string;
   } = {},
 ) {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("circles")
     .select(LIST_SELECT)
     .eq("status", "approved")
     .order("name")
-    .returns<CircleListItem[]>();
+    .limit(CIRCLE_RESULT_LIMIT);
+
+  const clause = searchClause(
+    ["name", "description", "public_intro"],
+    search,
+  );
+  if (clause) query = query.or(clause);
+
+  const { data, error } = await query.returns<CircleListItem[]>();
 
   if (error) {
     console.error("サークル取得に失敗しました:", error.message);
     return {
       circles: [] as CircleListItem[],
       hiddenCount: 0,
+      truncated: false,
       error: error.message,
     };
   }
@@ -104,10 +134,118 @@ export async function listApprovedCircles(
   const isOwn = (c: CircleListItem) =>
     c.university_id === viewerUniversityId || myCircleIds.has(c.id);
 
-  const circles = showOtherUniversities ? eligible : eligible.filter(isOwn);
-  const hiddenCount = eligible.length - circles.length;
+  const visible = showOtherUniversities ? eligible : eligible.filter(isOwn);
+  const hiddenCount = eligible.length - visible.length;
 
-  return { circles, hiddenCount, error: null };
+  // 所属中のサークルを先頭に。一覧の並びに元々意味が無いので、
+  // 自分に関係のあるものから読めるようにする。
+  const circles = [...visible].sort((x, y) => {
+    const mine = Number(myCircleIds.has(y.id)) - Number(myCircleIds.has(x.id));
+    return mine !== 0 ? mine : x.name.localeCompare(y.name, "ja");
+  });
+
+  return {
+    circles,
+    hiddenCount,
+    truncated: (data ?? []).length >= CIRCLE_RESULT_LIMIT,
+    error: null,
+  };
+}
+
+/**
+ * 検索語を PostgREST の or 条件にする。
+ *
+ * ilike のパターンに使う記号は落とす。% や _ を素通しすると
+ * 「全部に一致する」検索語を作れてしまい、絞り込みの意味が無くなる。
+ * カンマと括弧は or 条件の区切りなので、残すと式そのものが壊れる。
+ */
+/**
+ * 一度に返すサークルの上限。
+ *
+ * 通常は都道府県 → 大学 と辿るので数十件に収まるが、
+ * 上の階層から検索されると全大学が対象になる。
+ * 打ち止めにして、絞り込みを促す。
+ */
+export const CIRCLE_RESULT_LIMIT = 120;
+
+function searchClause(columns: string[], term: string): string | null {
+  const safe = term.trim().replace(/[%_,()\\]/g, " ").trim();
+  if (!safe) return null;
+  return columns.map((c) => `${c}.ilike.%${safe}%`).join(",");
+}
+
+/**
+ * 一般ユーザー向けの一覧。
+ *
+ * RLS が scope='public' の承認済みしか返さないので、ここでの絞り込みは
+ * 認可ではなく「気にしている大学に寄せる」ためだけのもの。
+ * 指定が無いときは全部見せる。最初に来た人に空の画面を出さないため。
+ */
+export async function listPublicCircles(
+  watchedUniversityIds: string[],
+  favoriteIds: Set<string> = new Set(),
+  /** 拠点で絞る。代表キャンパスなら拠点未設定のものも含める */
+  campus?: { id: string; includeUnassigned: boolean },
+  search = "",
+) {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("circles")
+    .select(LIST_SELECT)
+    .eq("status", "approved")
+    .order("name")
+    .limit(CIRCLE_RESULT_LIMIT);
+
+  // 名前だけでなく紹介文も対象にする。「初心者歓迎」のような
+  // 言葉で探す人が、名前だけの検索では何も見つけられない。
+  const clause = searchClause(
+    ["name", "description", "public_intro"],
+    search,
+  );
+  if (clause) query = query.or(clause);
+
+  const { data, error } = await query.returns<CircleListItem[]>();
+
+  if (error) {
+    console.error("サークル取得に失敗しました:", error.message);
+    return {
+      circles: [] as CircleListItem[],
+      hiddenCount: 0,
+      truncated: false,
+      error: error.message,
+    };
+  }
+
+  const all = data ?? [];
+  const watched = new Set(watchedUniversityIds);
+  const inWatched =
+    watched.size === 0
+      ? all
+      : all.filter((c) => c.university_id && watched.has(c.university_id));
+
+  const visible = campus
+    ? inWatched.filter(
+        (c) =>
+          c.campus_id === campus.id ||
+          (campus.includeUnassigned && c.campus_id === null),
+      )
+    : inWatched;
+
+  // 気になるものを先頭に。並びに元々意味が無いので、
+  // 自分で印を付けたものから読めるようにする。
+  const circles = [...visible].sort((x, y) => {
+    const fav = Number(favoriteIds.has(y.id)) - Number(favoriteIds.has(x.id));
+    return fav !== 0 ? fav : x.name.localeCompare(y.name, "ja");
+  });
+
+  return {
+    circles,
+    hiddenCount: all.length - visible.length,
+    // 上限に達したなら、絞り込めばもっと出てくる可能性がある
+    truncated: all.length >= CIRCLE_RESULT_LIMIT,
+    error: null,
+  };
 }
 
 /** 自分が所属（active）しているサークルのID */
@@ -167,21 +305,41 @@ export async function listPendingCircles(staffUserId: string) {
   return data ?? [];
 }
 
+/**
+ * サークル1件。取得できなければ null。
+ *
+ * エラーは握り潰さずに記録する。クエリが失敗したときと本当に
+ * 存在しないときの区別が付かないと、呼び出し側が一律 404 を返し、
+ * 原因の分からない「全部 404」になる（列を足したのに
+ * マイグレーションが未適用、といった場合がこれに当たる）。
+ */
 export const getCircle = cache(
   async (circleId: string): Promise<CircleDetail | null> => {
     const supabase = await createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("circles")
       .select(
-        `id, name, description, status, scope, university_id, created_at,
+        `id, name, description, status, scope, image_path, university_id, created_at,
+         public_listed, public_intro, public_schedule, public_contact, campus_id,
+         closure_requested_at,
          university:universities!circles_university_id_fkey(name),
+         campus:campuses!circles_campus_id_fkey(name, address),
          scoped_universities:circle_universities(
+           university_id,
            university:universities!circle_universities_university_id_fkey(name)
          )`,
       )
       .eq("id", circleId)
       .maybeSingle()
       .returns<CircleDetail>();
+
+    if (error) {
+      console.error(
+        `サークル(${circleId})の取得に失敗しました:`,
+        error.message,
+      );
+      return null;
+    }
     return data ?? null;
   },
 );
@@ -247,8 +405,29 @@ export async function listMyCircles(userId: string) {
       {
         role: CircleRole;
         status: MembershipStatus;
-        circle: { id: string; name: string; status: ApprovalStatus } | null;
+        circle: { id: string; name: string; status: CircleStatus } | null;
       }[]
     >();
+  return data ?? [];
+}
+
+/**
+ * 廃止の申請が出ているサークル。職員の承認キュー用。
+ *
+ * 申請中も status は 'approved' のままなので、
+ * closure_requested_at の有無で拾う。
+ */
+export async function listClosureRequests(universityId: string | null) {
+  if (!universityId) return [] as CircleListItem[];
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("circles")
+    .select(LIST_SELECT)
+    .eq("university_id", universityId)
+    .not("closure_requested_at", "is", null)
+    .order("closure_requested_at")
+    .returns<CircleListItem[]>();
+
   return data ?? [];
 }

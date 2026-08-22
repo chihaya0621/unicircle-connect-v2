@@ -1,7 +1,10 @@
 /**
  * 開発用テストユーザーを一括作成する。
  *
- *   npm run db:users
+ *   npm run db:users            … 名簿の全員
+ *   npm run db:users -- staff   … メールアドレスに staff を含む人だけ
+ *
+ * 1件ごとに間隔を空けるので、数人だけ足したいときは絞り込むと速い。
  *
  * 匿名キーの signUp を使うため service_role キーは不要。
  * users / student_profiles は handle_new_user トリガーが自動生成する。
@@ -47,9 +50,26 @@ const isRateLimited = (message, status) =>
   status === 429 || /rate limit|too many|security purposes/i.test(message);
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const users = buildDevUsers();
+const allUsers = buildDevUsers();
 
-console.log(`${users.length} 件のテストユーザーを処理します。`);
+// 引数があれば、メールアドレスに含む人だけを作成の対象にする。
+// 全員ぶん流すと待ち時間が長く、Supabase 側の制限にも触れやすい。
+// ロール付与の SQL と一覧は、絞り込みに関わらず名簿の全員ぶんを書く。
+const filter = process.argv[2];
+const users = filter
+  ? allUsers.filter((u) => u.email.includes(filter))
+  : allUsers;
+
+if (filter && users.length === 0) {
+  console.error(`「${filter}」に当てはまるテストユーザーがいません。`);
+  process.exit(1);
+}
+
+console.log(
+  filter
+    ? `${allUsers.length} 件のうち、「${filter}」に当てはまる ${users.length} 件を処理します。`
+    : `${users.length} 件のテストユーザーを処理します。`,
+);
 console.log("（作成済みのものはスキップします）\n");
 
 const created = [];
@@ -115,8 +135,8 @@ if (failed.length > 0) {
 //
 // 学生の登録は本来 register_student（職員として実行）で行うが、
 // 開発シードでは職員のセッションが無いので、同じ結果になる SQL を直接書く。
-const toPromote = users.filter((u) => u.promoteTo === "staff");
-const students = users.filter((u) => u.role === "student");
+const toPromote = allUsers.filter((u) => u.promoteTo === "staff");
+const students = allUsers.filter((u) => u.role === "student");
 
 writeFileSync(
   new URL("../supabase/promote_staff.sql", import.meta.url),
@@ -128,9 +148,13 @@ writeFileSync(
     "-- 何度実行しても同じ結果になります。",
     "",
     "-- ▼ 職員",
-    ...toPromote.map(
-      (u) => `select public.promote_to_staff('${u.email}', '${u.university_id}');`,
-    ),
+    "-- 氏名も揃える。作成済みのアカウントは signUp が飛ばされるので、",
+    "-- 名簿を変えてもここで上書きしないと古い氏名のまま残る。",
+    ...toPromote.flatMap((u) => [
+      `select public.promote_to_staff('${u.email}', '${u.university_id}');`,
+      `update public.users set name = '${u.name}'`,
+      `  where id = (select id from auth.users where email = '${u.email}');`,
+    ]),
     "",
     "-- ▼ 学生",
     "do $$",
@@ -156,7 +180,7 @@ writeFileSync(
 
 // --- 一覧を Markdown で出力 ---------------------------------------------
 const byUniversity = new Map();
-for (const u of users) {
+for (const u of allUsers) {
   const list = byUniversity.get(u.universityName) ?? [];
   list.push(u);
   byUniversity.set(u.universityName, list);
@@ -182,7 +206,7 @@ writeFileSync(
 > メールアドレスは \`.test\` ドメイン（RFC 2606 の予約ドメイン）なので、
 > 実在のアドレスに誤送信されることはありません。
 
-合計 ${users.length} 名。
+合計 ${allUsers.length} 名。
 
 ${sections.join("\n\n")}
 

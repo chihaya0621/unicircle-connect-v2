@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PageHero } from "@/components/PageHero";
+import { DeleteAccount } from "@/components/DeleteAccount";
+import { NotificationSettings } from "@/components/NotificationSettings";
 import { ProfileForm } from "@/components/ProfileForm";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { UniversityWatchPanel } from "@/components/UniversityWatchPanel";
+import { CircleCard } from "@/components/CircleCard";
 import type { UserRole } from "@/lib/database.types";
 import { getMyUniversityId, requireUser } from "@/lib/dal";
 import {
@@ -14,6 +20,13 @@ import {
   type MyEvent,
   type MyReservation,
 } from "@/lib/mypage";
+import {
+  listFavoriteCircleIds,
+  listUniversities,
+  listWatchedUniversityIds,
+} from "@/lib/discovery";
+import { listPublicCircles } from "@/lib/circles";
+import { getPreferences } from "@/lib/notifications";
 import { getPendingCounts } from "@/lib/pending";
 
 export const metadata: Metadata = { title: "マイページ | UniCircle Connect" };
@@ -55,7 +68,7 @@ function EventRow({ event }: { event: MyEvent }) {
     <li>
       <Link
         href={`/events/${event.id}`}
-        className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-black/10 bg-white px-4 py-3 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 glass-card px-4 py-3"
       >
         <span className="w-40 shrink-0 text-xs text-gray-500 dark:text-gray-400">
           {dateFormatter.format(new Date(event.event_date))}
@@ -76,7 +89,7 @@ function EventRow({ event }: { event: MyEvent }) {
 function ReservationRow({ reservation }: { reservation: MyReservation }) {
   const status = RESERVATION_STATUS[reservation.status];
   return (
-    <li className="rounded-xl border border-black/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/5">
+    <li className="glass-panel px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="w-40 shrink-0 text-xs text-gray-500 dark:text-gray-400">
           {dateFormatter.format(new Date(reservation.start_time))}
@@ -126,7 +139,7 @@ function Section({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-xl border border-dashed border-black/15 px-4 py-8 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+    <p className="glass-empty py-8">
       {children}
     </p>
   );
@@ -138,6 +151,23 @@ export default async function MyPage() {
   if (!profile) notFound();
 
   const isStaff = user.role === "staff";
+  const isGeneral = user.role === "general";
+  const preferences = await getPreferences(user.id);
+
+  // 気になるサークルは全ロールで使える。所属していなくても
+  // 追いかけたいサークルはあるため。
+  const favoriteIds = await listFavoriteCircleIds();
+  const [universities, watchedIds] = isGeneral
+    ? await Promise.all([listUniversities(), listWatchedUniversityIds()])
+    : [[], [] as string[]];
+
+  // 一覧は RLS 越しに引き直す。お気に入りの ID だけでは名前も画像も出せない。
+  const favorites =
+    favoriteIds.size > 0
+      ? (await listPublicCircles([], favoriteIds)).circles.filter((c) =>
+          favoriteIds.has(c.id),
+        )
+      : [];
 
   // 職員はサークルに所属せず、イベント参加も個人予約もしない。
   // 代わりに自大学の状況を出すため、取得するデータ自体を分ける。
@@ -162,18 +192,70 @@ export default async function MyPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <header className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">マイページ</h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          {ROLE_LABEL[profile.role]}
-          {profile.university && ` ／ ${profile.university}`}
-          {profile.email && ` ／ ${profile.email}`}
-        </p>
-      </header>
+      <PageHero
+        variant="stack"
+        eyebrow="MY PAGE"
+        title="マイページ"
+        description={
+          <>
+            {ROLE_LABEL[profile.role]}
+            {profile.university && ` ／ ${profile.university}`}
+            {profile.email && ` ／ ${profile.email}`}
+          </>
+        }
+      />
 
-      <section className="rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+      <section className="glass-panel">
         <h2 className="mb-4 text-lg font-semibold">プロフィール</h2>
         <ProfileForm profile={profile} />
+      </section>
+
+      {isGeneral && (
+        <section className="mt-10 glass-panel">
+          <h2 className="mb-1 text-lg font-semibold">気になる大学</h2>
+          <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            指定すると、サークルとイベントの一覧をその大学に絞ります。
+          </p>
+          <UniversityWatchPanel
+            universities={universities}
+            selectedIds={watchedIds}
+          />
+        </section>
+      )}
+
+      {favorites.length > 0 && (
+        <Section title="気になるサークル" count={favorites.length}>
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {favorites.map((circle) => (
+              <li key={circle.id}>
+                <CircleCard circle={circle} isFavorite />
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {isGeneral && (
+        <section className="mt-10 glass-panel">
+          <h2 className="mb-1 text-lg font-semibold">アカウントの削除</h2>
+          <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            登録した情報をすべて消して退会します。元には戻せません。
+          </p>
+          <DeleteAccount />
+        </section>
+      )}
+
+      <section className="mt-10 glass-panel">
+        <h2 className="mb-4 text-lg font-semibold">表示テーマ</h2>
+        <ThemeSwitcher current={user.theme} />
+      </section>
+
+      <section
+        id="notification-settings"
+        className="mt-10 scroll-mt-4 glass-panel"
+      >
+        <h2 className="mb-4 text-lg font-semibold">通知設定</h2>
+        <NotificationSettings preferences={preferences} />
       </section>
 
       {user.role === "student" && (
@@ -196,7 +278,7 @@ export default async function MyPage() {
                     <li key={m.circle.id}>
                       <Link
                         href={`/circles/${m.circle.id}`}
-                        className="block rounded-xl border border-black/10 bg-white p-4 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+                        className="glass-card block p-4"
                       >
                         <p className="font-medium">{m.circle.name}</p>
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -285,7 +367,7 @@ export default async function MyPage() {
           <Section title="学生の登録">
             <Link
               href="/staff/students"
-              className="block rounded-xl border border-black/10 bg-white p-4 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+              className="glass-card block p-4"
             >
               <p className="text-sm font-medium">学生の登録・情報の修正</p>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -297,7 +379,7 @@ export default async function MyPage() {
           <Section title="施設・備品">
             <Link
               href="/facilities"
-              className="block rounded-xl border border-black/10 bg-white p-4 transition hover:shadow-md dark:border-white/10 dark:bg-white/5"
+              className="glass-card block p-4"
             >
               <p className="text-sm">
                 施設・備品 {staffSummary.facilities.total}件

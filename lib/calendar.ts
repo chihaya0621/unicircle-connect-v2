@@ -3,7 +3,12 @@ import "server-only";
 import type { UserRole } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase-server";
 import type { EventSource } from "@/lib/event-sources";
-import { eventHost, eventVisibleTo, type EventListItem } from "@/lib/events";
+import {
+  eventHost,
+  eventVisibleTo,
+  type EventHostFields,
+  type EventListItem,
+} from "@/lib/events";
 
 export type CalendarEvent = EventListItem & {
   source: EventSource;
@@ -22,14 +27,8 @@ export type CalendarFilters = {
   search: string;
 };
 
-export const EMPTY_FILTERS: CalendarFilters = {
-  universities: [],
-  showUnjoinedCircles: false,
-  search: "",
-};
-
 const CALENDAR_SELECT = `
-  id, title, description, event_date, visibility, target_grades,
+  id, title, description, event_date, visibility, target_grades, image_path,
   host_university_id, host_circle_id,
   host_university:universities!events_host_university_id_fkey(name),
   host_circle:circles!events_host_circle_id_fkey(name, university_id),
@@ -43,6 +42,10 @@ const CALENDAR_SELECT = `
  *   既定で出す … 自大学主催 / 所属サークル主催 / 参加確定
  *   設定で出す … 他大学主催（選択した大学のみ）/ 自大学の未所属サークル
  *   検索時のみ … 他大学のサークルの公開イベント
+ *
+ * 一般ユーザーだけは別扱いにする。所属大学もサークルも参加登録も
+ * 持たないため、上の分類はどれ一つ成立せず、何も表示されなくなる。
+ * 指定した大学の公開イベントを「公開」の一種類として出す。
  *
  * 絞り込みはアプリ側で行う。分類ごとに条件が異なり、PostgREST の
  * 単一クエリでは表現しづらいうえ、可視判定 (eventVisibleTo) と
@@ -125,7 +128,15 @@ export async function listCalendarEvents({
 
     let source: EventSource | null = null;
 
-    if (joinedIds.has(e.id)) {
+    if (role === "general") {
+      // 大学主催・サークル主催のどちらも、主管の大学で絞る。
+      // 指定が無いうちは全部見せる（空の画面を出さないため）。
+      const hostUniversity = e.host_university_id ?? hostCircleUniversity;
+      const inScope =
+        selectedUniversities.size === 0 ||
+        (hostUniversity !== null && selectedUniversities.has(hostUniversity));
+      if (inScope || matchesSearch) source = "public";
+    } else if (joinedIds.has(e.id)) {
       source = "joined";
     } else if (e.host_circle_id && myCircleIds.has(e.host_circle_id)) {
       source = "my-circle";
@@ -164,4 +175,83 @@ export async function listCalendarEvents({
   }
 
   return { events, error: null };
+}
+
+/** カードデッキに載せる、直近の参加予定。Client Component へ渡すので素の値だけにする */
+export type UpcomingEvent = {
+  id: string;
+  title: string;
+  event_date: string;
+  image_path: string | null;
+  host_name: string;
+  host_kind: "university" | "circle";
+};
+
+type UpcomingRow = EventHostFields & {
+  id: string;
+  title: string;
+  event_date: string;
+  image_path: string | null;
+};
+
+/**
+ * 自分が参加登録している、これから開かれるイベントを近い順に取得する。
+ *
+ * event_participants は RLS で自分の行しか読めないので、
+ * まず ID を集めてからイベント本体を引く二段構えにしている。
+ * 埋め込み側の並び順で上位N件を取る書き方は PostgREST では素直に書けない。
+ */
+export async function listUpcomingJoinedEvents(
+  userId: string,
+  limit = 5,
+): Promise<UpcomingEvent[]> {
+  const supabase = await createClient();
+
+  const { data: participations, error: joinError } = await supabase
+    .from("event_participants")
+    .select("event_id")
+    .eq("user_id", userId)
+    .eq("status", "going");
+
+  if (joinError) {
+    console.error("参加予定の取得に失敗しました:", joinError.message);
+    return [];
+  }
+
+  const ids = (participations ?? [])
+    .map((p) => p.event_id)
+    .filter((id): id is string => Boolean(id));
+
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("events")
+    .select(
+      `id, title, event_date, image_path,
+       host_university_id, host_circle_id,
+       host_university:universities!events_host_university_id_fkey(name),
+       host_circle:circles!events_host_circle_id_fkey(name, university_id)`,
+    )
+    .in("id", ids)
+    .gte("event_date", new Date().toISOString())
+    .order("event_date", { ascending: true })
+    .limit(limit)
+    .returns<UpcomingRow[]>();
+
+  if (error) {
+    console.error("参加予定の取得に失敗しました:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((e) => {
+    const host = eventHost(e);
+    return {
+      id: e.id,
+      title: e.title,
+      event_date: e.event_date,
+      image_path: e.image_path,
+      host_name: host.name,
+      host_kind: host.kind,
+    };
+  });
 }

@@ -13,6 +13,12 @@ type University = Pick<Tables<"universities">, "id" | "name">;
  *
  * 状態は URL クエリに持つ。サーバー側で絞り込めるうえ、
  * 表示中の条件をそのまま共有・ブックマークできるため。
+ *
+ * 一般ユーザーには出す項目を絞る。所属大学もサークルも参加登録も
+ * 持たないので、「自大学」「所属サークル」「参加予定」を前提にした
+ * 説明や絞り込みは、その人には決して当てはまらない。
+ * 凡例も出さない。分類が「公開」の1種類しかなく、色分けが
+ * 何も区別しないため。
  */
 export function CalendarFilterPanel({
   universities,
@@ -20,12 +26,15 @@ export function CalendarFilterPanel({
   selectedUniversities,
   showUnjoinedCircles,
   search,
+  isGeneral = false,
 }: {
   universities: University[];
   myUniversityId: string | null;
   selectedUniversities: string[];
   showUnjoinedCircles: boolean;
   search: string;
+  /** 一般ユーザー（高校生・企業）向けに項目を絞るか */
+  isGeneral?: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -68,12 +77,16 @@ export function CalendarFilterPanel({
           type="search"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="イベント名・内容で検索（他大学のサークルも対象）"
-          className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-white/15 dark:bg-white/5 dark:focus:ring-indigo-900"
+          placeholder={
+            isGeneral
+              ? "イベント名・内容で検索"
+              : "イベント名・内容で検索（他大学のサークルも対象）"
+          }
+          className="field-input"
         />
         <button
           type="submit"
-          className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+          className="shrink-0 btn-primary"
         >
           検索
         </button>
@@ -84,14 +97,14 @@ export function CalendarFilterPanel({
               setKeyword("");
               apply({ search: null });
             }}
-            className="shrink-0 rounded-lg border border-black/15 px-3 py-2 text-sm transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+            className="btn-ghost-sm shrink-0 py-2 text-sm"
           >
             クリア
           </button>
         )}
       </form>
 
-      <div className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-white/5">
+      <div className="glass-panel p-4">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -105,33 +118,39 @@ export function CalendarFilterPanel({
 
         {open && (
           <div className="mt-4 space-y-4">
-            <div>
-              <p className="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">
-                常に表示
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                自大学主催のイベント、所属サークルのイベント、参加予定のイベント
-              </p>
-            </div>
+            {!isGeneral && (
+              <>
+                <div>
+                  <p className="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+                    常に表示
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    自大学主催のイベント、所属サークルのイベント、参加予定のイベント
+                  </p>
+                </div>
 
-            <div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={showUnjoinedCircles}
-                  onChange={(e) =>
-                    apply({ unjoined: e.target.checked ? "1" : null })
-                  }
-                  className="rounded border-black/20 text-indigo-600 focus:ring-indigo-500"
-                />
-                自大学の未所属サークルの公開イベントも表示する
-              </label>
-            </div>
+                <div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={showUnjoinedCircles}
+                      onChange={(e) =>
+                        apply({ unjoined: e.target.checked ? "1" : null })
+                      }
+                      className="field-check"
+                    />
+                    自大学の未所属サークルの公開イベントも表示する
+                  </label>
+                </div>
+              </>
+            )}
 
             {others.length > 0 && (
               <div>
                 <p className="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">
-                  公開イベントを表示する他大学
+                  {isGeneral
+                    ? "公開イベントを表示する大学"
+                    : "公開イベントを表示する他大学"}
                 </p>
                 <div className="space-y-2">
                   {others.map((u) => (
@@ -140,14 +159,16 @@ export function CalendarFilterPanel({
                         type="checkbox"
                         checked={selectedUniversities.includes(u.id)}
                         onChange={() => toggleUniversity(u.id)}
-                        className="rounded border-black/20 text-indigo-600 focus:ring-indigo-500"
+                        className="field-check"
                       />
                       {u.name}
                     </label>
                   ))}
                 </div>
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  他大学のサークルのイベントは一覧には出ません。検索で探せます。
+                  {isGeneral
+                    ? "何も選ばないと、すべての大学の公開イベントを表示します。初期値はマイページの「気になる大学」です。"
+                    : "他大学のサークルのイベントは一覧には出ません。検索で探せます。"}
                 </p>
               </div>
             )}
@@ -155,16 +176,18 @@ export function CalendarFilterPanel({
         )}
       </div>
 
-      <ul className="flex flex-wrap gap-2">
-        {SOURCE_ORDER.map((s) => (
-          <li
-            key={s}
-            className={`rounded-full px-2.5 py-0.5 text-xs ${SOURCE_COLOR[s]}`}
-          >
-            {SOURCE_LABEL[s]}
-          </li>
-        ))}
-      </ul>
+      {!isGeneral && (
+        <ul className="flex flex-wrap gap-2">
+          {SOURCE_ORDER.map((s) => (
+            <li
+              key={s}
+              className={`rounded-full px-2.5 py-0.5 text-xs ${SOURCE_COLOR[s]}`}
+            >
+              {SOURCE_LABEL[s]}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PageHero } from "@/components/PageHero";
 import { PostComposer } from "@/components/PostComposer";
 import { PostList } from "@/components/PostList";
-import { listMyBoards } from "@/lib/board";
+import { BOARD_VISIBLE_DAYS, listMyBoards } from "@/lib/board";
 import { requireRole } from "@/lib/dal";
 
 export const metadata: Metadata = { title: "掲示板 | UniCircle Connect" };
@@ -15,15 +16,15 @@ export default async function BoardPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">掲示板</h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          所属しているサークルごとの連絡です。メンバー以外には見えません。
-        </p>
-      </header>
+      <PageHero
+        variant="blobs"
+        eyebrow="BOARD"
+        title="掲示板"
+        description={`所属しているサークルごとの連絡です。メンバー以外には見えません。貼られた紙は${BOARD_VISIBLE_DAYS}日で下がりますが、お知らせに固定したものは残ります。`}
+      />
 
       {boards.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-black/15 px-4 py-12 text-center text-sm text-gray-500 dark:border-white/15 dark:text-gray-400">
+        <p className="glass-empty py-12">
           参加中のサークルがありません。
           <Link
             href="/circles"
@@ -35,11 +36,9 @@ export default async function BoardPage() {
       ) : (
         <div className="space-y-8">
           {boards.map((board) => (
-            <section
-              key={board.circle.id}
-              className="rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5"
-            >
-              <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <section key={board.circle.id}>
+              {/* 見出しは板の外に置く。木枠の上に文字を載せると読みづらい */}
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-semibold">
                   <Link
                     href={`/circles/${board.circle.id}`}
@@ -63,16 +62,23 @@ export default async function BoardPage() {
                 )}
               </div>
 
-              <div className="mb-4">
-                <PostComposer circleId={board.circle.id} canPin={board.isAdmin} />
-              </div>
+              <div className="cork-frame">
+                <div className="cork p-4 sm:p-5">
+                  <div className="mb-5">
+                    <PostComposer
+                      circleId={board.circle.id}
+                      canPin={board.isAdmin}
+                    />
+                  </div>
 
-              <PostList
-                posts={board.posts}
-                isAdmin={board.isAdmin}
-                currentUserName={user.name}
-                emptyLabel="まだ投稿がありません。最初の連絡を書いてみましょう。"
-              />
+                  <PostList
+                    posts={board.posts}
+                    isAdmin={board.isAdmin}
+                    currentUserName={user.name}
+                    emptyLabel="まだ何も貼られていません。最初の連絡を貼ってみましょう。"
+                  />
+                </div>
+              </div>
             </section>
           ))}
         </div>

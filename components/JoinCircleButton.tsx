@@ -4,9 +4,8 @@ import type { CircleRole, MembershipStatus, UserRole } from "@/lib/database.type
 /**
  * 閲覧者の状態に応じて参加導線を出し分ける。
  *
- * サークル画面は学生・職員のみ到達できる（一般ユーザーは要件定義書3章より
- * 公開イベントの閲覧のみ）。よって viewerRole が null になることはない。
- * 職員は閲覧できるが参加はできないため、ボタンではなく理由を表示する。
+ * 参加できるのは学生だけ。職員と一般ユーザーは閲覧のみなので、
+ * 押せないボタンを出すより、参加できない理由を書く。
  */
 export function JoinCircleButton({
   circleId,
@@ -22,6 +21,8 @@ export function JoinCircleButton({
       <p className="text-sm text-gray-500 dark:text-gray-400">
         サークルに参加できるのは学生アカウントのみです。
         {viewerRole === "staff" && "（職員は閲覧と承認のみ行えます）"}
+        {viewerRole === "general" &&
+          "在学生の方は、大学のメールアドレスで学生登録をすると参加できます。"}
       </p>
     );
   }
@@ -48,7 +49,7 @@ export function JoinCircleButton({
       <input type="hidden" name="circle_id" value={circleId} />
       <button
         type="submit"
-        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+        className="btn-primary"
       >
         {membership?.status === "rejected" ? "再度申請する" : "参加を申請する"}
       </button>

@@ -12,6 +12,9 @@ import { SubmitButton } from "@/components/SubmitButton";
  * 掲示板は「所属サークルごとのブロック」が縦に並ぶので、
  * 各ブロックで常時フォームを開いていると画面が縦に伸びすぎる。
  * 既定は折りたたみ、押したときだけ開く。
+ *
+ * 閉じているときはコルクの空きスペース、開くと書きかけの紙になる。
+ * 板の上に置かれるので、ガラス系のクラスは使わない。
  */
 export function PostComposer({
   circleId,
@@ -37,9 +40,9 @@ export function PostComposer({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="w-full rounded-lg border border-dashed border-black/20 px-3 py-2 text-left text-sm text-gray-500 transition hover:bg-black/[0.02] dark:border-white/20 dark:text-gray-400 dark:hover:bg-white/5"
+          className="note-blank"
         >
-          メンバーに連絡を投稿する…
+          ＋ ここに連絡を貼る…
         </button>
       </div>
     );
@@ -53,7 +56,7 @@ export function PostComposer({
         formRef.current?.reset();
         setOpen(false);
       }}
-      className="space-y-3"
+      className="note note-static space-y-3"
     >
       {state?.error && <FormMessage tone="error">{state.error}</FormMessage>}
 
@@ -65,7 +68,7 @@ export function PostComposer({
         maxLength={2000}
         autoFocus
         placeholder="次回の活動日や持ち物など、メンバーへの連絡を書きましょう。"
-        className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-white/15 dark:bg-white/5 dark:text-gray-100 dark:focus:ring-indigo-900"
+        className="note-input"
       />
 
       {canPin && (
@@ -73,18 +76,18 @@ export function PostComposer({
           <input
             type="checkbox"
             name="pinned"
-            className="rounded border-black/20 text-indigo-600 focus:ring-indigo-500"
+            className="rounded-[3px] border-black/30 text-rose-600 transition-all duration-200 focus:ring-2 focus:ring-rose-400/40"
           />
           お知らせとして上部に固定する
         </label>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex items-center gap-3">
         <SubmitButton pendingLabel="投稿中…">投稿する</SubmitButton>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="w-full rounded-lg border border-black/15 px-4 py-2.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+          className="note-action"
         >
           やめる
         </button>
