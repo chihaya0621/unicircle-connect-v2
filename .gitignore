@@ -45,3 +45,6 @@ password.txt
 # 開発用テストユーザーの生成物（認証情報を含むためコミットしない）
 docs/dev-users.md
 supabase/promote_staff.sql
+
+# ポスターの書き出し（docs/poster.html から生成する）
+docs/poster.pdf

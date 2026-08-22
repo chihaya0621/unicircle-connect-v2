@@ -1,0 +1,1230 @@
+<!--
+  UniCircle Connect — KCL Showcase 展示ポスター
+  A3縦 297 × 420 mm ×3枚。ブラウザで開いて「印刷」から PDF に書き出せる。
+  用紙 A3 ／ 余白 なし ／ 倍率 100% ／ 背景のグラフィック オン。
+
+  コマンドで書き出す場合（WSL から Windows の Chrome を叩く）:
+    CHROME="/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"
+    IN=$(wslpath -w "$PWD/docs/poster.html"); OUT=$(wslpath -w "$PWD/docs/poster.pdf")
+    "$CHROME" --headless=new --disable-gpu --no-sandbox \
+      --virtual-time-budget=20000 --no-pdf-header-footer \
+      --print-to-pdf="$OUT" "file:///${IN//\\//}"
+
+  Google Fonts を読むので、書き出すときはオンラインで。
+  M PLUS 2 と Geist が届く前に印刷すると代替の書体で出る。
+-->
+<title>UniCircle Connect ポスター</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@400;500;700;800;900&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;700&display=swap">
+
+<style>
+/* =========================================================================
+   UniCircle Connect — KCL Showcase 展示ポスター
+   A3縦 297 × 420 mm ×3枚 ／ 通し 891 × 420 mm
+   色はすべて CMYK 4色で再現できる範囲に収めている（特色なしで刷れる）
+   ========================================================================= */
+
+:root{
+  --paper:  #F6F5F8;
+  --white:  #FFFFFF;
+  --ink:    #1A1830;
+  --ink-2:  #4A4763;
+  --ink-3:  #8A8798;
+  --rule:   #DCD9E4;
+  --indigo: #453BA6;
+  --violet: #6E4FB0;
+  --rose:   #D8386E;
+  --amber:  #E8A33D;
+  --cork:   #C7A87E;
+  --dark:   #171530;
+  --dark-2: #232043;
+  --dark-3: #35315C;
+  --on-dark:#EDEBF5;
+
+  --f-jp:   "M PLUS 2","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  --f-en:   "Geist","M PLUS 2",system-ui,sans-serif;
+  --f-mono: "Geist Mono","JetBrains Mono",ui-monospace,monospace;
+}
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; background:#2A2838; }
+
+/* ---------- 画面プレビューの枠（印刷では消える） ---------- */
+.chrome{
+  font-family:var(--f-mono); color:#9C99B3; background:#211F2E;
+  padding:14px 20px; font-size:12px; letter-spacing:.05em;
+  display:flex; flex-wrap:wrap; gap:10px 24px; align-items:center;
+  border-bottom:1px solid #3B3850;
+}
+.chrome b{ color:#F6F5F8; font-weight:700; }
+.chrome button{
+  font-family:inherit; font-size:12px; letter-spacing:.06em; font-weight:700;
+  background:#F6F5F8; color:#1A1830; border:0; padding:7px 15px;
+  border-radius:2px; cursor:pointer;
+}
+.chrome button:focus-visible{ outline:2px solid #E8A33D; outline-offset:2px; }
+
+.stage{ padding:26px 18px 64px; display:flex; flex-direction:column; gap:26px; align-items:center; }
+.viewport{ width:100%; max-width:1160px; position:relative; }
+.viewport > .sheet{ transform-origin:top left; }
+
+/* 画面では用紙が実寸だと大きすぎるので縮小して見せる。
+   縮小は @media screen の中だけで指定する。inline style で書くと
+   印刷側で打ち消すのに !important が必要になり、取りこぼしが起きる。 */
+@media screen{
+  .viewport{ height:var(--vh, auto); }
+  .viewport > .sheet{ transform:scale(var(--s, 1)); }
+}
+
+/* ---------- 用紙 ---------- */
+.sheet{
+  width:297mm; height:420mm; position:relative; overflow:hidden;
+  background:var(--paper); color:var(--ink);
+  font-family:var(--f-jp); font-weight:500;
+  font-size:3mm; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+  print-color-adjust:exact; -webkit-print-color-adjust:exact;
+}
+.sheet.dark{ background:var(--dark); color:var(--on-dark); }
+
+/* 版面：上下いっぱいに節を配し、余白は節と節のあいだへ均等に逃がす */
+.body{
+  position:absolute; left:16mm; right:16mm;
+  display:flex; flex-direction:column; justify-content:space-between;
+}
+
+.mono{ font-family:var(--f-mono); font-variant-numeric:tabular-nums; }
+
+/* 節見出し ── 番号は3枚を通して 01→09。読む順が紙の並びと一致する */
+.sec{ display:flex; align-items:baseline; gap:3mm; margin-bottom:2.6mm; }
+.sec .no{
+  font-family:var(--f-mono); font-weight:700; font-size:5.4mm; line-height:1;
+  color:var(--rose); letter-spacing:-.02em;
+}
+.sec .ttl{ font-weight:900; font-size:4.8mm; line-height:1.15; letter-spacing:-.012em; }
+.sec .en-ttl{
+  font-family:var(--f-en); font-weight:600; font-size:2.3mm; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--ink-3); margin-left:auto; white-space:nowrap;
+}
+.dark .sec .no{ color:var(--amber); }
+.dark .sec .en-ttl{ color:#6E6A92; }
+.sec-rule{ height:.45mm; background:var(--ink); margin-bottom:3.4mm; }
+.dark .sec-rule{ background:var(--dark-3); }
+
+.lead{ font-size:2.85mm; line-height:1.7; color:var(--ink-2); }
+.dark .lead{ color:#A9A5C6; }
+.mini{ font-size:2.3mm; line-height:1.6; color:var(--ink-3); }
+.card{ background:var(--white); border-radius:2mm; }
+.tag{
+  display:inline-block; font-family:var(--f-mono); font-size:2.05mm; font-weight:700;
+  letter-spacing:.06em; padding:.7mm 1.7mm; border-radius:1mm; white-space:nowrap;
+}
+.bar{ display:block; height:1.3mm; border-radius:.7mm; background:var(--rule); margin-top:1.2mm; overflow:hidden; }
+.bar i{ display:block; height:100%; background:var(--indigo); }
+
+/* =========================================================================
+   PANEL 01 — CONCEPT
+   ========================================================================= */
+
+.hero{
+  position:absolute; inset:0 0 auto 0; height:152mm; background:var(--indigo);
+  clip-path:polygon(0 0, 100% 0, 100% 100%, 0 93%); overflow:hidden;
+}
+.orb{ position:absolute; border-radius:50%; }
+.orb.a{ width:186mm; height:186mm; right:-64mm; top:-74mm; background:var(--violet); opacity:.5; }
+.orb.b{ width:124mm; height:124mm; left:-44mm; bottom:-54mm; background:#5A4CC4; opacity:.5; }
+
+.brandbar{ position:absolute; left:16mm; top:13mm; display:flex; align-items:center; gap:3mm; z-index:4; }
+.mark{ width:9.4mm; height:9.4mm; }
+.wordmark{ font-family:var(--f-en); font-weight:700; font-size:5.4mm; color:#fff; letter-spacing:-.015em; }
+.wordmark span{ color:#C9C2F5; }
+.hero-eyebrow{
+  position:absolute; right:16mm; top:14mm; z-index:4; color:#BEB5F1;
+  font-family:var(--f-en); font-size:2.3mm; font-weight:600;
+  letter-spacing:.2em; text-transform:uppercase; text-align:right; line-height:1.9;
+}
+
+/* 縦組みキャッチ。vertical-rl では flex の row 方向が縦になるため column を使う。
+   block 方向が右→左なので、1つめの子（大きいほう）が右列になる＝読み順どおり */
+.catch{
+  position:absolute; left:16mm; top:36mm; width:46mm; height:102mm; z-index:4;
+  writing-mode:vertical-rl; display:flex; flex-direction:column;
+  gap:2.5mm; align-items:flex-start; color:#fff;
+}
+.catch .c1{ font-weight:900; font-size:24mm; letter-spacing:.02em; }
+.catch .c2{ font-weight:800; font-size:13.5mm; letter-spacing:.02em; margin-top:9mm; color:#DDD6FF; }
+
+.hero-sub{ position:absolute; left:70mm; top:37mm; width:88mm; z-index:4; color:#fff; }
+.hero-sub h2{ margin:0 0 3mm; font-weight:800; font-size:4.3mm; line-height:1.5; letter-spacing:-.01em; }
+.hero-sub p{ margin:0; font-size:2.8mm; line-height:1.75; color:#CFC8F7; }
+.hero-chips{ display:flex; flex-wrap:wrap; gap:1.6mm; margin-top:4.5mm; }
+.hero-chips span{
+  font-family:var(--f-mono); font-size:2.05mm; font-weight:700; letter-spacing:.06em;
+  border:.3mm solid rgba(255,255,255,.45); color:#fff; padding:.9mm 2mm; border-radius:1mm;
+}
+
+/* ---------- 端末（すべて CSS で描く） ---------- */
+.phone{
+  position:absolute; border-radius:4.2mm; background:#12101F; padding:1.1mm;
+  box-shadow:0 4mm 12mm rgba(23,21,48,.34);
+}
+.phone .scr{
+  width:100%; height:100%; border-radius:3.4mm; overflow:hidden;
+  background:var(--paper); position:relative; display:flex; flex-direction:column;
+}
+.notch{
+  position:absolute; left:50%; transform:translateX(-50%); top:.9mm;
+  width:32%; height:1.5mm; background:#12101F; border-radius:1mm; z-index:5;
+}
+.st{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:2.2mm 2.6mm .6mm; font-family:var(--f-mono); font-size:1.5mm;
+  color:var(--ink-3); font-weight:700;
+}
+.appbar{ display:flex; justify-content:space-between; align-items:center; padding:1mm 2.6mm 1.8mm; }
+.appbar b{ font-size:2.4mm; font-weight:900; }
+.tabbar{
+  margin-top:auto; display:flex; justify-content:space-around; align-items:center;
+  padding:1.5mm 0 1.9mm; border-top:.25mm solid var(--rule); background:var(--white);
+}
+.tabbar i{ display:block; width:2.5mm; height:2.5mm; border-radius:.7mm; background:var(--rule); }
+.tabbar i.on{ background:var(--indigo); }
+
+.hero-phone{ right:13mm; top:25mm; width:61mm; height:124mm; transform:rotate(-5deg); z-index:5; }
+
+.hero-float{
+  position:absolute; left:170mm; top:96mm; width:62mm; z-index:6;
+  background:var(--white); border-radius:1.8mm; padding:2.4mm 2.8mm;
+  box-shadow:0 2mm 6mm rgba(20,16,60,.28); transform:rotate(-2deg);
+}
+.hero-float .ft{ font-size:2.3mm; font-weight:800; display:block; }
+.hero-float .fs{ font-family:var(--f-mono); font-size:1.9mm; color:var(--ink-3); display:block; margin-top:.5mm; }
+
+/* ---------- カレンダー ---------- */
+.cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:.9mm; }
+.cal-grid .dow{ font-family:var(--f-mono); font-size:1.7mm; color:var(--ink-3); text-align:center; padding-bottom:.5mm; }
+.cal-cell{
+  background:var(--white); border-radius:1mm; height:10.2mm; padding:.9mm 1.1mm;
+  font-family:var(--f-mono); font-size:1.8mm; color:var(--ink-2);
+}
+.cal-cell.mute{ background:#EFEEF3; color:#B4B1C3; }
+.cal-cell.today{ background:var(--indigo); color:#fff; }
+.cal-cell .ev{ display:block; height:1.05mm; border-radius:.6mm; margin-top:.6mm; }
+.ev.i{ background:var(--indigo); } .ev.v{ background:var(--violet); }
+.ev.a{ background:var(--amber); } .ev.r{ background:var(--rose); }
+.cal-cell.today .ev{ background:rgba(255,255,255,.8); }
+
+.deck-card{
+  background:var(--white); border-radius:1.5mm; padding:1.9mm 2.1mm; margin-bottom:1.3mm;
+  border-left:.8mm solid var(--indigo);
+}
+.deck-card .d{ font-family:var(--f-mono); font-size:1.8mm; color:var(--rose); font-weight:700; }
+.deck-card b{ display:block; font-size:2.2mm; font-weight:800; margin-top:.2mm; }
+.deck-card span.s{ display:block; font-size:1.85mm; color:var(--ink-3); }
+
+/* ---------- 01 背景 ---------- */
+.fw{ display:flex; gap:4mm; align-items:center; }
+.fw-circle{
+  width:25mm; height:25mm; border-radius:50%; border:.5mm solid var(--indigo); flex:none;
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  font-family:var(--f-en); font-size:2.2mm; font-weight:700; color:var(--indigo);
+  letter-spacing:.08em; line-height:1.3;
+}
+.fw-rows{ flex:1; display:flex; flex-direction:column; gap:1.5mm; }
+.fw-row{ display:flex; align-items:center; gap:2.6mm; }
+.fw-row .k{
+  width:16mm; flex:none; text-align:center; border-radius:1mm; color:#fff;
+  font-size:2.3mm; font-weight:800; padding:1.1mm 0;
+}
+.fw-row .v{ font-size:2.5mm; line-height:1.5; }
+.fw-row .v em{ font-style:normal; font-weight:800; color:var(--indigo); }
+.goal{
+  margin-top:3mm; background:#E9E6F6; border-radius:1.4mm;
+  padding:2.2mm 3mm; font-size:2.7mm; font-weight:800; text-align:center;
+}
+.goal em{ font-style:normal; color:var(--indigo); }
+
+/* ---------- 02 課題 ---------- */
+.chaos{ position:relative; height:60mm; background:var(--white); border-radius:2mm; overflow:hidden; }
+.scrap{
+  position:absolute; background:#fff; border:.25mm solid #D9D6E2;
+  box-shadow:.3mm .5mm 1.3mm rgba(26,24,48,.09);
+  padding:1.6mm 2mm; font-size:1.9mm; line-height:1.45; color:#6F6C85;
+}
+.scrap .fn{ font-family:var(--f-mono); font-size:1.85mm; font-weight:700; color:#565370; display:block; }
+.cells{ display:flex; gap:.5mm; margin-top:.9mm; }
+.cells i{ display:block; width:5mm; height:1.5mm; background:#EAE8F0; }
+.scrap.paper{ background:#FBFAF7; }
+.scrap.sticky{ background:#FAE6C1; border-color:#E9D2A5; color:#7A6636; }
+.bubble{
+  position:absolute; background:#EFEEF4; border-radius:2mm 2mm 2mm .4mm;
+  padding:1.6mm 2.2mm; font-size:2mm; line-height:1.5; color:#5E5B76;
+}
+.stamp{
+  position:absolute; border:.55mm solid var(--rose); color:var(--rose);
+  font-weight:900; font-size:2.1mm; padding:1mm 2mm; border-radius:1mm; letter-spacing:.04em;
+}
+.hanko{
+  display:flex; align-items:center; justify-content:center; flex:none;
+  width:7.6mm; height:7.6mm; border-radius:50%;
+  border:.55mm solid var(--rose); color:var(--rose); font-size:2.4mm; font-weight:900;
+}
+.hanko.empty{ border-style:dashed; border-color:#C6C3D2; }
+.hot{ color:var(--rose); font-weight:900; }
+
+.voices{ display:grid; grid-template-columns:repeat(4,1fr); gap:3mm; margin-top:3mm; }
+.voice{ border-left:.7mm solid var(--rose); padding-left:2.4mm; }
+.voice q{ display:block; font-weight:800; font-size:2.6mm; line-height:1.5; quotes:"「" "」"; }
+.voice .who{ font-family:var(--f-mono); font-size:1.95mm; color:var(--ink-3); margin-top:1mm; }
+
+/* ---------- 03 解決 ---------- */
+.sol{ display:flex; gap:6mm; align-items:flex-start; }
+.sol-main{ flex:1.4; }
+.sol-main h3{ margin:0 0 2.4mm; font-weight:900; font-size:5.2mm; line-height:1.35; letter-spacing:-.015em; }
+.sol-main h3 em{ font-style:normal; color:var(--indigo); }
+.sol-main p{ margin:0 0 2mm; font-size:2.65mm; line-height:1.72; color:var(--ink-2); }
+.sol-main p:last-child{ margin:0; }
+.sol-main strong{ color:var(--ink); font-weight:800; }
+.pillars{ flex:1; display:flex; flex-direction:column; gap:2mm; }
+.pillar{ background:var(--white); border-radius:1.8mm; padding:2.5mm 3mm; display:flex; gap:2.6mm; align-items:flex-start; }
+.pillar .p-no{
+  font-family:var(--f-mono); font-weight:700; font-size:2.3mm; color:#fff;
+  background:var(--indigo); border-radius:.8mm; padding:.5mm 1.3mm; flex:none; margin-top:.5mm;
+}
+.pillar b{ display:block; font-size:2.9mm; font-weight:900; }
+.pillar em{ display:block; font-style:normal; font-size:2.3mm; line-height:1.55; color:var(--ink-2); margin-top:.5mm; }
+
+/* =========================================================================
+   PANEL 02 — PRODUCT
+   ========================================================================= */
+
+.p-head{
+  position:absolute; left:0; top:0; width:100%; height:24mm;
+  background:var(--ink); color:#fff; display:flex; align-items:center;
+  justify-content:space-between; padding:0 16mm;
+}
+.p-head .l{ font-family:var(--f-en); font-size:2.6mm; font-weight:600; letter-spacing:.24em; text-transform:uppercase; }
+.p-head .r{ font-family:var(--f-mono); font-size:2.3mm; color:#A7A2C9; letter-spacing:.06em; }
+.dark .p-head{ background:var(--dark-2); }
+
+.showcase{ position:relative; height:148mm; margin-top:2mm; }
+
+.laptop{ position:absolute; left:44mm; top:4mm; width:174mm; }
+.laptop .lid{
+  background:#12101F; border-radius:2.4mm 2.4mm 1mm 1mm; padding:1.4mm 1.4mm 2.4mm;
+  box-shadow:0 6mm 16mm rgba(69,59,166,.24);
+}
+.laptop .scr{ background:var(--paper); border-radius:1.2mm; overflow:hidden; height:106mm; display:flex; flex-direction:column; }
+.laptop .base{ height:2.4mm; background:#CFCCDC; border-radius:0 0 2mm 2mm; margin:0 -6mm; position:relative; }
+.laptop .base::after{
+  content:""; position:absolute; left:50%; top:0; transform:translateX(-50%);
+  width:22mm; height:.9mm; background:#B4B0C6; border-radius:0 0 1mm 1mm;
+}
+
+.ui-top{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:2.3mm 4mm; background:var(--white); border-bottom:.25mm solid var(--rule);
+}
+.ui-top .lg{ font-family:var(--f-en); font-weight:700; font-size:2.6mm; }
+.ui-top .lg s{ text-decoration:none; color:var(--indigo); }
+.ui-nav{ display:flex; gap:4mm; font-size:2.1mm; font-weight:700; color:var(--ink-2); }
+.ui-nav .on{ color:var(--indigo); }
+.bdg{
+  display:inline-block; background:var(--rose); color:#fff; border-radius:2mm;
+  font-family:var(--f-mono); font-size:1.6mm; padding:0 1mm; margin-left:.7mm; vertical-align:.35mm;
+}
+.cal{ padding:3mm 4mm; flex:1; display:flex; gap:4mm; }
+.cal-main{ flex:1; }
+.cal-h{ display:flex; align-items:baseline; gap:2mm; margin-bottom:1.8mm; }
+.cal-h b{ font-size:4.4mm; font-weight:900; }
+.cal-h span{ font-family:var(--f-en); font-size:2.2mm; letter-spacing:.18em; color:var(--ink-3); text-transform:uppercase; }
+.deck{ width:52mm; flex:none; }
+.deck h4{ margin:0 0 1.6mm; font-size:2.2mm; font-weight:900; }
+
+.ph-board{ right:5mm; top:38mm; width:52mm; height:104mm; transform:rotate(4deg); z-index:4; }
+.ph-noti{ left:0; top:20mm; width:44mm; height:88mm; transform:rotate(-6deg); z-index:2; }
+
+.cork{ flex:1; background:var(--cork); padding:2.4mm; }
+.note{
+  background:#FFFBF0; border-radius:.6mm; padding:1.7mm 2mm; margin-bottom:2.2mm;
+  box-shadow:.3mm .6mm 1.2mm rgba(60,40,10,.22); position:relative;
+  font-size:1.85mm; line-height:1.45; color:#4A4763;
+}
+.note::before{
+  content:""; position:absolute; left:50%; top:-1mm; transform:translateX(-50%);
+  width:2mm; height:2mm; border-radius:50%; background:var(--rose);
+  box-shadow:0 .3mm .5mm rgba(0,0,0,.28);
+}
+.note b{ display:block; font-size:2.05mm; font-weight:900; color:var(--ink); margin-bottom:.4mm; }
+.note.t1{ transform:rotate(-1.6deg); } .note.t2{ transform:rotate(1.3deg); } .note.t3{ transform:rotate(-.7deg); }
+
+.noti-list{ flex:1; padding:1.4mm 2mm; }
+.noti{ display:flex; gap:1.6mm; padding:1.5mm 0; border-bottom:.25mm solid var(--rule); }
+.noti i{ width:3.2mm; height:3.2mm; border-radius:50%; flex:none; margin-top:.3mm; }
+.noti b{ display:block; font-size:1.85mm; font-weight:800; line-height:1.4; }
+.noti span{ display:block; font-family:var(--f-mono); font-size:1.6mm; color:var(--ink-3); margin-top:.3mm; }
+
+.float{
+  position:absolute; background:var(--white); border-radius:1.6mm; padding:2mm 2.4mm;
+  box-shadow:0 1.4mm 4mm rgba(26,24,48,.14); z-index:6;
+}
+.float .ft{ font-size:2.1mm; font-weight:800; line-height:1.4; display:block; }
+.float .fs{ font-family:var(--f-mono); font-size:1.8mm; color:var(--ink-3); display:block; }
+
+/* 引き出し線。端末群に重ねて描き、線の先は必ず実在の要素の上に落とす */
+.leadlines{ position:absolute; inset:0; z-index:7; pointer-events:none; }
+.leadlines svg{ display:block; width:100%; height:100%; }
+
+.feats{ display:grid; grid-template-columns:repeat(4,1fr); gap:5mm; }
+.feat .ftag{ color:var(--rose); font-family:var(--f-mono); font-size:2.1mm; font-weight:700; letter-spacing:.09em; display:block; margin-bottom:1.2mm; }
+.feat h5{ margin:0 0 1.6mm; font-size:3.2mm; font-weight:900; line-height:1.4; letter-spacing:-.01em; }
+.feat p{ margin:0; font-size:2.35mm; line-height:1.62; color:var(--ink-2); }
+
+/* デザインシステム */
+.ds{ display:grid; grid-template-columns:1.2fr 1fr 1.4fr; gap:6mm; }
+.ds h6{ margin:0 0 2mm; font-family:var(--f-en); font-size:2.2mm; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-3); }
+.chips{ display:flex; gap:1.6mm; }
+.chip{ flex:1; }
+.chip .sw{ height:11mm; border-radius:1.4mm; }
+.chip .hx{ font-family:var(--f-mono); font-size:1.75mm; margin-top:1mm; display:block; }
+.chip .cm{ font-family:var(--f-mono); font-size:1.55mm; color:var(--ink-3); display:block; }
+.typ p{ margin:0 0 1.4mm; }
+.typ .t1{ font-size:4.6mm; font-weight:900; letter-spacing:-.01em; }
+.typ .t2{ font-family:var(--f-en); font-size:3.4mm; font-weight:600; }
+.typ .t3{ font-size:2.35mm; color:var(--ink-2); line-height:1.6; }
+.comp{ display:flex; flex-wrap:wrap; gap:1.8mm; align-items:center; }
+.b-primary{ background:var(--indigo); color:#fff; border-radius:1.6mm; padding:1.4mm 3.8mm; font-size:2.3mm; font-weight:800; }
+.b-ghost{ border:.35mm solid var(--rule); background:var(--white); border-radius:1.6mm; padding:1.3mm 3.2mm; font-size:2.3mm; font-weight:800; }
+.b-admin{ background:#E5E2F4; color:var(--indigo); }
+.b-live{ background:#F7E3EA; color:var(--rose); }
+.b-wait{ background:#FAEDDA; color:#96660F; }
+.b-ok{ background:#E2EDE8; color:#2E6B57; }
+
+/* 役割の帯 */
+.roles{ display:grid; grid-template-columns:repeat(3,1fr); gap:3mm; }
+.role{ background:var(--white); border-radius:1.8mm; padding:2.6mm 3mm; border-top:.9mm solid var(--indigo); }
+.role.b{ border-top-color:var(--violet); } .role.c{ border-top-color:var(--rose); }
+.role b{ display:block; font-size:2.7mm; font-weight:900; }
+.role .to{ font-family:var(--f-mono); font-size:2mm; color:var(--ink-3); display:block; margin:.4mm 0 1mm; }
+.role span.d{ display:block; font-size:2.25mm; line-height:1.55; color:var(--ink-2); }
+
+/* =========================================================================
+   PANEL 03 — ARCHITECTURE
+   ========================================================================= */
+
+.arch svg{ display:block; width:100%; height:auto; }
+
+/* 書き込みが1回起きるときに通る順番。図の主張を手順に落として見せる */
+.flow{ display:flex; align-items:flex-start; gap:0; margin-top:6mm; }
+.flow .step{ flex:1; display:flex; gap:2.4mm; padding-right:3mm; }
+.flow .sn{
+  font-family:var(--f-mono); font-size:2.2mm; font-weight:700; color:var(--dark);
+  background:var(--on-dark); border-radius:50%; flex:none;
+  width:5.4mm; height:5.4mm; display:flex; align-items:center; justify-content:center;
+}
+.flow .step:last-child .sn{ background:var(--amber); }
+.flow b{ display:block; font-size:2.5mm; font-weight:900; line-height:1.35; }
+.flow em{ display:block; font-style:normal; font-size:2.15mm; line-height:1.55; color:#9C98BE; margin-top:.6mm; }
+.flow .arw{ flex:none; align-self:center; color:#4A4670; font-size:3mm; padding-right:3mm; }
+
+.perm{ display:flex; gap:6mm; align-items:flex-start; }
+.perm-tbl{ flex:1.55; }
+.perm-tbl table{ width:100%; border-collapse:collapse; font-size:2.3mm; }
+.perm-tbl th,.perm-tbl td{ text-align:left; padding:1.3mm 0; border-bottom:.2mm solid var(--dark-3); vertical-align:top; }
+.perm-tbl thead th{
+  font-family:var(--f-en); font-size:2mm; font-weight:600; letter-spacing:.16em;
+  text-transform:uppercase; color:#77739A; padding-bottom:1.1mm;
+}
+.perm-tbl tbody th{ font-family:var(--f-mono); font-weight:500; color:#C6C1E4; width:38%; padding-right:3mm; }
+.perm-tbl td{ color:#9C98BE; }
+.perm-note{ flex:1; }
+.perm-note .box{ background:var(--dark-2); border-radius:2mm; padding:3.4mm; border-left:.8mm solid var(--amber); }
+.perm-note b{ display:block; font-size:3mm; font-weight:900; margin-bottom:1.6mm; }
+.perm-note p{ margin:0 0 1.6mm; font-size:2.3mm; line-height:1.65; color:#A9A5C6; }
+.perm-note p:last-child{ margin:0; }
+.perm-note code{ font-family:var(--f-mono); color:var(--amber); font-size:2.15mm; }
+
+.focus{ display:grid; grid-template-columns:repeat(2,1fr); gap:3.4mm 6mm; }
+.focus .f{ display:flex; gap:2.6mm; }
+.focus .fn{
+  font-family:var(--f-mono); font-size:2.2mm; font-weight:700; color:var(--dark);
+  background:var(--amber); border-radius:.8mm; padding:.5mm 1.3mm; height:fit-content; flex:none; margin-top:.5mm;
+}
+.focus h5{ margin:0 0 1mm; font-size:2.9mm; font-weight:900; line-height:1.35; }
+.focus p{ margin:0; font-size:2.2mm; line-height:1.6; color:#9C98BE; }
+.focus code{ font-family:var(--f-mono); color:#C9C2F5; font-size:2.05mm; }
+
+.foot{ display:flex; gap:6mm; align-items:flex-end; border-top:.35mm solid var(--dark-3); padding-top:4mm; }
+.stack{ flex:1; }
+.stack dl{ margin:0; display:grid; grid-template-columns:19mm 1fr; gap:1mm 3mm; }
+.stack dt{ font-family:var(--f-en); font-size:2mm; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:#6E6A92; padding-top:.3mm; }
+.stack dd{ margin:0; font-family:var(--f-mono); font-size:2.15mm; color:#C6C1E4; line-height:1.55; }
+.cta{ flex:none; display:flex; gap:4mm; align-items:flex-end; text-align:right; }
+.cta .txt b{ display:block; font-family:var(--f-en); font-size:2.3mm; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--amber); }
+.cta .txt p{ margin:1.2mm 0 0; font-size:2.25mm; line-height:1.55; color:#A9A5C6; }
+.cta .txt .url{ font-family:var(--f-mono); font-size:2.15mm; color:#C6C1E4; margin-top:1.4mm; display:block; }
+.qr{ width:34mm; height:34mm; background:#fff; border-radius:1mm; padding:2.6mm; flex:none; }
+.qr svg{ display:block; width:100%; height:100%; }
+
+.credit{
+  display:flex; justify-content:space-between; margin-top:3mm;
+  font-family:var(--f-mono); font-size:1.9mm; color:#5B5780;
+}
+
+/* ---------- 印刷 ---------- */
+@page{ size:297mm 420mm; margin:0; }
+
+@media print{
+  html,body{ background:#fff; width:297mm; }
+  .chrome{ display:none !important; }
+  .stage{ padding:0; margin:0; gap:0; display:block; }
+  .viewport{ max-width:none; width:297mm; height:auto; margin:0; }
+  .viewport > .sheet{ transform:none; }
+  .sheet{
+    box-shadow:none;
+    break-inside:avoid; page-break-inside:avoid;
+    break-after:page; page-break-after:always;
+  }
+  .viewport:last-child .sheet{ break-after:auto; page-break-after:auto; }
+}
+@media screen{ .sheet{ box-shadow:0 10px 44px rgba(0,0,0,.45); } }
+@media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+
+<div class="chrome">
+  <b>UniCircle Connect — KCL Showcase 展示ポスター</b>
+  <span>A3縦 297 × 420 mm × 3 ／ 通し 891 × 420 mm</span>
+  <span>色は CMYK 4色の色域内（特色なし）</span>
+  <button id="printBtn" type="button">印刷 / PDF に書き出す</button>
+  <span style="color:#7F7B99">用紙 A3 ／ 余白 なし ／ 倍率 100%（「用紙に合わせる」は外す）／ 背景のグラフィック オン</span>
+</div>
+
+<div class="stage">
+
+<!-- ==================================================================== -->
+<!-- PANEL 01                                                             -->
+<!-- ==================================================================== -->
+<div class="viewport"><div class="sheet">
+
+  <div class="hero"><div class="orb a"></div><div class="orb b"></div></div>
+
+  <div class="brandbar">
+    <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
+      <g stroke="#BEB5F1" stroke-width="1.1" fill="none" opacity=".85">
+        <path d="M20 6 L33 14 L33 28 L20 35 L7 28 L7 14 Z"/>
+        <path d="M20 6 L20 35 M7 14 L33 28 M33 14 L7 28"/>
+      </g>
+      <g fill="#fff">
+        <circle cx="20" cy="6" r="3.1"/><circle cx="33" cy="14" r="3.1"/>
+        <circle cx="33" cy="28" r="3.1"/><circle cx="20" cy="35" r="3.1"/>
+        <circle cx="7" cy="28" r="3.1"/><circle cx="7" cy="14" r="3.1"/>
+      </g>
+      <circle cx="20" cy="20" r="4.4" fill="#E8A33D"/>
+    </svg>
+    <div class="wordmark">UniCircle <span>Connect</span></div>
+  </div>
+
+  <div class="hero-eyebrow">KCL Showcase<br>Circle Management Platform</div>
+
+  <div class="catch"><span class="c1">運営を、</span><span class="c2">活動に返す。</span></div>
+
+  <div class="hero-sub">
+    <h2>名簿も、日程も、承認も。<br>サークルを「回す」時間を、<br>サークルを「やる」時間に。</h2>
+    <p>
+      大学のサークルは、活動そのものより運営に時間を取られる。名簿はスプレッドシートの何番目かの版にあり、日程はチャットの流れの中で数えられ、設立や施設の申請は窓口の営業時間に縛られる。
+      その「回すための作業」をひとつの場所に集めるプラットフォーム。
+    </p>
+    <div class="hero-chips">
+      <span>NEXT.JS 16</span><span>SUPABASE</span><span>TYPESCRIPT</span><span>TAILWIND v4</span>
+    </div>
+  </div>
+
+  <div class="hero-float">
+    <span class="ft">軽音サークル の設立が承認されました</span>
+    <span class="fs">2分前 ／ 職員2人の承認で成立</span>
+  </div>
+
+  <div class="phone hero-phone">
+    <div class="scr">
+      <div class="notch"></div>
+      <div class="st"><span>9:41</span><span>▮▮▮</span></div>
+      <div class="appbar"><b>10月</b><span class="mono" style="font-size:1.8mm;color:var(--ink-3)">OCTOBER</span></div>
+      <div style="padding:0 2.4mm">
+        <div class="cal-grid" style="gap:.7mm">
+          <span class="dow">月</span><span class="dow">火</span><span class="dow">水</span><span class="dow">木</span><span class="dow">金</span><span class="dow">土</span><span class="dow">日</span>
+          <div class="cal-cell mute" style="height:7.4mm">29</div><div class="cal-cell mute" style="height:7.4mm">30</div>
+          <div class="cal-cell" style="height:7.4mm">1</div><div class="cal-cell" style="height:7.4mm">2<i class="ev i"></i></div>
+          <div class="cal-cell" style="height:7.4mm">3</div><div class="cal-cell" style="height:7.4mm">4<i class="ev a"></i></div>
+          <div class="cal-cell" style="height:7.4mm">5</div>
+          <div class="cal-cell" style="height:7.4mm">6</div><div class="cal-cell" style="height:7.4mm">7<i class="ev v"></i></div>
+          <div class="cal-cell" style="height:7.4mm">8</div><div class="cal-cell" style="height:7.4mm">9</div>
+          <div class="cal-cell" style="height:7.4mm">10<i class="ev i"></i></div><div class="cal-cell" style="height:7.4mm">11</div>
+          <div class="cal-cell" style="height:7.4mm">12</div>
+          <div class="cal-cell" style="height:7.4mm">13</div><div class="cal-cell" style="height:7.4mm">14</div>
+          <div class="cal-cell" style="height:7.4mm">15<i class="ev a"></i></div><div class="cal-cell" style="height:7.4mm">16</div>
+          <div class="cal-cell" style="height:7.4mm">17</div><div class="cal-cell today" style="height:7.4mm">18<i class="ev"></i></div>
+          <div class="cal-cell" style="height:7.4mm">19</div>
+        </div>
+      </div>
+      <div style="padding:2.2mm 2.4mm">
+        <div class="deck-card" style="margin-bottom:1.2mm">
+          <span class="d">10/18 18:00</span><b>新歓ライブ</b><span class="s">軽音サークル ／ 第2ホール</span>
+        </div>
+        <div class="deck-card" style="border-left-color:var(--amber);margin-bottom:1.2mm">
+          <span class="d">10/21 13:00</span><b>秋のオープンキャンパス</b><span class="s">大学主催 ／ 全学部</span>
+        </div>
+        <div class="deck-card" style="border-left-color:var(--violet);margin-bottom:1.2mm">
+          <span class="d">10/24 10:00</span><b>合同練習</b><span class="s">吹奏楽団 ／ 音楽スタジオA</span>
+        </div>
+        <div class="deck-card" style="border-left-color:var(--rose);margin-bottom:0">
+          <span class="d">10/28 17:30</span><b>秋の交流会</b><span class="s">写真部 ／ 303教室</span>
+        </div>
+      </div>
+      <div class="tabbar"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+    </div>
+  </div>
+
+  <div class="body" style="top:164mm; bottom:14mm;">
+
+    <!-- 01 -->
+    <section>
+      <div class="sec"><span class="no">01</span><span class="ttl">背景</span><span class="en-ttl">Background</span></div>
+      <div class="sec-rule"></div>
+      <p class="lead" style="margin:0 0 3mm;max-width:196mm">
+        3つの軸で整理して、作るものの輪郭を決めた。何を扱うのか、それをどう表現するのか、結果として何が残るのか。
+      </p>
+      <div class="fw">
+        <div class="fw-circle">FRAME<br>WORK</div>
+        <div class="fw-rows">
+          <div class="fw-row">
+            <span class="k" style="background:var(--indigo)">主題</span>
+            <span class="v">サークル運営の事務 ── <em>名簿・日程・連絡・承認・引き継ぎ</em></span>
+          </div>
+          <div class="fw-row">
+            <span class="k" style="background:var(--violet)">道具</span>
+            <span class="v">役割にもとづく権限設計 ── <em>誰が何を読み書きできるかを、データベースで表現する</em></span>
+          </div>
+          <div class="fw-row">
+            <span class="k" style="background:var(--rose)">結果</span>
+            <span class="v">手続きが追える組織 ── <em>承認の記録が残り、代が替わっても消えない</em></span>
+          </div>
+        </div>
+      </div>
+      <div class="goal">目標 ── <em>紙の決裁の重みを保ったまま、運営の手数だけを減らす</em></div>
+    </section>
+
+    <!-- 02 -->
+    <section>
+      <div class="sec"><span class="no">02</span><span class="ttl">運営は、いつも散らばっている</span><span class="en-ttl">Pain Points</span></div>
+      <div class="sec-rule"></div>
+
+      <div class="chaos">
+        <div class="scrap" style="left:5mm;top:5mm;width:44mm;transform:rotate(-3.5deg)">
+          <span class="fn">新歓名簿_最新_最終_v3(修正).xlsx</span>
+          <span class="cells"><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="cells"><i></i><i></i><i></i><i></i><i></i></span>
+        </div>
+        <div class="scrap" style="left:30mm;top:23mm;width:42mm;transform:rotate(2.4deg)">
+          <span class="fn">名簿_2024_コピー.xlsx</span>
+          <span class="cells"><i></i><i></i><i></i><i></i></span>
+          <span class="cells"><i></i><i></i><i></i><i></i></span>
+        </div>
+        <div class="bubble" style="left:80mm;top:6mm;width:52mm;transform:rotate(-1.6deg)">
+          都合いい日、スタンプで教えて！<br>
+          <span class="mono" style="font-size:1.75mm">既読 42 ・ 返信 <span class="hot">7</span></span>
+        </div>
+        <div class="bubble" style="left:86mm;top:25mm;width:48mm;transform:rotate(1.2deg);background:#E8E6F1">
+          <span class="mono" style="font-size:1.7mm">https://…/xxxxxxx</span><br>再送です（3回目）
+        </div>
+        <div class="scrap paper" style="left:148mm;top:5mm;width:52mm;transform:rotate(-2.2deg);padding:2.4mm 2.6mm">
+          <span class="fn" style="font-size:2mm">サークル設立申請書</span>
+          <span style="display:flex;gap:2mm;margin-top:2mm;align-items:center">
+            <span class="hanko">承</span><span class="hanko empty">・</span><span class="hanko empty">・</span>
+            <span style="font-size:1.8mm;margin-left:1mm">受付から14日経過</span>
+          </span>
+        </div>
+        <div class="scrap sticky" style="left:157mm;top:34mm;width:41mm;transform:rotate(3.4deg)">体育館、取れてたはず……</div>
+        <div class="scrap" style="left:207mm;top:8mm;width:40mm;transform:rotate(2deg)">
+          <span class="fn">10 / 18（土）</span>
+          <span style="display:block;margin-top:1mm;font-size:1.8mm">
+            <span style="display:block;background:#EAE8F0;padding:.5mm 1mm;margin-bottom:.5mm">新歓ライブ 18:00</span>
+            <span style="display:block;background:#F7E3EA;padding:.5mm 1mm;color:#9C2B4E">合宿説明会 18:00</span>
+          </span>
+        </div>
+        <div class="stamp" style="left:211mm;top:37mm;transform:rotate(-7deg)">アカウント引き継ぎ不可</div>
+        <div class="bubble" style="left:6mm;top:45mm;width:60mm;transform:rotate(-1deg)">
+          大事な連絡が、雑談 <span class="hot">100件</span> の下に沈んだ
+        </div>
+        <div class="scrap" style="left:75mm;top:43mm;width:56mm;transform:rotate(-2.6deg)">
+          <span class="fn">出欠_未集計.xlsx</span>
+          <span style="display:block;font-size:1.8mm;margin-top:.8mm">回答 <span class="hot">7</span> / 42 ・ 締切 3日前</span>
+        </div>
+        <div class="bubble" style="left:137mm;top:44mm;width:54mm;transform:rotate(1.4deg)">
+          OBのLINEが混ざってて、今の代がどれか分からない
+        </div>
+        <div class="scrap" style="left:196mm;top:45mm;width:58mm;transform:rotate(1.8deg)">
+          <span class="fn">部室鍵_当番表_旧.docx</span>
+          <span style="display:block;font-size:1.8mm;margin-top:.8mm">最終更新 2年前 ・ 作成者は卒業済み</span>
+        </div>
+      </div>
+
+      <div class="voices">
+        <div class="voice"><q>「最新_最終_v3」って、どれが最新なんですか</q><div class="who">会計 / 2年</div></div>
+        <div class="voice"><q>日程調整、3回貼り直して、まだ7人しか答えてない</q><div class="who">副代表 / 3年</div></div>
+        <div class="voice"><q>設立の判子、3人に回すのに2週間かかった</q><div class="who">代表 / 3年</div></div>
+        <div class="voice"><q>先輩が卒業したら、名簿のオーナー権限ごと消えた</q><div class="who">代表 / 2年</div></div>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section>
+      <div class="sec"><span class="no">03</span><span class="ttl">解決の考え方</span><span class="en-ttl">Core Insight</span></div>
+      <div class="sec-rule"></div>
+      <div class="sol">
+        <div class="sol-main">
+          <h3>一箇所に集める。<br>ただし、<em>紙の作法は壊さない。</em></h3>
+          <p>解決策は「全部アプリにする」ことではなかった。大学の承認は、複数の職員が判を押してはじめて通る。その順序と重みには理由がある。</p>
+          <p>
+            名簿・日程・連絡・施設をひとつに集める一方で、<strong>承認だけは紙の作法をそのまま持ち込んだ。</strong>
+            必要な人数が揃ってはじめて成立し、ひとりが拒めばそこで止まり、誰がいつ何と書いて押したかが残る。
+            デジタル化とは手順を軽くすることではなく、<strong>手順を追えるようにすること</strong>だと考えている。
+          </p>
+        </div>
+        <div class="pillars">
+          <div class="pillar"><span class="p-no">01</span><span><b>集める</b><em>名簿・日程・連絡・施設・申請を、役割ごとの1画面に</em></span></div>
+          <div class="pillar"><span class="p-no">02</span><span><b>残す</b><em>誰が承認したか、何がいつ変わったかを記録する</em></span></div>
+          <div class="pillar"><span class="p-no">03</span><span><b>開く</b><em>学内に閉じず、高校生や企業にも公開情報として届ける</em></span></div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div></div>
+
+<!-- ==================================================================== -->
+<!-- PANEL 02                                                             -->
+<!-- ==================================================================== -->
+<div class="viewport"><div class="sheet">
+
+  <div class="p-head">
+    <span class="l">The Product</span>
+    <span class="r">Key Screens ／ Core Features ／ Design System</span>
+  </div>
+
+  <div class="body" style="top:34mm; bottom:14mm;">
+
+    <!-- 04 -->
+    <section>
+      <div class="sec"><span class="no">04</span><span class="ttl">開いた瞬間に、自分に関係するものだけがある</span><span class="en-ttl">Key Screen</span></div>
+      <div class="sec-rule"></div>
+      <p class="lead" style="margin:0;max-width:200mm">
+        学生はカレンダー、職員は承認の列、高校生や企業はサークル一覧。ログインしたあと最初に着地する場所を、役割ごとに変えている。
+        予定を持たない人をカレンダーに送っても、空の画面が出るだけだから。
+      </p>
+
+      <div class="showcase">
+
+        <div class="laptop">
+          <div class="lid">
+            <div class="scr">
+              <div class="ui-top">
+                <span class="lg">UniCircle <s>Connect</s></span>
+                <span class="ui-nav">
+                  <span class="on">カレンダー</span>
+                  <span>サークル<span class="bdg">3</span></span>
+                  <span>イベント</span><span>掲示板</span>
+                  <span>施設予約<span class="bdg">2</span></span>
+                  <span>マイページ</span>
+                </span>
+              </div>
+              <div class="cal">
+                <div class="cal-main">
+                  <div class="cal-h"><b>10月</b><span>October 2026</span></div>
+                  <div class="cal-grid">
+                    <span class="dow">MON</span><span class="dow">TUE</span><span class="dow">WED</span><span class="dow">THU</span><span class="dow">FRI</span><span class="dow">SAT</span><span class="dow">SUN</span>
+                    <div class="cal-cell mute">28</div><div class="cal-cell mute">29</div><div class="cal-cell mute">30</div>
+                    <div class="cal-cell">1</div><div class="cal-cell">2<i class="ev i"></i></div><div class="cal-cell">3</div><div class="cal-cell">4<i class="ev a"></i></div>
+                    <div class="cal-cell">5</div><div class="cal-cell">6</div><div class="cal-cell">7<i class="ev v"></i></div><div class="cal-cell">8</div>
+                    <div class="cal-cell">9</div><div class="cal-cell">10<i class="ev i"></i><i class="ev r"></i></div><div class="cal-cell">11</div>
+                    <div class="cal-cell">12</div><div class="cal-cell">13</div><div class="cal-cell">14<i class="ev v"></i></div><div class="cal-cell">15<i class="ev a"></i></div>
+                    <div class="cal-cell">16</div><div class="cal-cell">17</div><div class="cal-cell today">18<i class="ev"></i><i class="ev"></i></div>
+                    <div class="cal-cell">19</div><div class="cal-cell">20</div><div class="cal-cell">21<i class="ev a"></i></div><div class="cal-cell">22</div>
+                    <div class="cal-cell">23</div><div class="cal-cell">24<i class="ev i"></i></div><div class="cal-cell">25</div>
+                    <div class="cal-cell">26</div><div class="cal-cell">27</div><div class="cal-cell">28<i class="ev v"></i></div><div class="cal-cell">29</div>
+                    <div class="cal-cell">30</div><div class="cal-cell">31</div><div class="cal-cell mute">1</div>
+                  </div>
+                </div>
+                <div class="deck">
+                  <h4>参加予定のイベント</h4>
+                  <div class="deck-card"><span class="d">10/18 18:00</span><b>新歓ライブ</b><span class="s">軽音サークル ／ 第2ホール</span></div>
+                  <div class="deck-card" style="border-left-color:var(--amber)"><span class="d">10/21 13:00</span><b>秋のオープンキャンパス</b><span class="s">大学主催 ／ 全学部</span></div>
+                  <div class="deck-card" style="border-left-color:var(--violet)"><span class="d">10/24 10:00</span><b>合同練習</b><span class="s">吹奏楽団 ／ 音楽スタジオA</span></div>
+                  <div class="deck-card" style="border-left-color:var(--rose)"><span class="d">10/28 17:30</span><b>秋の交流会</b><span class="s">写真部 ／ 303教室</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="base"></div>
+        </div>
+
+        <div class="phone ph-noti">
+          <div class="scr">
+            <div class="notch"></div>
+            <div class="st"><span>9:41</span><span>▮▮▮</span></div>
+            <div class="appbar"><b>通知</b><span class="tag" style="background:var(--rose);color:#fff">3</span></div>
+            <div class="noti-list">
+              <div class="noti"><i style="background:var(--indigo)"></i><span><b>軽音サークル の設立が承認されました</b><span>2分前</span></span></div>
+              <div class="noti"><i style="background:var(--amber)"></i><span><b>新歓ライブ まで、あと1時間</b><span>1時間前</span></span></div>
+              <div class="noti"><i style="background:var(--violet)"></i><span><b>音楽スタジオA の予約が承認されました</b><span>昨日</span></span></div>
+              <div class="noti"><i style="background:var(--ink-3)"></i><span><b>写真部 に新しい掲示があります</b><span>2日前</span></span></div>
+              <div class="noti" style="border:0"><i style="background:var(--ink-3)"></i><span><b>合同練習 の日時が変更されました</b><span>3日前</span></span></div>
+            </div>
+            <div class="tabbar"><i></i><i></i><i></i><i class="on"></i><i></i></div>
+          </div>
+        </div>
+
+        <div class="phone ph-board">
+          <div class="scr">
+            <div class="notch"></div>
+            <div class="st"><span>9:41</span><span>▮▮▮</span></div>
+            <div class="appbar"><b>掲示板</b><span class="mono" style="font-size:1.7mm;color:var(--ink-3)">軽音サークル</span></div>
+            <div class="cork">
+              <div class="note t1"><b>今週の練習、303教室に変更</b>音楽スタジオAが改修のため。時間は変わりません。</div>
+              <div class="note t2"><b>新歓ライブ 出演順きまりました</b>リハは17:00集合。機材は各自持ち込みで。</div>
+              <div class="note t3"><b>会計より：合宿費の締切</b>今週金曜までに振込をお願いします。</div>
+              <div class="note t1"><b>楽譜、部室の棚に置きました</b></div>
+              <div class="note t2"><b>秋の交流会、参加するひと</b>10/28 17:30 から。人数を金曜までに教えてください。</div>
+              <div class="note t3"><b>機材の返却をお願いします</b>先週の合宿で借りたケーブル類が2本足りません。</div>
+              <div class="note t1" style="margin-bottom:0"><b>次の代表を決めます</b>来月の総会で。立候補は今週まで受け付けています。</div>
+            </div>
+            <div class="tabbar"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+          </div>
+        </div>
+
+        <div class="float" style="left:0;top:0;width:52mm">
+          <span class="ft">承認 1 / 2人</span>
+          <span class="fs">サークル設立 ／ 青空大学</span>
+          <span class="bar"><i style="width:50%"></i></span>
+        </div>
+
+        <div class="float" style="left:1mm;bottom:0;width:50mm">
+          <span class="fs" style="margin-bottom:1.2mm">在籍のステータス</span>
+          <span style="display:flex;gap:1.4mm">
+            <span class="tag b-admin">管理者</span><span class="tag b-ok">在籍</span><span class="tag b-wait">承認待ち</span>
+          </span>
+        </div>
+
+        <div class="float" style="right:0;top:0;width:64mm">
+          <span class="fs" style="margin-bottom:1.2mm">都道府県から辿る</span>
+          <span class="ft mono" style="font-size:2.05mm">東京都 ▸ 桜路学院大学 ▸ 文京キャンパス</span>
+        </div>
+
+        <div class="float" style="right:2mm;top:22mm;width:47mm">
+          <span class="ft">出席 12 / 参加登録 18</span>
+          <span class="bar"><i style="width:66%;background:var(--violet)"></i></span>
+        </div>
+
+        <div class="float" style="left:56mm;bottom:2mm;width:58mm">
+          <span class="fs" style="margin-bottom:1.2mm">リマインドのタイミング</span>
+          <span style="display:flex;gap:1.2mm;flex-wrap:wrap">
+            <span class="tag" style="background:#ECEAF5;color:var(--ink-2)">10分前</span>
+            <span class="tag" style="background:var(--indigo);color:#fff">1時間前</span>
+            <span class="tag" style="background:#ECEAF5;color:var(--ink-2)">前日</span>
+            <span class="tag" style="background:#ECEAF5;color:var(--ink-2)">通知しない</span>
+          </span>
+        </div>
+
+        <div class="float" style="right:6mm;bottom:0;width:48mm">
+          <span class="ft" style="color:var(--rose)">♥ 気になるサークル 6</span>
+          <span class="fs">高校生・企業アカウント</span>
+        </div>
+
+        <div class="leadlines">
+          <svg viewBox="0 0 265 148" aria-hidden="true">
+            <g stroke="#1A1830" stroke-width=".32" fill="none" opacity=".55">
+              <path d="M33 148 V138"/><path d="M99 148 V113"/>
+              <path d="M165 148 V113"/><path d="M231 148 V136"/>
+            </g>
+            <g fill="#D8386E">
+              <circle cx="33" cy="137.4" r=".95"/><circle cx="99" cy="112.4" r=".95"/>
+              <circle cx="165" cy="112.4" r=".95"/><circle cx="231" cy="135.4" r=".95"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section>
+      <div class="sec"><span class="no">05</span><span class="ttl">コア機能</span><span class="en-ttl">Core Features</span></div>
+      <div class="sec-rule"></div>
+
+      <div class="feats">
+        <div class="feat">
+          <span class="ftag">01 — 一元管理</span>
+          <h5>名簿も日程も、<br>同じ場所にある</h5>
+          <p>サークル・イベント・掲示板・施設予約を、ひとつのアカウントで扱う。所属サークルの連絡は、そのメンバーにしか見えない。この可視範囲はアプリではなく、データベース側で決めている。</p>
+        </div>
+        <div class="feat">
+          <span class="ftag">02 — カレンダー</span>
+          <h5>参加登録した予定が、<br>そのまま載る</h5>
+          <p>予定を見る場所は1つだけにした。同じ情報が一覧とダッシュボードに分かれていると、どちらを見ればいいのか分からなくなる。直近5件は横スライドのカードで、月表示のすぐ隣に置いた。</p>
+        </div>
+        <div class="feat">
+          <span class="ftag">03 — 複数人の承認</span>
+          <h5>判子が揃って、<br>はじめて通る</h5>
+          <p>設立と廃止は、大学が決めた人数（1〜5人）が揃って成立する。却下はひとりで成立する。同じ職員が二度押すことはできない。誰がいつ何と書いて押したかは記録に残り、あとから辿れる。</p>
+        </div>
+        <div class="feat">
+          <span class="ftag">04 — リマインド</span>
+          <h5>何分前に知らせるかは、<br>本人が決める</h5>
+          <p>参加登録したイベントごとに、通知のタイミングを個人単位で選ぶ。配信はデータベース側のスケジューラが5分おきに回す。日時が変わったイベントは、送信済みでも自動的に送り直しの対象へ戻る。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section>
+      <div class="sec"><span class="no">06</span><span class="ttl">デザインシステム</span><span class="en-ttl">Design System</span></div>
+      <div class="sec-rule"></div>
+
+      <div class="ds">
+        <div>
+          <h6>Color</h6>
+          <div class="chips">
+            <div class="chip"><div class="sw" style="background:#453BA6"></div><span class="hx">#453BA6</span><span class="cm">C85 M85 Y0 K5</span></div>
+            <div class="chip"><div class="sw" style="background:#6E4FB0"></div><span class="hx">#6E4FB0</span><span class="cm">C68 M78 Y0 K0</span></div>
+            <div class="chip"><div class="sw" style="background:#D8386E"></div><span class="hx">#D8386E</span><span class="cm">C4 M89 Y42 K0</span></div>
+            <div class="chip"><div class="sw" style="background:#E8A33D"></div><span class="hx">#E8A33D</span><span class="cm">C6 M40 Y82 K0</span></div>
+            <div class="chip"><div class="sw" style="background:#1A1830"></div><span class="hx">#1A1830</span><span class="cm">C88 M84 Y52 K68</span></div>
+          </div>
+          <p class="mini" style="margin:2mm 0 0">
+            差し色は1画面に1〜2箇所まで。全色を CMYK 4色で再現できる範囲に収め、特色を使わずに刷れるようにしている。
+          </p>
+        </div>
+
+        <div class="typ">
+          <h6>Typography</h6>
+          <p class="t1">運営を、活動に返す。</p>
+          <p class="t2">UniCircle Connect</p>
+          <p class="t3">和文 ── M PLUS 2　Regular / Bold / Black<br>欧文・数字 ── Geist ／ Geist Mono</p>
+          <p class="mini" style="margin:1.4mm 0 0">アプリ本体と同じ書体をポスターにも使っている。展示物とプロダクトが同じ声で喋る。</p>
+        </div>
+
+        <div>
+          <h6>Components</h6>
+          <div class="comp" style="margin-bottom:2.4mm">
+            <span class="b-primary">設立を申請する</span>
+            <span class="b-ghost">あとで</span>
+            <span class="tag b-admin">管理者</span>
+            <span class="tag b-live">募集中</span>
+            <span class="tag b-wait">承認待ち</span>
+          </div>
+          <div class="card" style="padding:2.4mm 3mm;border:.25mm solid var(--rule)">
+            <b style="font-size:2.5mm;font-weight:900;display:block">軽音サークル</b>
+            <span class="mini" style="display:block;margin-top:.5mm">青空大学 ／ メンバー 24人 ／ 掲示 3件</span>
+            <span class="bar" style="margin-top:1.6mm"><i style="width:72%"></i></span>
+          </div>
+          <p class="mini" style="margin:2mm 0 0">角丸・影・ボタンの形はテーマをまたいで共通で、変わるのは配色だけ。5種類から選べる。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 役割の帯 -->
+    <section>
+      <div class="roles">
+        <div class="role">
+          <b>学生</b><span class="to">ログイン後 → カレンダー</span>
+          <span class="d">参加予定・所属サークルの連絡・施設の予約申請。自分の予定がすぐ出る場所へ着地する。</span>
+        </div>
+        <div class="role b">
+          <b>職員</b><span class="to">ログイン後 → カレンダー</span>
+          <span class="d">承認の列、学生の登録、キャンパスと施設のマスタ管理。承認に必要な人数もここで決める。</span>
+        </div>
+        <div class="role c">
+          <b>一般（高校生・企業）</b><span class="to">ログイン後 → サークル一覧</span>
+          <span class="d">公開情報の閲覧と、気になる大学・サークルの登録。参加登録や施設予約はできない。</span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div></div>
+
+<!-- ==================================================================== -->
+<!-- PANEL 03                                                             -->
+<!-- ==================================================================== -->
+<div class="viewport"><div class="sheet dark">
+
+  <div class="p-head">
+    <span class="l">Architecture</span>
+    <span class="r">Next.js 16 ／ Supabase ／ PostgreSQL</span>
+  </div>
+
+  <div class="body" style="top:34mm; bottom:12mm;">
+
+    <!-- 07 -->
+    <section>
+      <div class="sec"><span class="no">07</span><span class="ttl">書き込める場所を、ひとつに絞る</span><span class="en-ttl">System Architecture</span></div>
+      <div class="sec-rule"></div>
+      <p class="lead" style="margin:0 0 2.5mm;max-width:212mm">
+        作り込んだのは画面ではなく、権限の通り道だった。誰が何を書けるかの判断をコードの中に散らさず、データベースの一箇所に集めている。
+        この図で見てほしいのは矢印ではなく、<span style="color:var(--rose);font-weight:800">通れないことを示す×印</span>のほう。
+      </p>
+
+      <div class="arch">
+        <svg viewBox="0 -16 700 296" role="img" aria-label="ブラウザ、Next.js、Supabase、PostgreSQL の4層からなる構成図。ブラウザからテーブルへ直接向かう経路には×印がつき、書き込みポリシーが無いため遮断されていることを示している。">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#EDEBF5"/>
+            </marker>
+            <marker id="ahp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#E8A33D"/>
+            </marker>
+          </defs>
+
+          <g font-family="Geist Mono, monospace" font-size="8" fill="#77739A">
+            <line x1="0" y1="-6" x2="16" y2="-6" stroke="#EDEBF5" stroke-width="2"/><text x="21" y="-3.4">データが流れる</text>
+            <line x1="112" y1="-6" x2="128" y2="-6" stroke="#E8A33D" stroke-width="1.6"/><text x="133" y="-3.4">スケジュール実行</text>
+            <line x1="242" y1="-6" x2="258" y2="-6" stroke="#D8386E" stroke-width="1.6" stroke-dasharray="5 4"/><text x="263" y="-3.4">遮断されている経路</text>
+          </g>
+
+          <g font-family="Geist Mono, monospace" font-size="8" font-weight="700" letter-spacing="1"
+             fill="#6E6A92" text-anchor="end">
+            <text x="700" y="14">01 — BROWSER</text>
+            <text x="700" y="76">02 — NEXT.JS 16 / APP ROUTER</text>
+            <text x="700" y="170">03 — SUPABASE</text>
+            <text x="700" y="218">04 — POSTGRESQL</text>
+          </g>
+
+          <rect x="0" y="20" width="700" height="34" rx="2" fill="none" stroke="#35315C"/>
+          <rect x="14" y="28" width="150" height="18" rx="2" fill="#232043" stroke="#6E4FB0"/>
+          <text x="89" y="40.5" text-anchor="middle" font-family="M PLUS 2, sans-serif" font-size="9.5" font-weight="800" fill="#EDEBF5">Client Components</text>
+          <text x="180" y="35" font-family="M PLUS 2, sans-serif" font-size="8.5" fill="#9C98BE">状態を持つのは UI だけ。</text>
+          <text x="180" y="46" font-family="M PLUS 2, sans-serif" font-size="8.5" fill="#9C98BE">データベースの認証情報はブラウザに置かない</text>
+
+          <rect x="0" y="82" width="700" height="70" rx="2" fill="none" stroke="#35315C"/>
+          <rect x="14" y="90" width="196" height="26" rx="2" fill="#232043" stroke="#6E4FB0"/>
+          <text x="112" y="102" text-anchor="middle" font-family="Geist Mono, monospace" font-size="9" font-weight="700" fill="#EDEBF5">proxy.ts</text>
+          <text x="112" y="112" text-anchor="middle" font-family="M PLUS 2, sans-serif" font-size="7.5" fill="#9C98BE">セッションの更新</text>
+
+          <rect x="224" y="90" width="196" height="26" rx="2" fill="#232043" stroke="#6E4FB0"/>
+          <text x="322" y="102" text-anchor="middle" font-family="M PLUS 2, sans-serif" font-size="9" font-weight="800" fill="#EDEBF5">Server Components</text>
+          <text x="322" y="112" text-anchor="middle" font-family="M PLUS 2, sans-serif" font-size="7.5" fill="#9C98BE">読み取り</text>
+
+          <rect x="434" y="90" width="196" height="26" rx="2" fill="#232043" stroke="#E8A33D" stroke-width="1.4"/>
+          <text x="532" y="102" text-anchor="middle" font-family="M PLUS 2, sans-serif" font-size="9" font-weight="800" fill="#EDEBF5">Server Actions</text>
+          <text x="532" y="112" text-anchor="middle" font-family="M PLUS 2, sans-serif" font-size="7.5" fill="#9C98BE">書き込み</text>
+
+          <rect x="14" y="126" width="616" height="18" rx="2" fill="#1D1B38" stroke="#35315C" stroke-dasharray="4 3"/>
+          <text x="322" y="138.5" text-anchor="middle" font-family="Geist Mono, monospace" font-size="8.5" fill="#9C98BE">lib/dal.ts — 認証・認可の集約層（ここを通らない読み書きは存在しない）</text>
+
+          <rect x="0" y="176" width="700" height="30" rx="2" fill="none" stroke="#35315C"/>
+          <g font-family="M PLUS 2, sans-serif" font-size="9" font-weight="800" fill="#EDEBF5">
+            <rect x="14" y="182" width="146" height="18" rx="2" fill="#232043" stroke="#35315C"/><text x="87" y="194.5" text-anchor="middle">Auth（JWT）</text>
+            <rect x="170" y="182" width="146" height="18" rx="2" fill="#232043" stroke="#35315C"/><text x="243" y="194.5" text-anchor="middle">PostgREST</text>
+            <rect x="326" y="182" width="146" height="18" rx="2" fill="#232043" stroke="#35315C"/><text x="399" y="194.5" text-anchor="middle">Storage</text>
+            <rect x="482" y="182" width="148" height="18" rx="2" fill="#232043" stroke="#E8A33D"/><text x="556" y="194.5" text-anchor="middle">スケジューラ</text>
+          </g>
+
+          <rect x="0" y="224" width="700" height="62" rx="2" fill="none" stroke="#35315C"/>
+          <rect x="14" y="232" width="300" height="46" rx="2" fill="#232043" stroke="#6E4FB0"/>
+          <text x="164" y="247" text-anchor="middle" font-family="M PLUS 2, sans-serif" font-size="10" font-weight="800" fill="#EDEBF5">テーブル</text>
+          <text x="164" y="259" text-anchor="middle" font-family="M PLUS 2, sans-serif" font-size="8.5" fill="#9C98BE">SELECT ポリシーで可視範囲を表現</text>
+          <text x="164" y="271" text-anchor="middle" font-family="Geist Mono, monospace" font-size="8" fill="#D8386E">INSERT / UPDATE / DELETE ポリシー ＝ 0</text>
+
+          <rect x="330" y="232" width="300" height="46" rx="2" fill="#232043" stroke="#E8A33D" stroke-width="1.4"/>
+          <text x="480" y="247" text-anchor="middle" font-family="M PLUS 2, sans-serif" font-size="10" font-weight="800" fill="#EDEBF5">RPC 関数</text>
+          <text x="480" y="259" text-anchor="middle" font-family="Geist Mono, monospace" font-size="8.5" fill="#E8A33D">SECURITY DEFINER</text>
+          <text x="480" y="271" text-anchor="middle" font-family="M PLUS 2, sans-serif" font-size="8.5" fill="#9C98BE">書き込みの唯一の経路</text>
+
+          <g stroke="#EDEBF5" stroke-width="1.8" fill="none" marker-end="url(#ah)" opacity=".85">
+            <path d="M112,54 V90"/><path d="M322,116 V126"/><path d="M532,116 V126"/>
+            <path d="M243,144 V182"/><path d="M480,144 V182"/><path d="M480,200 V232"/>
+          </g>
+          <g stroke="#E8A33D" stroke-width="1.5" fill="none" marker-end="url(#ahp)">
+            <path d="M556,200 V232"/><path d="M330,255 H314"/>
+          </g>
+
+          <path d="M46,54 V255 H14" stroke="#D8386E" stroke-width="1.5" stroke-dasharray="5 4" fill="none" opacity=".85"/>
+          <g stroke="#D8386E" stroke-width="2.6">
+            <line x1="34" y1="146" x2="58" y2="170"/><line x1="58" y1="146" x2="34" y2="170"/>
+          </g>
+          <text x="68" y="155" font-family="M PLUS 2, sans-serif" font-size="9" font-weight="800" fill="#D8386E">書き込みポリシーが無いため、ここは通れない</text>
+          <text x="68" y="166" font-family="M PLUS 2, sans-serif" font-size="8" fill="#9C98BE">REST を直接叩いても同じ。判定はアプリではなくデータベースにある</text>
+          <text x="564" y="220" font-family="M PLUS 2, sans-serif" font-size="8" fill="#E8A33D">5分おき</text>
+        </svg>
+      </div>
+
+      <div class="flow">
+        <div class="step">
+          <span class="sn">1</span>
+          <span><b>学生が「参加する」を押す</b><em>ブラウザは指示を送るだけで、データベースの鍵は持たない</em></span>
+        </div>
+        <span class="arw">▸</span>
+        <div class="step">
+          <span class="sn">2</span>
+          <span><b>Server Action が本人を確かめる</b><em>lib/dal.ts を通る。ここを通らない読み書きの経路は存在しない</em></span>
+        </div>
+        <span class="arw">▸</span>
+        <div class="step">
+          <span class="sn">3</span>
+          <span><b>RPC が権限を判定する</b><em>学生か、対象は公開範囲の中か、すでに登録していないか</em></span>
+        </div>
+        <span class="arw">▸</span>
+        <div class="step">
+          <span class="sn">4</span>
+          <span><b>書き込み、通知を1件つくる</b><em>主催者に届く。同じ処理の中でやるので、片方だけ残ることがない</em></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 08 -->
+    <section>
+      <div class="sec"><span class="no">08</span><span class="ttl">権限モデル</span><span class="en-ttl">Row Level Security</span></div>
+      <div class="sec-rule"></div>
+
+      <div class="perm">
+        <div class="perm-tbl">
+          <table>
+            <thead><tr><th>Table</th><th>読める人</th></tr></thead>
+            <tbody>
+              <tr><th>universities / campuses</th><td>全員（未ログインの大学一覧に必要）</td></tr>
+              <tr><th>student_profiles</th><td>本人 ／ 同じサークルの仲間 ／ 所属大学の職員</td></tr>
+              <tr><th>circles</th><td>学生・職員は承認済み全件、それ以外は公開設定のものだけ</td></tr>
+              <tr><th>circle_posts</th><td>そのサークルのメンバーのみ</td></tr>
+              <tr><th>events</th><td>可視範囲の判定に従う（未ログインは公開かつ掲載可のみ）</td></tr>
+              <tr><th>event_participants</th><td>本人 ／ そのイベントの主催者</td></tr>
+              <tr><th>facility_reservations</th><td>本人 ／ サークルのメンバー ／ 施設の大学の職員</td></tr>
+              <tr><th>approvals</th><td>対象そのものが読める人</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="perm-note">
+          <div class="box">
+            <b>判定を、二箇所に分けない</b>
+            <p>
+              RPC を <code>SECURITY INVOKER</code> のままにすると、RPC 内部の INSERT も呼び出し元の権限に従う。
+              すると「書き込みを許すポリシー」を別に書くことになり、判定が RPC の中の条件分岐とポリシーの二箇所に分かれてしまう。
+            </p>
+            <p>
+              全 RPC を <code>SECURITY DEFINER</code> にし、テーブルには書き込みポリシーを1つも置かない。
+              これで権限の判定が1箇所に閉じる。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 09 -->
+    <section>
+      <div class="sec"><span class="no">09</span><span class="ttl">開発でこだわった点</span><span class="en-ttl">Development Focus</span></div>
+      <div class="sec-rule"></div>
+
+      <div class="focus">
+        <div class="f"><span class="fn">01</span><span>
+          <h5>権限の昇格を、設計で塞ぐ</h5>
+          <p>サインアップ時に渡すメタデータは、そのまま <code>raw_user_meta_data</code> に入る。つまり完全にクライアント側の制御下にある。ここを信用して役割を保存すると、curl 一発で職員権限のアカウントが作れてしまう。セルフ登録できる役割をトリガー側で絞り、職員の付与は別経路に分けた。</p>
+        </span></div>
+        <div class="f"><span class="fn">02</span><span>
+          <h5>CDN に、認証済みの応答を載せない</h5>
+          <p>Supabase の SSR ライブラリは 0.12 以降、Cookie を書き戻す関数の第2引数で no-store 系のヘッダーを渡してくる。これを応答に反映しないと、認証 Cookie 付きの応答が CDN にキャッシュされ、別の利用者にセッションが渡りうる。リリースノートを読んで初めて気づいた種類の変更だった。</p>
+        </span></div>
+        <div class="f"><span class="fn">03</span><span>
+          <h5>サーバーとブラウザで、同じ乱数を出す</h5>
+          <p>掲示板の紙は1枚ずつ傾きが違う。乱数を使うとサーバーでの描画とブラウザでの再水和で値がずれる。ID から決定的にハッシュを引くようにしたが、素朴な積和では連番の ID で値が固まり、傾きが目視でほぼ0になった。FNV-1a に murmur3 の最終撹拌を足して、分布の偏りを消している。</p>
+        </span></div>
+        <div class="f"><span class="fn">04</span><span>
+          <h5>拡大率に依存しない背景</h5>
+          <p>ブラウザの拡大縮小は <code>rem</code> も <code>px</code> も変えない。変わるのは、ビューポートに収まる CSS ピクセルの数のほうだ。固定配置の装飾を <code>rem</code> で組むと、引いて表示したときにだけ破綻する。単位を <code>vw</code> / <code>vh</code> / <code>vmin</code> に統一して解決した。</p>
+        </span></div>
+      </div>
+    </section>
+
+    <!-- 脚 -->
+    <div>
+      <div class="foot">
+        <div class="stack">
+          <dl>
+            <dt>Frontend</dt><dd>Next.js 16（App Router）／ TypeScript ／ Tailwind CSS v4 ／ React Server Components</dd>
+            <dt>Backend</dt><dd>Supabase — Auth ／ PostgreSQL（Row Level Security）／ Storage</dd>
+            <dt>Typeface</dt><dd>M PLUS 2 ／ Geist</dd>
+          </dl>
+        </div>
+        <div class="cta">
+          <div class="txt">
+            <b>Live Demo</b>
+            <p>その場で触れます。<br>テストアカウントはログイン画面から選べます。</p>
+            <span class="url">［ デモURL ］</span>
+          </div>
+          <div class="qr">
+            <svg viewBox="0 0 29 29" role="img" aria-label="デモへのQRコード（差し替え用の仮置き）">
+              <rect width="29" height="29" fill="#fff"/>
+              <g fill="#1A1830">
+                <path d="M0 0h7v7H0z M1 1v5h5V1z M2 2h3v3H2z"/>
+                <path d="M22 0h7v7h-7z M23 1v5h5V1z M24 2h3v3h-3z"/>
+                <path d="M0 22h7v7H0z M1 23v5h5v-5z M2 24h3v3H2z"/>
+                <path d="M9 0h1v1H9z M11 0h1v2h-1z M13 1h1v1h-1z M15 0h1v1h-1z M17 1h1v1h-1z M19 0h1v1h-1z
+                         M8 2h1v1H8z M10 3h1v1h-1z M12 2h1v1h-1z M14 3h1v1h-1z M16 2h1v1h-1z M18 3h1v1h-1z M20 2h1v1h-1z
+                         M9 5h1v1H9z M11 4h1v1h-1z M13 5h1v1h-1z M15 4h1v1h-1z M17 5h1v1h-1z M19 4h1v1h-1z
+                         M8 6h1v1H8z M12 6h1v1h-1z M16 6h1v1h-1z M20 6h1v1h-1z"/>
+                <path d="M0 9h1v1H0z M2 10h1v1H2z M4 9h1v1H4z M6 10h1v1H6z M1 12h1v1H1z M3 11h1v1H3z M5 12h1v1H5z
+                         M0 14h1v1H0z M2 13h1v1H2z M4 14h1v1H4z M6 13h1v1H6z M1 16h1v1H1z M3 17h1v1H3z M5 16h1v1H5z
+                         M0 19h1v1H0z M2 18h1v1H2z M4 19h1v1H4z M6 20h1v1H6z"/>
+                <path d="M22 9h1v1h-1z M24 10h1v1h-1z M26 9h1v1h-1z M28 10h1v1h-1z M23 12h1v1h-1z M25 11h1v1h-1z M27 12h1v1h-1z
+                         M22 14h1v1h-1z M24 13h1v1h-1z M26 14h1v1h-1z M28 15h1v1h-1z M23 16h1v1h-1z M25 17h1v1h-1z M27 16h1v1h-1z
+                         M22 19h1v1h-1z M24 18h1v1h-1z M26 19h1v1h-1z M28 20h1v1h-1z
+                         M23 22h1v1h-1z M25 23h1v1h-1z M27 22h1v1h-1z M22 25h1v1h-1z M24 26h1v1h-1z M26 25h1v1h-1z M28 27h1v1h-1z"/>
+                <path d="M9 9h1v1H9z M11 10h1v1h-1z M13 9h1v1h-1z M15 11h1v1h-1z M17 9h1v1h-1z M19 10h1v1h-1z
+                         M10 12h1v1h-1z M12 13h1v1h-1z M14 12h1v1h-1z M16 13h1v1h-1z M18 12h1v1h-1z M20 13h1v1h-1z
+                         M9 15h1v1H9z M11 16h1v1h-1z M13 15h1v1h-1z M15 16h1v1h-1z M17 15h1v1h-1z M19 16h1v1h-1z
+                         M10 18h1v1h-1z M12 19h1v1h-1z M14 18h1v1h-1z M16 19h1v1h-1z M18 18h1v1h-1z M20 19h1v1h-1z
+                         M9 21h1v1H9z M11 22h1v1h-1z M13 21h1v1h-1z M15 22h1v1h-1z M17 21h1v1h-1z M19 22h1v1h-1z
+                         M10 24h1v1h-1z M12 25h1v1h-1z M14 24h1v1h-1z M16 25h1v1h-1z M18 24h1v1h-1z M20 25h1v1h-1z
+                         M9 27h1v1H9z M13 27h1v1h-1z M17 27h1v1h-1z"/>
+              </g>
+              <rect x="9.5" y="11" width="10" height="7" fill="#fff"/>
+              <text x="14.5" y="15.4" text-anchor="middle" font-family="Geist Mono, monospace" font-size="2.6" font-weight="700" fill="#D8386E">差し替え</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="credit">
+        <span>UniCircle Connect ／ ［ 制作者名 ］</span>
+        <span>KCL Showcase ［ 開催年 ］</span>
+      </div>
+    </div>
+
+  </div>
+</div></div>
+
+</div>
+
+<script>
+(function () {
+  var pairs = [];
+  document.querySelectorAll('.viewport').forEach(function (vp) {
+    pairs.push({ vp: vp, sheet: vp.querySelector('.sheet') });
+  });
+
+  // 縮小率は CSS 変数で渡す。スタイル属性に transform を直接書かないので、
+  // 印刷用のスタイルと衝突しない。
+  function fit() {
+    pairs.forEach(function (p) {
+      var w = p.sheet.offsetWidth, h = p.sheet.offsetHeight;
+      if (!w) return;
+      var s = p.vp.clientWidth / w;
+      p.vp.style.setProperty('--s', s);
+      p.vp.style.setProperty('--vh', (h * s) + 'px');
+    });
+  }
+
+  fit();
+  window.addEventListener('resize', fit);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+
+  var btn = document.getElementById('printBtn');
+  if (btn) btn.addEventListener('click', function () { window.print(); });
+})();
+</script>
