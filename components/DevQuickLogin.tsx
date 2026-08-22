@@ -32,7 +32,9 @@ export function DevQuickLogin({
   /** 公開しているデモ環境か。見出しと注意書きが変わる */
   isDemo?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  // デモ環境では最初から開いておく。展示で QR から来た人に
+  // 「押せば入れる」ことが一目で伝わらないと、誰も触らないまま終わる。
+  const [open, setOpen] = useState(isDemo);
   const [pending, setPending] = useState<string | null>(null);
 
   const grouped = DEV_USERS.reduce<Record<string, DevUser[]>>((acc, u) => {
@@ -41,16 +43,36 @@ export function DevQuickLogin({
   }, {});
 
   return (
-    <section className="mt-6 rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-4 dark:border-amber-900/60 dark:bg-amber-950/20">
+    <section
+      className={`mt-6 rounded-xl p-4 ${
+        isDemo
+          ? "border border-indigo-300 bg-indigo-50/60 dark:border-indigo-800/70 dark:bg-indigo-950/30"
+          : "border border-dashed border-amber-300 bg-amber-50/50 dark:border-amber-900/60 dark:bg-amber-950/20"
+      }`}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between text-left"
       >
-        <span className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-          {isDemo ? "デモ用アカウントで試す" : "開発用クイックログイン"}
+        <span
+          className={
+            isDemo
+              ? "text-sm font-semibold text-indigo-900 dark:text-indigo-200"
+              : "text-sm font-semibold text-amber-900 dark:text-amber-200"
+          }
+        >
+          {isDemo
+            ? "デモ用アカウントで試す（登録は要りません）"
+            : "開発用クイックログイン"}
         </span>
-        <span className="text-xs text-amber-700 dark:text-amber-400">
+        <span
+          className={
+            isDemo
+              ? "text-xs text-indigo-700 dark:text-indigo-400"
+              : "text-xs text-amber-700 dark:text-amber-400"
+          }
+        >
           {open ? "閉じる" : "開く"}
         </span>
       </button>
@@ -59,7 +81,13 @@ export function DevQuickLogin({
         <div className="mt-4 space-y-4">
           {Object.entries(grouped).map(([university, users]) => (
             <div key={university}>
-              <p className="mb-1.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+              <p
+                className={
+                  isDemo
+                    ? "mb-1.5 text-xs font-medium text-indigo-800 dark:text-indigo-300"
+                    : "mb-1.5 text-xs font-medium text-amber-800 dark:text-amber-300"
+                }
+              >
                 {university}
               </p>
               <ul className="space-y-1.5">
@@ -94,7 +122,7 @@ export function DevQuickLogin({
           ))}
 
           {isDemo ? (
-            <p className="text-xs text-amber-800 dark:text-amber-300">
+            <p className="text-xs text-indigo-800 dark:text-indigo-300">
               これは公開デモです。載っている大学名・サークル名・氏名は
               すべて動作確認用に生成した架空のものです。
               誰でも同じアカウントに入れるので、書き込んだ内容は
