@@ -149,7 +149,13 @@ export default async function CirclePrintPage({
               <div key={a.id} className="paper-seal">
                 <div className="paper-seal-box">
                   {a.decision === "approved" ? (
-                    <Seal text={a.seal_text} shape={a.seal_shape} size={54} />
+                    <Seal
+                      text={
+                        a.seal_text ?? [...a.approver_name].slice(0, 2).join("")
+                      }
+                      shape={a.seal_shape}
+                      size={54}
+                    />
                   ) : (
                     <span className="paper-rejected">却下</span>
                   )}

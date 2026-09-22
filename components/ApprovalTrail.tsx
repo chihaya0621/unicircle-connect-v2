@@ -91,7 +91,12 @@ export function ApprovalTrail({
           <li key={e.id} className="flex gap-4">
             <div className="pt-0.5">
               {e.decision === "approved" ? (
-                <Seal text={e.seal_text} shape={e.seal_shape} size={44} />
+                // 印影を持たない古い記録もあるので、氏名から組んで穴を空けない
+                <Seal
+                  text={e.seal_text ?? [...e.approver_name].slice(0, 2).join("")}
+                  shape={e.seal_shape}
+                  size={44}
+                />
               ) : (
                 <span
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-rose-400 text-xs font-semibold text-rose-600 dark:text-rose-400"
