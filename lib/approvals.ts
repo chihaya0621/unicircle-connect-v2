@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase-server";
+import type { SealShape } from "@/lib/database.types";
 
 /**
  * 承認の記録。
@@ -17,7 +18,13 @@ export type ApprovalEntry = {
   approver_name: string;
   comment: string | null;
   created_at: string;
+  /** 押した時点の印影（0029） */
+  seal_text: string | null;
+  seal_shape: SealShape | null;
 };
+
+const ENTRY_COLUMNS =
+  "id, target_type, decision, approver_name, comment, created_at, seal_text, seal_shape";
 
 export async function listApprovals(
   targetType: ApprovalTarget,
@@ -26,7 +33,7 @@ export async function listApprovals(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("approvals")
-    .select("id, target_type, decision, approver_name, comment, created_at")
+    .select(ENTRY_COLUMNS)
     .eq("target_type", targetType)
     .eq("target_id", targetId)
     .order("created_at")
@@ -51,7 +58,7 @@ export async function listCircleApprovals(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("approvals")
-    .select("id, target_type, decision, approver_name, comment, created_at")
+    .select(ENTRY_COLUMNS)
     .in("target_type", ["circle", "circle_closure"])
     .eq("target_id", circleId)
     .order("created_at")
@@ -118,4 +125,61 @@ export async function countApprovals(
     counts.set(row.target_id, (counts.get(row.target_id) ?? 0) + 1);
   }
   return counts;
+}
+
+
+/**
+ * 承認の記録が押された当時のままか確かめる。
+ *
+ * 記録は1件ずつ前の記録のハッシュを抱えているので、途中の1行を
+ * 書き換えるとそこから後ろが合わなくなる（0029）。
+ *
+ * 検知できるのは「いまの中身が当時と違うこと」だけで、元の値に
+ * きっちり戻されると分からない。公開鍵の署名ではないので、
+ * 「誰が押していないか」の証明にもならない。
+ */
+export type ChainCheck = {
+  ok: boolean;
+  /** 何件目まで数えたか。落ちた場合は、そこで合わなくなった */
+  checked: number;
+  brokenAt: string | null;
+};
+
+export async function verifyApprovalChain(
+  targetType: ApprovalTarget,
+  targetId: string,
+): Promise<ChainCheck | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("verify_approval_chain", {
+    p_target_type: targetType,
+    p_target_id: targetId,
+  });
+
+  if (error) {
+    // 確かめられなかったことと、壊れていることは別。
+    // null を返して、画面には「確認できません」と出す。
+    console.error("承認の記録の検証に失敗しました:", error.message);
+    return null;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return { ok: row.ok, checked: row.checked, brokenAt: row.broken_at };
+}
+
+/** 自分の印影。職員以外は持たない */
+export async function getMySeal(
+  userId: string,
+): Promise<{ text: string | null; shape: SealShape }> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("staff_profiles")
+    .select("seal_text, seal_shape")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  return {
+    text: data?.seal_text ?? null,
+    shape: (data?.seal_shape as SealShape) ?? "circle",
+  };
 }

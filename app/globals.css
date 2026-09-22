@@ -209,6 +209,46 @@ body {
   font-family: var(--font-sans), "Hiragino Kaku Gothic ProN", "Yu Gothic",
     system-ui, sans-serif;
   min-height: 100dvh;
+
+  /* ---------------------------------------------------------------------
+     日本語の組版
+     ---------------------------------------------------------------------
+     既定のままだと、日本語は「文字が入る限り詰めて、入らなくなったら
+     折る」だけの扱いになる。以下は、そこを日本語の読み方に寄せる指定。
+     どれも対応していないブラウザでは無視されるので、退化はしない。
+     --------------------------------------------------------------------- */
+
+  /* 禁則を厳密に。既定の normal だと、小書き文字（っ ゃ ー）が
+     行頭に落ちることがある */
+  line-break: strict;
+
+  /* 文節で折る。「サークルを回すための時間を」が「サークルを回
+     すための時間を」と切れるのを避ける。読む速さがはっきり変わる */
+  word-break: auto-phrase;
+
+  /* 和文と欧文のあいだに四分アキを入れる。
+     「Next.js 16 を使う」のような文が詰まって見えなくなる */
+  text-autospace: normal;
+
+  /* 約物を詰める。「、」「。」「（）」の前後に空く間を、
+     字面に合わせて調整する */
+  font-feature-settings: "palt" 1;
+
+  /* 行末の句読点を版面の外へ逃がす。行の右端が揃う */
+  hanging-punctuation: allow-end;
+}
+
+/* 見出しは字間を締める。大きい字ほど、既定のアキが間延びして見える */
+h1, h2, h3, h4 {
+  letter-spacing: -0.01em;
+}
+
+/* 欧文と数字だけの要素では、和文向けの指定を戻す。
+   auto-phrase は日本語の解析を前提にしているので、
+   URL やコードに効かせると不自然な位置で折れる */
+code, pre, time, input, textarea, select, .mono {
+  word-break: normal;
+  font-feature-settings: normal;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1028,4 +1068,217 @@ a {
   .note-wall > :nth-child(even) {
     margin-top: 1.5rem;
   }
+}
+
+
+/* =============================================================================
+   紙に出すとき
+   =============================================================================
+   画面のアプリらしさ（すりガラス、影、色面、背景のオーブ）は紙の上では
+   読みにくく、学内のモノクロ機で刷られることも多い。
+   印刷では罫線と余白だけに落とす。
+   ============================================================================= */
+
+@page {
+  size: A4;
+  margin: 18mm 16mm;
+}
+
+@media print {
+  /* 背景のオーブは、紙に出すと大きな灰色の面になるだけ */
+  body::before,
+  body::after {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    min-height: 0;
+  }
+
+  /* ヘッダーとナビは紙に要らない。
+     :has() が使えない環境のために、クラスでも指定しておく */
+  header.glass-header,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* 影と半透明は、紙では汚れにしか見えない */
+  .glass-panel,
+  .glass-card,
+  .glass-header {
+    background: none !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+    border-color: #999 !important;
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+
+  /* 表や承認欄がページの境目で割れないようにする */
+  .paper-approvals,
+  .paper-table tr,
+  .paper-seal {
+    break-inside: avoid;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   申請書の体裁
+   -----------------------------------------------------------------------------
+   画面でも紙と同じ見た目にする。刷る前に、出てくるものが分かるように。
+   ----------------------------------------------------------------------------- */
+
+.paper {
+  background: #fff;
+  color: #111;
+  padding: 14mm 12mm;
+  border: 1px solid #d5d5dd;
+  border-radius: 2px;
+  font-feature-settings: "palt" 1;
+}
+
+@media print {
+  .paper {
+    border: 0;
+    padding: 0;
+  }
+}
+
+.paper-head {
+  border-bottom: 2px solid #111;
+  padding-bottom: 6mm;
+  margin-bottom: 8mm;
+}
+
+.paper-meta {
+  font-size: 10pt;
+  color: #555;
+  margin-bottom: 2mm;
+}
+
+.paper-title {
+  font-size: 20pt;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 5mm;
+}
+
+/* 受付番号などは、紙の書類らしく横一列に */
+.paper-receipt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1mm 6mm;
+  font-size: 9.5pt;
+}
+.paper-receipt dt {
+  color: #555;
+}
+.paper-receipt dt::after {
+  content: "：";
+}
+.paper-receipt dd {
+  margin: 0 4mm 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.paper-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5pt;
+  margin-bottom: 9mm;
+}
+.paper-table th,
+.paper-table td {
+  border: 1px solid #111;
+  padding: 3mm 4mm;
+  text-align: left;
+  vertical-align: top;
+}
+.paper-table th {
+  width: 30mm;
+  background: #f2f2f5;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.paper-body {
+  white-space: pre-wrap;
+  min-height: 24mm;
+}
+
+.paper-subtitle {
+  font-size: 11pt;
+  font-weight: 700;
+  margin-bottom: 4mm;
+}
+
+/* 判子欄。紙の決裁と同じく、横一列に並べる */
+.paper-seals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4mm;
+}
+.paper-seal {
+  width: 30mm;
+  text-align: center;
+}
+.paper-seal-box {
+  height: 24mm;
+  border: 1px solid #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5mm;
+  color: #999;
+}
+.paper-rejected {
+  font-size: 9pt;
+  font-weight: 700;
+  color: #b3261e;
+}
+.paper-seal-name {
+  font-size: 9pt;
+  font-weight: 600;
+}
+.paper-seal-date {
+  font-size: 8pt;
+  color: #555;
+  font-variant-numeric: tabular-nums;
+}
+
+.paper-comments {
+  margin-top: 6mm;
+  font-size: 9.5pt;
+  border-top: 1px solid #ccc;
+  padding-top: 4mm;
+}
+.paper-comments div {
+  display: flex;
+  gap: 4mm;
+  margin-bottom: 1.5mm;
+}
+.paper-comments dt {
+  min-width: 24mm;
+  color: #555;
+}
+.paper-comments dd {
+  margin: 0;
+}
+
+.paper-foot {
+  margin-top: 12mm;
+  border-top: 1px solid #ccc;
+  padding-top: 4mm;
+  font-size: 8.5pt;
+  color: #555;
+  line-height: 1.7;
+}
+.paper-verify {
+  margin-top: 1.5mm;
+  font-variant-numeric: tabular-nums;
 }

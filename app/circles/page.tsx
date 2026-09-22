@@ -30,6 +30,7 @@ import {
   listWatchedUniversityIds,
 } from "@/lib/discovery";
 import { listUniversityPublicEvents } from "@/lib/events";
+import { currentTermYear, listStaleCircles } from "@/lib/handover";
 import { PREFECTURE_UNKNOWN } from "@/lib/prefectures";
 import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
 
@@ -118,14 +119,15 @@ export default async function CirclesPage({
 
   // 職員には自分の大学の承認待ちキューを見せる
   const isStaff = user?.role === "staff";
-  const [pending, closureRequests, requiredApprovals, staffCount] = isStaff
+  const [pending, closureRequests, requiredApprovals, staffCount, stale] = isStaff
     ? await Promise.all([
         listPendingCircles(user.id),
         listClosureRequests(universityId),
         getRequiredApprovals(universityId),
         countStaff(universityId),
+        listStaleCircles(universityId),
       ])
-    : [[], [], 1, 0];
+    : [[], [], 1, 0, []];
 
   // 「あと何人か」を出すために、集まっている承認の数を引く
   const [setupCounts, closureCounts] = isStaff
@@ -344,6 +346,30 @@ export default async function CirclesPage({
                     却下
                   </button>
                 </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {isStaff && stale.length > 0 && (
+        <section className="mb-10 glass-panel">
+          <h2 className="mb-1 text-sm font-semibold">
+            今年度まだ代替わりしていないサークル（{stale.length}件）
+          </h2>
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            年度が替わっても代表が前のままだと、卒業した人がサークルを
+            握ったままになります。{currentTermYear()}年度の代表が登録されていない一覧です。
+          </p>
+          <ul className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {stale.map((c) => (
+              <li key={c.id} className="text-sm">
+                <Link href={`/circles/${c.id}`} className="underline">
+                  {c.name}
+                </Link>
+                <span className="ml-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  {c.term_year ? `${c.term_year}年度` : "設立の代"}
+                </span>
               </li>
             ))}
           </ul>

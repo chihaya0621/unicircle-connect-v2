@@ -7,7 +7,8 @@ import {
   removeCircleImage,
   uploadCircleImage,
 } from "@/app/actions/images";
-import { ApprovalLog } from "@/components/ApprovalLog";
+import { ApprovalTrail } from "@/components/ApprovalTrail";
+import { HandoverPanel } from "@/components/HandoverPanel";
 import {
   CircleEditForm,
   ClosureRequest,
@@ -34,7 +35,12 @@ import {
   isCircleAdmin,
   listMembers,
 } from "@/lib/circles";
-import { getRequiredApprovals, listCircleApprovals } from "@/lib/approvals";
+import {
+  getRequiredApprovals,
+  listCircleApprovals,
+  verifyApprovalChain,
+} from "@/lib/approvals";
+import { getCurrentNote, getPendingHandover } from "@/lib/handover";
 import {
   listCampuses,
   listFavoriteCircleIds,
@@ -94,15 +100,35 @@ export default async function CircleDetailPage({
   // 誰が承認したかは、申請した側にも見えてよい。
   // 読める範囲は RLS が対象そのものに合わせて決める。
   const approvals = user ? await listCircleApprovals(id) : [];
-  const requiredApprovals = canManage
+  // 残りの人数を出すので、管理者以外にも必要承認者数が要る。
+  // 申請した側が「あと何人か」を知れないと、待つ理由が分からない。
+  const requiredApprovals = user
     ? await getRequiredApprovals(circle.university_id)
     : 1;
+  // 記録が押されたときのままかを確かめる。
+  // 確かめられなかった場合は null が返り、画面には何も出さない。
+  const chainCheck = approvals.length > 0
+    ? await verifyApprovalChain(
+        circle.closure_requested_at ? "circle_closure" : "circle",
+        id,
+      )
+    : null;
   const closureApprovals = approvals.filter(
     (a) => a.target_type === "circle_closure" && a.decision === "approved",
   ).length;
 
   // 掲示板はメンバーのみ。RLS でも非メンバーには 0 件になる。
   const isMember = membership?.status === "active";
+
+  // 代替わり。申し送りには内輪の事情が書かれうるので、メンバー以外には引かない
+  const [pendingHandover, handoverNote] = isMember
+    ? await Promise.all([getPendingHandover(id), getCurrentNote(id)])
+    : [null, null];
+
+  // 引き継ぎ先に選べるのは、在籍しているメンバーから自分を除いた人
+  const handoverCandidates = members
+    .filter((m) => m.status === "active" && m.user_id !== user?.id)
+    .map((m) => ({ id: m.user_id, name: m.user?.name ?? "名前未設定" }));
   const posts = isMember ? await listCirclePosts(id) : [];
   const image = imageUrl(circle.image_path);
 
@@ -200,7 +226,48 @@ export default async function CircleDetailPage({
         )}
       </header>
 
-      <ApprovalLog entries={approvals} />
+      {isMember && user && (
+        <HandoverPanel
+          circleId={id}
+          pending={pendingHandover}
+          candidates={handoverCandidates}
+          isAdmin={canManage}
+          viewerId={user.id}
+          termYear={circle.term_year}
+        />
+      )}
+
+      {handoverNote?.note && !pendingHandover && (
+        <section className="mb-10 glass-panel">
+          <h2 className="mb-1 text-lg font-semibold">前の代からの申し送り</h2>
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            {handoverNote.from_name} さん → {handoverNote.to_name} さん（
+            {handoverNote.term_year} 年度）
+          </p>
+          <p className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
+            {handoverNote.note}
+          </p>
+        </section>
+      )}
+
+      <ApprovalTrail
+        entries={approvals}
+        required={requiredApprovals}
+        requestedAt={circle.closure_requested_at ?? circle.created_at}
+        // 廃止の申請中は、設立が済んでいても決着していない
+        settled={circle.status !== "pending" && !circle.closure_requested_at}
+        title={circle.closure_requested_at ? "廃止の承認" : "承認のながれ"}
+        check={chainCheck}
+      />
+
+      {/* 承認された申請は紙で保管される。必要なときに紙へ戻せるようにする */}
+      {(isMember || user?.role === "staff") && approvals.length > 0 && (
+        <p className="-mt-6 mb-10 text-sm">
+          <Link href={`/circles/${id}/print`} className="font-medium underline">
+            申請書の体裁で印刷する
+          </Link>
+        </p>
+      )}
 
       {hasPublicProfile && (
         <section className="mb-10 glass-panel">

@@ -6,6 +6,7 @@ import { PageHero } from "@/components/PageHero";
 import { DeleteAccount } from "@/components/DeleteAccount";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { ProfileForm } from "@/components/ProfileForm";
+import { SealEditor } from "@/components/SealEditor";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { UniversityWatchPanel } from "@/components/UniversityWatchPanel";
 import { CircleCard } from "@/components/CircleCard";
@@ -26,6 +27,7 @@ import {
   listWatchedUniversityIds,
 } from "@/lib/discovery";
 import { listPublicCircles } from "@/lib/circles";
+import { getMySeal } from "@/lib/approvals";
 import { getPreferences } from "@/lib/notifications";
 import { getPendingCounts } from "@/lib/pending";
 
@@ -151,6 +153,8 @@ export default async function MyPage() {
   if (!profile) notFound();
 
   const isStaff = user.role === "staff";
+  // 印影は職員だけが持つ。承認のときに押される
+  const seal = isStaff ? await getMySeal(user.id) : null;
   const isGeneral = user.role === "general";
   const preferences = await getPreferences(user.id);
 
@@ -209,6 +213,20 @@ export default async function MyPage() {
         <h2 className="mb-4 text-lg font-semibold">プロフィール</h2>
         <ProfileForm profile={profile} />
       </section>
+
+      {isStaff && seal && (
+        <section className="mt-10 glass-panel">
+          <h2 className="mb-1 text-lg font-semibold">印影</h2>
+          <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            サークルの設立・廃止や施設の予約を承認したときに押されます。
+          </p>
+          <SealEditor
+            current={seal.text}
+            shape={seal.shape}
+            fallback={[...profile.name].slice(0, 2).join("") || "印"}
+          />
+        </section>
+      )}
 
       {isGeneral && (
         <section className="mt-10 glass-panel">

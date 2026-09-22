@@ -22,6 +22,17 @@ export type CircleRole = "admin" | "member";
 export type EventVisibility = "internal" | "scoped" | "public";
 /** サークル／イベント共通の可視範囲・参加資格スコープ（0003_scopes.sql） */
 export type Scope = "university" | "scoped" | "public";
+
+/** 印影の形。丸は認印、角は角印にあたる（0029） */
+export type SealShape = "circle" | "square";
+
+/**
+ * 引き継ぎの申し出の状態（0030）。
+ *
+ * 承認と違って accepted / declined を分けているのは、断られたことも
+ * 記録として残すため。次の代に「一度断られた経緯」が伝わる。
+ */
+export type HandoverStatus = "pending" | "accepted" | "declined" | "cancelled";
 export type FacilityCategory = "facility" | "equipment";
 /** 表示テーマ（0016_theme.sql） */
 export type Theme = "pop" | "citrus" | "mint" | "berry" | "glass";
@@ -75,6 +86,31 @@ export type Database = {
           decision: "approved" | "rejected";
           comment: string | null;
           created_at: string;
+          /** 押した時点の印影。あとから変えても過去の跡は変わらない（0029） */
+          seal_text: string | null;
+          seal_shape: SealShape | null;
+          /** 同じ案件の1つ前の記録のハッシュ。先頭は null（0029） */
+          prev_hash: string | null;
+          row_hash: string | null;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+      };
+      /** 代表の引き継ぎ（0030_handover.sql） */
+      circle_handovers: {
+        Row: {
+          id: string;
+          circle_id: string;
+          from_user_id: string | null;
+          to_user_id: string | null;
+          from_name: string;
+          to_name: string;
+          /** 次の代が最初に読む申し送り */
+          note: string | null;
+          status: HandoverStatus;
+          term_year: number;
+          created_at: string;
+          decided_at: string | null;
         };
         Insert: Record<string, never>;
         Update: Record<string, never>;
@@ -269,7 +305,13 @@ export type Database = {
         };
       };
       staff_profiles: {
-        Row: { user_id: string; university_id: string | null };
+        Row: {
+          user_id: string;
+          university_id: string | null;
+          /** 印影に彫る文字（1〜4字）。未設定なら氏名の頭2字を使う（0029） */
+          seal_text: string | null;
+          seal_shape: SealShape;
+        };
         Insert: { user_id: string; university_id?: string | null };
         Update: { university_id?: string | null };
       };
@@ -286,6 +328,8 @@ export type Database = {
           campus_id: string | null;
           /** 廃止を申請した日時。承認が揃うまで status は動かさない（0027） */
           closure_requested_at: string | null;
+          /** いまの代が引き継いだ年度。null は設立の代のまま（0030） */
+          term_year: number | null;
           created_at: string;
         };
         Insert: {
@@ -414,6 +458,31 @@ export type Database = {
     }>;
     Views: Record<never, never>;
     Functions: {
+      /** 印影を決める。職員のみ（0029） */
+      update_my_seal: {
+        Args: { p_text: string | null; p_shape: SealShape };
+        Returns: undefined;
+      };
+      /** 承認の記録が書き換えられていないか確かめる（0029） */
+      verify_approval_chain: {
+        Args: { p_target_type: string; p_target_id: string };
+        Returns: { ok: boolean; checked: number; broken_at: string | null }[];
+      };
+      /** 代表の引き継ぎを申し出る。サークル管理者のみ（0030） */
+      request_handover: {
+        Args: { p_circle_id: string; p_to_user: string; p_note?: string | null };
+        Returns: string;
+      };
+      /** 申し出に答える。指名された本人のみ（0030） */
+      respond_handover: {
+        Args: { p_handover_id: string; p_accept: boolean };
+        Returns: HandoverStatus;
+      };
+      /** 申し出を取り下げる。申し出た本人のみ（0030） */
+      cancel_handover: {
+        Args: { p_handover_id: string };
+        Returns: undefined;
+      };
       /** リマインドの設定・解除。分は NULL で解除（0022） */
       set_event_reminder: {
         Args: { p_event_id: string; p_lead_minutes: number | null };

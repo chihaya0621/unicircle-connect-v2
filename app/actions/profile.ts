@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireUser } from "@/lib/dal";
+import { requireRole, requireUser } from "@/lib/dal";
 import { createClient } from "@/lib/supabase-server";
 
 export type ActionState = { error?: string; notice?: string } | null;
@@ -57,4 +57,39 @@ export async function updateProfile(
   // 氏名はヘッダーにも出るのでレイアウトごと再検証する
   revalidatePath("/", "layout");
   return { notice: "プロフィールを更新しました。" };
+}
+
+/**
+ * 印影を決める。職員のみ（0029）。
+ *
+ * 文字を空にすると未設定に戻る。そのときは押印の際に氏名の頭2字で
+ * 認印が作られるので、決めていない職員でも承認は止まらない。
+ */
+export async function updateSeal(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireRole("staff");
+
+  const text = String(formData.get("seal_text") ?? "").trim();
+  const shape = String(formData.get("seal_shape") ?? "circle");
+
+  if ([...text].length > 4) {
+    return { error: "印影に彫れるのは4字までです。" };
+  }
+  if (shape !== "circle" && shape !== "square") {
+    return { error: "印影の形が不正です。" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_my_seal", {
+    p_text: text || null,
+    p_shape: shape,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/mypage");
+  return {
+    notice: text ? `印影を「${text}」にしました。` : "印影を未設定に戻しました。",
+  };
 }

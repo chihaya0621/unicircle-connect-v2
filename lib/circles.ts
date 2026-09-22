@@ -54,6 +54,8 @@ export type CircleDetail = CirclePublicProfile & {
   created_at: string;
   /** 廃止を申請した日時。承認が揃うまで status は動かさない */
   closure_requested_at: string | null;
+  /** いまの代が引き継いだ年度。null は設立の代のまま（0030） */
+  term_year: number | null;
   university: { name: string } | null;
   campus: { name: string; address: string | null } | null;
   scoped_universities: {
@@ -321,7 +323,7 @@ export const getCircle = cache(
       .select(
         `id, name, description, status, scope, image_path, university_id, created_at,
          public_listed, public_intro, public_schedule, public_contact, campus_id,
-         closure_requested_at,
+         closure_requested_at, term_year,
          university:universities!circles_university_id_fkey(name),
          campus:campuses!circles_campus_id_fkey(name, address),
          scoped_universities:circle_universities(
