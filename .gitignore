@@ -48,3 +48,9 @@ supabase/promote_staff.sql
 
 # ポスターの書き出し（docs/poster.html から生成する）
 docs/poster.pdf
+
+# E2E
+/.next-e2e/
+/e2e/.auth/
+/playwright-report/
+/test-results/

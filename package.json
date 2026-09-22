@@ -10,7 +10,8 @@
     "db:bundle": "bash scripts/bundle-sql.sh",
     "db:users": "node scripts/seed-users.mjs",
     "db:activity": "node scripts/seed-activity.mjs",
-    "db:test": "bash scripts/db-test.sh"
+    "db:test": "bash scripts/db-test.sh",
+    "test:e2e": "bash scripts/e2e.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
@@ -20,6 +21,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

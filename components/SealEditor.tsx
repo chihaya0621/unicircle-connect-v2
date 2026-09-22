@@ -93,7 +93,7 @@ export function SealEditor({
             </div>
           </fieldset>
 
-          <SubmitButton pendingLabel="保存中…">保存</SubmitButton>
+          <SubmitButton pendingLabel="保存中…">印影を保存</SubmitButton>
         </div>
       </div>
 

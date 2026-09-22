@@ -168,6 +168,7 @@ npm run dev
 | 4 | `supabase/seed_demo_activity.sql` | イベント200超・参加登録・出欠・掲示板・予約 |
 | 5 | `npm run db:activity` | 通知を発生させるデモ操作 |
 | `npm run db:test` | データベースの検証（`-- rls` のように絞り込み可） |
+| `npm run test:e2e` | 画面を通した検証（`-- seal` のように絞り込み可） |
 | 6 | `supabase/seed_public_directory.sql` | 架空の40大学・54キャンパス・289サークル・316イベント |
 | 7 | `supabase/seed_review_scenarios.sql` | 承認・廃止・退会の各状態を作った確認用データ |
 
@@ -249,6 +250,45 @@ pgTAP は使っていません。依存を増やすほど「手元では動く�
 
 ---
 
+## 画面を通した検証（E2E）
+
+```bash
+npm run test:e2e
+npm run test:e2e -- seal        # 名前で絞る
+npm run test:e2e -- --headed    # ブラウザを見ながら
+```
+
+ビルドしたアプリを 3001 番で起動し、Playwright で実際に操作します。
+**開発サーバー（3000）とは別のポート・別の出力先（`.next-e2e`）を使う**ので、
+動かしたまま実行できます。以前、同じ `.next` を奪い合ってキャッシュが壊れ、
+全ページが 404 になったことがあるため分けています。
+
+`next dev` ではなく `next build` + `next start` を使うのは、`NEXT_PUBLIC_*` が
+ビルド時に埋め込まれるからです。dev と production でクイックログインの有無が
+変わるので、本番と同じ条件で確かめます。
+
+| ファイル | 内容 |
+| --- | --- |
+| `auth.setup.ts` | 学生・職員・一般でログインし、Cookie を保存しておく |
+| `access.spec.ts` | 誰がどこまで辿り着けるか。役割ごとの着地点と、入れない画面 |
+| `seal.spec.ts` | 印影の見本・保存・字数制限。学生には欄が出ないこと |
+| `approval.spec.ts` | 承認のながれに印影が並ぶこと。申請書の印刷と、印刷時に消える操作 |
+| `handover.spec.ts` | 代替わりの申し出と取り下げ |
+
+> **データベースは `.env.local` の Supabase をそのまま見ます。**
+> Docker が要るローカル Supabase は立てていないので、**公開デモと同じ
+> データを触ります。** そのため、書き込みを伴うテストは `finally` で必ず
+> 元に戻すところまでを1本に含めています。引き継ぎも「受ける」ところまでは
+> やりません（管理者が入れ替わり、戻すのに相手としてログインし直す必要が
+> あるため）。受けたあと何が起きるかは `supabase/tests/03_handover.sql` の担当です。
+
+CI には入れていません。Supabase の接続情報が要るうえ、公開デモと同じ
+データを触るので、pull request のたびに走らせる作りにはしていません。
+データベース側の検証（`db-test`）は使い捨ての PostgreSQL を立てるだけなので、
+そちらは CI で毎回回しています。
+
+---
+
 ## ディレクトリ構成
 
 ```
@@ -295,8 +335,11 @@ supabase/
   promote_staff.sql      ロール付与（db:users の生成物）
   setup_all.sql          マイグレーション+seed の連結（生成物）
   reset_full.sql         【破壊的】作り直し用の初期化スクリプト
+e2e/                     画面を通した検証（Playwright）
 scripts/
   bundle-sql.sh          setup_all.sql の生成
+  db-test.sh             データベースの検証を回す
+  e2e.sh                 ビルドしてから E2E を回す
   seed-users.mjs         テストユーザーの一括作成
   seed-activity.mjs      通知を発生させるデモ操作
   gen_public_seed.py     seed_public_directory.sql の生成
@@ -503,3 +546,4 @@ npx supabase gen types typescript --project-id <ref> > lib/database.types.ts
 | `npm run db:users` | テストユーザーを作成（`-- <文字列>` で絞り込み） |
 | `npm run db:activity` | 通知を発生させるデモ操作 |
 | `npm run db:test` | データベースの検証（`-- rls` のように絞り込み可） |
+| `npm run test:e2e` | 画面を通した検証（`-- seal` のように絞り込み可） |
