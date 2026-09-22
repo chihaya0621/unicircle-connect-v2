@@ -31,7 +31,10 @@
 --  26. migrations/0026_membership_and_edits.sql
 --  27. migrations/0027_approvals.sql
 --  28. migrations/0028_reservation_log_and_account.sql
---  29. seed.sql
+--  29. migrations/0029_seals.sql
+--  30. migrations/0030_handover.sql
+--  31. migrations/0031_events_public_listed_rls.sql
+--  32. seed.sql
 --
 -- 再生成: npm run db:bundle
 --
@@ -5422,6 +5425,711 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION public.delete_my_account() FROM public, anon;
 GRANT EXECUTE ON FUNCTION public.delete_my_account() TO authenticated;
+
+-- ▼▼▼ migrations/0029_seals.sql ▼▼▼
+
+-- =============================================================================
+-- 印影と、承認記録の連なり
+-- =============================================================================
+-- 紙の決裁では、誰が通したかは「印影」で分かる。氏名の文字列より、
+-- 押された跡そのものが記録になっている。同じものをこちらにも持たせる。
+--
+-- あわせて、承認の記録を1件ずつ前の記録のハッシュで繋ぐ。途中の1行を
+-- 書き換えると、そこから後ろのハッシュが合わなくなるので気づける。
+-- 公開鍵の署名までは踏み込まない。ここで防ぎたいのは「後から静かに
+-- 書き換えられること」であって、なりすましの否認防止ではないため。
+-- 本気でやるなら職員ごとの鍵が要るが、それは鍵の配布と失効の話になり、
+-- 大学の運用に乗るかどうかから決める必要がある。
+-- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- 1. 職員の印影
+-- -----------------------------------------------------------------------------
+-- 画像は持たない。文字と形だけを持って、描画は画面側でやる。
+-- 画像にすると、保存・配信・差し替えの経路が増えるわりに、
+-- 表示できる内容は「文字が入った丸」から変わらない。
+
+ALTER TABLE staff_profiles
+  ADD COLUMN IF NOT EXISTS seal_text TEXT;
+
+ALTER TABLE staff_profiles
+  ADD COLUMN IF NOT EXISTS seal_shape TEXT NOT NULL DEFAULT 'circle';
+
+ALTER TABLE staff_profiles DROP CONSTRAINT IF EXISTS staff_profiles_seal_text_check;
+ALTER TABLE staff_profiles ADD CONSTRAINT staff_profiles_seal_text_check
+  CHECK (seal_text IS NULL OR char_length(btrim(seal_text)) BETWEEN 1 AND 4);
+
+ALTER TABLE staff_profiles DROP CONSTRAINT IF EXISTS staff_profiles_seal_shape_check;
+ALTER TABLE staff_profiles ADD CONSTRAINT staff_profiles_seal_shape_check
+  CHECK (seal_shape IN ('circle', 'square'));
+
+COMMENT ON COLUMN staff_profiles.seal_text IS
+  '印影に彫る文字（1〜4字）。未設定なら氏名の頭2字を使う';
+
+
+-- -----------------------------------------------------------------------------
+-- 2. 承認の記録に、印影と連なりを足す
+-- -----------------------------------------------------------------------------
+
+-- 押した時点の印影。氏名と同じく、後から職員が印影を変えても
+-- 過去に押した跡は変わらないようにする。
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS seal_text  TEXT;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS seal_shape TEXT;
+
+-- 連なり。prev_hash は同じ案件の1つ前の row_hash。
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS prev_hash TEXT;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS row_hash  TEXT;
+
+COMMENT ON COLUMN approvals.row_hash IS
+  '前の記録のハッシュを含めて計算する。1行書き換えると後続が合わなくなる';
+
+
+-- -----------------------------------------------------------------------------
+-- 3. ハッシュの計算
+-- -----------------------------------------------------------------------------
+-- sha256(bytea) は PostgreSQL 11 以降の組み込み。pgcrypto を入れなくて済む。
+--
+-- 区切りに \x1f（情報区切り文字）を使う。単純に連結すると、
+-- 「氏名="AB" 所見="C"」と「氏名="A" 所見="BC"」が同じ文字列になり、
+-- 違う記録から同じハッシュが出てしまう。
+
+CREATE OR REPLACE FUNCTION public.app_approval_hash(
+  p_prev        TEXT,
+  p_target_type TEXT,
+  p_target_id   UUID,
+  p_approver    UUID,
+  p_name        TEXT,
+  p_decision    TEXT,
+  p_comment     TEXT,
+  p_at          TIMESTAMPTZ
+)
+RETURNS TEXT
+LANGUAGE sql IMMUTABLE
+AS $$
+  SELECT encode(
+    sha256(convert_to(
+      concat_ws(
+        E'\x1f',
+        coalesce(p_prev, ''),
+        p_target_type,
+        p_target_id::text,
+        coalesce(p_approver::text, ''),
+        p_name,
+        p_decision,
+        coalesce(p_comment, ''),
+        -- 表記ゆれでハッシュが変わらないよう、時刻は UTC の固定書式に寄せる
+        to_char(p_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+      ),
+      'UTF8'
+    )),
+    'hex'
+  );
+$$;
+
+
+-- 挿入のたびに、同じ案件の直前の記録を見て連なりを作る。
+-- アプリ側で計算すると、RPC を通らない経路（将来の管理作業など）で
+-- 連なりが切れる。データベース側に置いて、入り口を問わず必ず繋がるようにする。
+CREATE OR REPLACE FUNCTION public.app_approvals_chain()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_prev TEXT;
+BEGIN
+  SELECT row_hash INTO v_prev
+    FROM public.approvals
+   WHERE target_type = NEW.target_type
+     AND target_id   = NEW.target_id
+   ORDER BY created_at DESC, id DESC
+   LIMIT 1;
+
+  NEW.prev_hash := v_prev;
+  NEW.row_hash  := public.app_approval_hash(
+    v_prev, NEW.target_type, NEW.target_id, NEW.approver_id,
+    NEW.approver_name, NEW.decision, NEW.comment, NEW.created_at
+  );
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS approvals_chain ON approvals;
+CREATE TRIGGER approvals_chain
+  BEFORE INSERT ON approvals
+  FOR EACH ROW EXECUTE FUNCTION public.app_approvals_chain();
+
+
+-- -----------------------------------------------------------------------------
+-- 4. 連なりの検証
+-- -----------------------------------------------------------------------------
+-- 案件ごとに、先頭から順に計算し直して突き合わせる。
+-- 画面から呼んで「この決裁は改ざんされていない」と出すために使う。
+
+CREATE OR REPLACE FUNCTION public.verify_approval_chain(
+  p_target_type TEXT,
+  p_target_id   UUID
+)
+RETURNS TABLE (ok BOOLEAN, checked INT, broken_at TIMESTAMPTZ)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  r      RECORD;
+  v_prev TEXT := NULL;
+  v_calc TEXT;
+  v_n    INT := 0;
+BEGIN
+  -- SECURITY DEFINER なので RLS を迂回する。対象そのものを読める人だけに
+  -- 答えるよう、ここで可視性を確かめる（approvals_select と同じ条件）。
+  IF p_target_type = 'reservation' THEN
+    IF NOT EXISTS (SELECT 1 FROM public.facility_reservations WHERE id = p_target_id) THEN
+      RAISE EXCEPTION '対象が見つかりません';
+    END IF;
+  ELSE
+    IF NOT EXISTS (SELECT 1 FROM public.circles WHERE id = p_target_id) THEN
+      RAISE EXCEPTION '対象が見つかりません';
+    END IF;
+  END IF;
+
+  FOR r IN
+    SELECT * FROM public.approvals
+     WHERE target_type = p_target_type AND target_id = p_target_id
+     ORDER BY created_at, id
+  LOOP
+    v_n := v_n + 1;
+    v_calc := public.app_approval_hash(
+      v_prev, r.target_type, r.target_id, r.approver_id,
+      r.approver_name, r.decision, r.comment, r.created_at
+    );
+    IF r.row_hash IS DISTINCT FROM v_calc OR r.prev_hash IS DISTINCT FROM v_prev THEN
+      RETURN QUERY SELECT false, v_n, r.created_at;
+      RETURN;
+    END IF;
+    v_prev := r.row_hash;
+  END LOOP;
+
+  RETURN QUERY SELECT true, v_n, NULL::TIMESTAMPTZ;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 5. 印影の設定
+-- -----------------------------------------------------------------------------
+
+DROP FUNCTION IF EXISTS public.update_my_seal(TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public.update_my_seal(
+  p_text  TEXT,
+  p_shape TEXT
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_text TEXT := nullif(btrim(coalesce(p_text, '')), '');
+BEGIN
+  IF public.app_role() <> 'staff' THEN
+    RAISE EXCEPTION '印影を持てるのは職員だけです';
+  END IF;
+
+  IF v_text IS NOT NULL AND char_length(v_text) > 4 THEN
+    RAISE EXCEPTION '印影に彫れるのは4字までです';
+  END IF;
+
+  IF coalesce(p_shape, 'circle') NOT IN ('circle', 'square') THEN
+    RAISE EXCEPTION '印影の形が不正です';
+  END IF;
+
+  UPDATE public.staff_profiles
+     SET seal_text  = v_text,
+         seal_shape = coalesce(p_shape, 'circle')
+   WHERE user_id = auth.uid();
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 6. 押印のときに印影を焼き付ける
+-- -----------------------------------------------------------------------------
+-- 引数は変わらないので置き換えで済む。SECURITY DEFINER は明示し直す
+-- （0008 が ALTER で揃えているが、書き換えると INVOKER に戻るため）。
+
+CREATE OR REPLACE FUNCTION public.app_record_approval(
+  p_target_type TEXT,
+  p_target_id   UUID,
+  p_approve     BOOLEAN,
+  p_required    INT,
+  p_comment     TEXT
+)
+RETURNS TEXT
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_name  TEXT;
+  v_seal  TEXT;
+  v_shape TEXT;
+  v_count INT;
+BEGIN
+  SELECT u.name, s.seal_text, s.seal_shape
+    INTO v_name, v_seal, v_shape
+    FROM public.users u
+    LEFT JOIN public.staff_profiles s ON s.user_id = u.id
+   WHERE u.id = auth.uid();
+
+  INSERT INTO public.approvals
+    (target_type, target_id, approver_id, approver_name,
+     decision, comment, seal_text, seal_shape)
+  VALUES (
+    p_target_type, p_target_id, auth.uid(), coalesce(v_name, '不明'),
+    CASE WHEN p_approve THEN 'approved' ELSE 'rejected' END,
+    nullif(btrim(coalesce(p_comment, '')), ''),
+    -- 印影を決めていない職員でも押せる。氏名の頭2字を彫った認印を渡す。
+    coalesce(v_seal, left(coalesce(v_name, '印'), 2)),
+    coalesce(v_shape, 'circle')
+  )
+  ON CONFLICT (target_type, target_id, approver_id) DO NOTHING;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'すでにこの案件を処理しています';
+  END IF;
+
+  IF NOT p_approve THEN
+    RETURN 'rejected';
+  END IF;
+
+  SELECT count(*) INTO v_count
+    FROM public.approvals
+   WHERE target_type = p_target_type
+     AND target_id = p_target_id
+     AND decision = 'approved';
+
+  RETURN CASE WHEN v_count >= p_required THEN 'approved' ELSE 'pending' END;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 7. 既存の記録に連なりを作る
+-- -----------------------------------------------------------------------------
+-- 0029 より前に押された記録は row_hash を持っていない。
+-- そのままだと検証が全部失敗するので、いまの内容で一度だけ計算する。
+-- （遡って改ざんを検知できるわけではない。ここから先を守るための起点）
+
+DO $$
+DECLARE
+  t      RECORD;
+  r      RECORD;
+  v_prev TEXT;
+BEGIN
+  FOR t IN
+    SELECT DISTINCT target_type, target_id FROM public.approvals WHERE row_hash IS NULL
+  LOOP
+    v_prev := NULL;
+    FOR r IN
+      SELECT * FROM public.approvals
+       WHERE target_type = t.target_type AND target_id = t.target_id
+       ORDER BY created_at, id
+    LOOP
+      UPDATE public.approvals
+         SET prev_hash = v_prev,
+             row_hash  = public.app_approval_hash(
+               v_prev, r.target_type, r.target_id, r.approver_id,
+               r.approver_name, r.decision, r.comment, r.created_at)
+       WHERE id = r.id
+       RETURNING row_hash INTO v_prev;
+    END LOOP;
+  END LOOP;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 8. 実行権限
+-- -----------------------------------------------------------------------------
+
+REVOKE EXECUTE ON FUNCTION public.app_approval_hash(TEXT, TEXT, UUID, UUID, TEXT, TEXT, TEXT, TIMESTAMPTZ)
+  FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.app_record_approval(TEXT, UUID, BOOLEAN, INT, TEXT)
+  FROM public, anon, authenticated;
+
+DO $$
+DECLARE f TEXT;
+BEGIN
+  FOREACH f IN ARRAY ARRAY[
+    'update_my_seal(text,text)',
+    'verify_approval_chain(text,uuid)'
+  ] LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM public, anon', f);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated', f);
+  END LOOP;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 確認
+-- -----------------------------------------------------------------------------
+
+SELECT
+  (SELECT count(*) FROM approvals)                         AS 承認の記録,
+  (SELECT count(*) FROM approvals WHERE row_hash IS NOT NULL) AS 連なり済み,
+  (SELECT count(*) FROM approvals WHERE seal_text IS NOT NULL) AS 印影あり;
+
+-- ▼▼▼ migrations/0030_handover.sql ▼▼▼
+
+-- =============================================================================
+-- 代替わり（引き継ぎ）
+-- =============================================================================
+-- 最初に挙げた困りごとのうち、これだけが手つかずだった。
+--   「先輩が卒業したら、名簿のオーナー権限ごと消えた」
+--
+-- 役職を変える RPC（0026 の set_circle_member_role）はすでにある。
+-- しかしそれは「係を変える」操作であって、「代を継ぐ」ことではない。
+-- 代替わりには、役職の移動のほかに次の3つが要る。
+--
+--   1. 相手の承諾。断れない引き継ぎは引き継ぎではない。役職の変更は
+--      管理者が一方的にできるが、代表を押し付けられると困る
+--   2. 引き継ぎメモ。次の代が最初に読む場所。口頭で消える情報を残す
+--   3. 年度。いつの代なのかが分からないと、職員が「今年度まだ
+--      代替わりしていないサークル」を把握できない
+-- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- 1. 年度
+-- -----------------------------------------------------------------------------
+-- 日本の大学の年度は4月はじまり。3月までは前年の年度として数える。
+
+CREATE OR REPLACE FUNCTION public.app_term_year(p_at TIMESTAMPTZ DEFAULT now())
+RETURNS INT
+LANGUAGE sql IMMUTABLE
+AS $$
+  SELECT CASE
+    WHEN EXTRACT(MONTH FROM p_at AT TIME ZONE 'Asia/Tokyo') >= 4
+      THEN EXTRACT(YEAR FROM p_at AT TIME ZONE 'Asia/Tokyo')::INT
+    ELSE EXTRACT(YEAR FROM p_at AT TIME ZONE 'Asia/Tokyo')::INT - 1
+  END;
+$$;
+
+ALTER TABLE circles
+  ADD COLUMN IF NOT EXISTS term_year INT;
+
+COMMENT ON COLUMN circles.term_year IS
+  'いまの代が引き継いだ年度。NULL は一度も代替わりしていない（設立の代のまま）';
+
+
+-- -----------------------------------------------------------------------------
+-- 2. 引き継ぎの申し出
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS circle_handovers (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  circle_id    UUID NOT NULL REFERENCES circles(id) ON DELETE CASCADE,
+  -- 引き継ぐ側・継ぐ側。退会や卒業で users の行が消えても、
+  -- 引き継ぎの記録そのものは残したいので SET NULL にする
+  from_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  to_user_id   UUID REFERENCES users(id) ON DELETE SET NULL,
+  from_name    TEXT NOT NULL,
+  to_name      TEXT NOT NULL,
+  -- 次の代が最初に読む申し送り
+  note         TEXT,
+  status       TEXT NOT NULL DEFAULT 'pending'
+               CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled')),
+  term_year    INT  NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  decided_at   TIMESTAMPTZ
+);
+
+-- 申し出は同時に1件まで。複数走ると、どちらが通ったのか分からなくなる。
+CREATE UNIQUE INDEX IF NOT EXISTS idx_handover_one_pending
+  ON circle_handovers (circle_id) WHERE status = 'pending';
+
+CREATE INDEX IF NOT EXISTS idx_handover_circle
+  ON circle_handovers (circle_id, created_at DESC);
+
+-- 自分宛の申し出を探すため
+CREATE INDEX IF NOT EXISTS idx_handover_to
+  ON circle_handovers (to_user_id) WHERE status = 'pending';
+
+ALTER TABLE circle_handovers ENABLE ROW LEVEL SECURITY;
+
+-- 読めるのは、そのサークルのメンバーと、その大学の職員。
+-- 申し送りには内輪の事情が書かれうるので、外には出さない。
+DROP POLICY IF EXISTS circle_handovers_select ON circle_handovers;
+CREATE POLICY circle_handovers_select ON circle_handovers
+  FOR SELECT TO authenticated USING (
+    public.app_is_circle_member(circle_id)
+    OR EXISTS (
+      SELECT 1 FROM public.circles c
+       WHERE c.id = circle_id AND public.app_is_staff_of(c.university_id)
+    )
+  );
+
+
+-- -----------------------------------------------------------------------------
+-- 3. 引き継ぎを申し出る
+-- -----------------------------------------------------------------------------
+
+DROP FUNCTION IF EXISTS public.request_handover(UUID, UUID, TEXT);
+CREATE OR REPLACE FUNCTION public.request_handover(
+  p_circle_id UUID,
+  p_to_user   UUID,
+  p_note      TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_from   UUID := auth.uid();
+  v_fname  TEXT;
+  v_tname  TEXT;
+  v_circle TEXT;
+  v_id     UUID;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.circle_members
+     WHERE circle_id = p_circle_id AND user_id = v_from
+       AND role = 'admin' AND status = 'active'
+  ) THEN
+    RAISE EXCEPTION '引き継げるのは、このサークルの管理者だけです';
+  END IF;
+
+  IF p_to_user = v_from THEN
+    RAISE EXCEPTION '自分自身には引き継げません';
+  END IF;
+
+  -- 継ぐ相手は在籍しているメンバーに限る。外の人を代表に据えられると、
+  -- 名簿に載っていない人がサークルを握ることになる。
+  IF NOT EXISTS (
+    SELECT 1 FROM public.circle_members
+     WHERE circle_id = p_circle_id AND user_id = p_to_user AND status = 'active'
+  ) THEN
+    RAISE EXCEPTION '引き継ぎ先は、在籍しているメンバーから選んでください';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.circle_handovers
+     WHERE circle_id = p_circle_id AND status = 'pending'
+  ) THEN
+    RAISE EXCEPTION 'すでに引き継ぎの申し出が出ています';
+  END IF;
+
+  SELECT name INTO v_fname FROM public.users WHERE id = v_from;
+  SELECT name INTO v_tname FROM public.users WHERE id = p_to_user;
+  SELECT name INTO v_circle FROM public.circles WHERE id = p_circle_id;
+
+  INSERT INTO public.circle_handovers
+    (circle_id, from_user_id, to_user_id, from_name, to_name, note, term_year)
+  VALUES (
+    p_circle_id, v_from, p_to_user,
+    coalesce(v_fname, '不明'), coalesce(v_tname, '不明'),
+    nullif(btrim(coalesce(p_note, '')), ''),
+    public.app_term_year()
+  )
+  RETURNING id INTO v_id;
+
+  PERFORM public.app_notify(
+    p_to_user, 'request_received',
+    format('%s の代表を引き継いでほしいと依頼がありました', coalesce(v_circle, 'サークル')),
+    format('%s さんからの申し出です。受けるかどうかを選べます。', coalesce(v_fname, '管理者')),
+    '/circles/' || p_circle_id::text
+  );
+
+  RETURN v_id;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 4. 申し出に答える
+-- -----------------------------------------------------------------------------
+-- 受けたときに起きること:
+--   継ぐ人が管理者になり、譲る人は一般のメンバーに降りる。
+--   サークルの年度が、申し出を出した年度に更新される。
+--
+-- 譲る人を退会させないのは、代表を降りたあとも在籍し続けるのが普通だから。
+-- 抜けたいなら既存の leave_circle を使う。そのときは管理者が
+-- 新代表に移っているので、「最後の管理者は抜けられない」にも引っかからない。
+
+DROP FUNCTION IF EXISTS public.respond_handover(UUID, BOOLEAN);
+CREATE OR REPLACE FUNCTION public.respond_handover(
+  p_handover_id UUID,
+  p_accept      BOOLEAN
+)
+RETURNS TEXT
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  h        RECORD;
+  v_circle TEXT;
+BEGIN
+  SELECT * INTO h FROM public.circle_handovers
+   WHERE id = p_handover_id AND status = 'pending'
+   FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'この申し出はすでに決着しています';
+  END IF;
+
+  IF h.to_user_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION '答えられるのは、指名された本人だけです';
+  END IF;
+
+  SELECT name INTO v_circle FROM public.circles WHERE id = h.circle_id;
+
+  IF NOT p_accept THEN
+    UPDATE public.circle_handovers
+       SET status = 'declined', decided_at = now()
+     WHERE id = p_handover_id;
+
+    PERFORM public.app_notify(
+      h.from_user_id, 'approval_result',
+      format('%s の引き継ぎは見送られました', coalesce(v_circle, 'サークル')),
+      format('%s さんが申し出を受けませんでした。', h.to_name),
+      '/circles/' || h.circle_id::text
+    );
+    RETURN 'declined';
+  END IF;
+
+  UPDATE public.circle_members
+     SET role = 'admin'
+   WHERE circle_id = h.circle_id AND user_id = h.to_user_id;
+
+  UPDATE public.circle_members
+     SET role = 'member'
+   WHERE circle_id = h.circle_id AND user_id = h.from_user_id;
+
+  UPDATE public.circles
+     SET term_year = h.term_year
+   WHERE id = h.circle_id;
+
+  UPDATE public.circle_handovers
+     SET status = 'accepted', decided_at = now()
+   WHERE id = p_handover_id;
+
+  PERFORM public.app_notify(
+    h.from_user_id, 'approval_result',
+    format('%s の引き継ぎが成立しました', coalesce(v_circle, 'サークル')),
+    format('%s さんが代表になりました。', h.to_name),
+    '/circles/' || h.circle_id::text
+  );
+
+  RETURN 'accepted';
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 5. 申し出を取り下げる
+-- -----------------------------------------------------------------------------
+
+DROP FUNCTION IF EXISTS public.cancel_handover(UUID);
+CREATE OR REPLACE FUNCTION public.cancel_handover(p_handover_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE h RECORD;
+BEGIN
+  SELECT * INTO h FROM public.circle_handovers
+   WHERE id = p_handover_id AND status = 'pending';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'この申し出はすでに決着しています';
+  END IF;
+
+  IF h.from_user_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION '取り下げられるのは、申し出た本人だけです';
+  END IF;
+
+  UPDATE public.circle_handovers
+     SET status = 'cancelled', decided_at = now()
+   WHERE id = p_handover_id;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 6. 実行権限
+-- -----------------------------------------------------------------------------
+
+DO $$
+DECLARE f TEXT;
+BEGIN
+  FOREACH f IN ARRAY ARRAY[
+    'request_handover(uuid,uuid,text)',
+    'respond_handover(uuid,boolean)',
+    'cancel_handover(uuid)'
+  ] LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM public, anon', f);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated', f);
+  END LOOP;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 確認
+-- -----------------------------------------------------------------------------
+
+SELECT
+  public.app_term_year()                                        AS 今年度,
+  (SELECT count(*) FROM circles WHERE term_year IS NULL)         AS 未代替わり,
+  (SELECT count(*) FROM circle_handovers WHERE status='pending') AS 申し出中;
+
+-- ▼▼▼ migrations/0031_events_public_listed_rls.sql ▼▼▼
+
+-- =============================================================================
+-- 学外に出さないイベントを、本当に出さないようにする
+-- =============================================================================
+-- 0025 で events.public_listed を足し、アプリ側の問い合わせはこの列で
+-- 絞るようにした。しかし RLS ポリシーは 0008 のまま、visibility='public'
+-- だけを見ていた。
+--
+-- つまり画面には出ないが、匿名キーで REST を直接叩けば読めた。
+-- 大学が「学外には出さない」と決めた行事（入試、防災訓練、図書館
+-- ガイダンスなど）が、URL を組み立てれば誰にでも見えていたことになる。
+--
+-- アプリ側で絞っているから大丈夫、という考え方がそもそも間違いだった。
+-- 可視範囲はデータベース側で表現する、という方針を自分で破っていた。
+-- 見つけたのは supabase/tests/01_rls.sql。
+-- =============================================================================
+
+DROP POLICY IF EXISTS events_select ON events;
+CREATE POLICY events_select ON events
+  FOR SELECT USING (
+    CASE
+      -- 学内の人（学生・職員）はこれまでどおり。
+      -- public は学内公開の意味も兼ねているので、ここは変えない。
+      WHEN public.app_role() IN ('student', 'staff') THEN
+        visibility = 'public'
+        OR public.event_visible_to_university(id, public.app_university_id())
+
+      -- 学外の人（未ログイン・一般アカウント）には、
+      -- 大学が学外に出すと決めたものだけ。
+      ELSE
+        visibility = 'public' AND public_listed
+    END
+  );
+
+
+-- -----------------------------------------------------------------------------
+-- 確認
+-- -----------------------------------------------------------------------------
+-- 学外に出さない公開イベントが何件あるか。これがそのまま、
+-- これまで意図せず読めていた件数になる。
+
+SELECT
+  count(*) FILTER (WHERE visibility = 'public' AND public_listed)       AS 学外に出す,
+  count(*) FILTER (WHERE visibility = 'public' AND NOT public_listed)   AS 学内だけに留める,
+  count(*) FILTER (WHERE visibility <> 'public')                        AS 限定公開
+FROM events;
 
 -- ▼▼▼ seed.sql ▼▼▼
 

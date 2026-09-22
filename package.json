@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:bundle": "bash scripts/bundle-sql.sh",
     "db:users": "node scripts/seed-users.mjs",
-    "db:activity": "node scripts/seed-activity.mjs"
+    "db:activity": "node scripts/seed-activity.mjs",
+    "db:test": "bash scripts/db-test.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

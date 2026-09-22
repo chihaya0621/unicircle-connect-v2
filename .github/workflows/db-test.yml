@@ -1,0 +1,26 @@
+# データベースの検証。
+#
+# RLS は「書いたつもり」で抜けが残りやすい。実際、この仕組みを入れた初回に
+# events の掲載可否がポリシーで守られていないことが見つかった（0031）。
+# 人が気づくのを待たず、毎回まっさらな PostgreSQL に流して確かめる。
+name: db-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  db-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ランナーには PostgreSQL が同梱されているが、パスが通っていない。
+      # scripts/db-test.sh が /usr/lib/postgresql/*/bin を探すので、
+      # ここでは起動もセットアップもしなくてよい。
+      - name: PostgreSQL の在りかを確認
+        run: ls -d /usr/lib/postgresql/*/bin
+
+      - name: 検証
+        run: bash scripts/db-test.sh

@@ -43,6 +43,9 @@ SOURCES=(
   "migrations/0026_membership_and_edits.sql"
   "migrations/0027_approvals.sql"
   "migrations/0028_reservation_log_and_account.sql"
+  "migrations/0029_seals.sql"
+  "migrations/0030_handover.sql"
+  "migrations/0031_events_public_listed_rls.sql"
   "seed.sql"
 )
 
