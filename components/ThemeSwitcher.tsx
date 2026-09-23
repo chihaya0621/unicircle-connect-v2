@@ -76,7 +76,7 @@ export function ThemeSwitcher({ current }: { current: Theme }) {
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-semibold">{t.name}</span>
                     {active && (
-                      <span className="badge bg-[rgb(var(--accent)/0.15)] font-semibold text-[rgb(var(--accent-ink))]">
+                      <span className="badge bg-[rgb(var(--accent-ink))] font-semibold text-white dark:text-gray-900">
                         使用中
                       </span>
                     )}

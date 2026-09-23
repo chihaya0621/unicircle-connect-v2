@@ -74,7 +74,7 @@ function MemberRow({
             <input type="hidden" name="approve" value="true" />
             <button
               type="submit"
-              className="btn-primary px-3 py-1.5 text-xs"
+              className="btn-primary tap-target px-3 py-1.5 text-xs"
             >
               承認
             </button>

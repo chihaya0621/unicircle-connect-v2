@@ -108,7 +108,7 @@ export function CalendarFilterPanel({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-center justify-between text-left"
+          className="flex min-h-11 w-full items-center justify-between text-left"
         >
           <span className="text-sm font-semibold">表示する範囲</span>
           <span className="text-xs text-gray-500 dark:text-gray-400">

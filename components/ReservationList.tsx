@@ -70,14 +70,16 @@ export function ReservationList({
             >
               <div className="flex min-w-0 items-start gap-3">
                 {bulk && r.status === "pending" && (
-                  <input
-                    type="checkbox"
-                    name="reservation_ids"
-                    value={r.id}
-                    form={BULK_FORM_ID}
-                    aria-label="まとめて承認する予約に入れる"
-                    className="field-check mt-0.5 size-5 shrink-0"
-                  />
+                  <label className="tap-target mt-0.5 shrink-0">
+                    <input
+                      type="checkbox"
+                      name="reservation_ids"
+                      value={r.id}
+                      form={BULK_FORM_ID}
+                      aria-label="まとめて承認する予約に入れる"
+                      className="field-check block size-5"
+                    />
+                  </label>
                 )}
                 <div className="min-w-0">
                   <p className="text-sm font-medium">

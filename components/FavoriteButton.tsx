@@ -43,7 +43,7 @@ export function FavoriteButton({
           await toggleCircleFavorite(data);
         });
       }}
-      className={`inline-flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-300 ease-out hover:scale-110 active:scale-90 ${
+      className={`tap-target inline-flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-300 ease-out hover:scale-110 active:scale-90 ${
         optimistic
           ? "text-rose-500"
           : "text-gray-300 hover:text-rose-400 dark:text-gray-600"

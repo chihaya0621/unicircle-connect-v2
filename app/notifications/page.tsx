@@ -57,7 +57,7 @@ function Row({ n }: { n: Notification }) {
           <input type="hidden" name="notification_id" value={n.id} />
           <button
             type="submit"
-            className="text-xs text-gray-500 hover:underline dark:text-gray-400"
+            className="tap-target text-xs text-gray-600 hover:underline dark:text-gray-400"
           >
             既読にする
           </button>

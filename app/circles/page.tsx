@@ -299,7 +299,7 @@ export default async function CirclesPage({
                       type="submit"
                       name="approve"
                       value="true"
-                      className="btn-primary px-3 py-1.5 text-xs"
+                      className="btn-primary tap-target px-3 py-1.5 text-xs"
                     >
                       承認
                     </button>

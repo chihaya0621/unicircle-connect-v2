@@ -108,7 +108,7 @@ export default async function FacilitiesPage() {
                   <div className="mt-4">
                     <Link
                       href={`/facilities/${f.id}`}
-                      className="inline-block btn-primary px-3 py-1.5 text-xs"
+                      className="inline-block btn-primary tap-target px-3 py-1.5 text-xs"
                     >
                       空き状況・予約
                     </Link>

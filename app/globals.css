@@ -447,10 +447,22 @@ body::after {
  * 押せる範囲だけを 44px 四方まで広げる。見た目の大きさは変えない。
  * 指で押す的は 44px を下回ると外しやすい（小さいボタンは 28〜32px だった）。
  * 透明な擬似要素を重ねるので、隣と 44px 以上離れていれば取り合わない。
+ *
+ * @utility にすると、別の @utility から @apply したときに ::after が
+ * 付いてこない。小さいボタンの類にも効かせたいので、素の CSS で書く。
+ * components の層に置くので、absolute などのユーティリティが後から勝つ。
  */
-@utility tap-target {
-  position: relative;
-  &::after {
+@layer components {
+  .tap-target,
+  .btn-ghost-sm,
+  .btn-danger-sm,
+  .note-action {
+    position: relative;
+  }
+  .tap-target::after,
+  .btn-ghost-sm::after,
+  .btn-danger-sm::after,
+  .note-action::after {
     content: "";
     position: absolute;
     left: 50%;
@@ -463,7 +475,7 @@ body::after {
 
 /** 一覧の中に並べる小さめのボタン */
 @utility btn-ghost-sm {
-  @apply btn-ghost tap-target;
+  @apply btn-ghost;
   @apply px-3 py-1.5 text-xs font-medium;
 }
 
@@ -477,7 +489,7 @@ body::after {
 }
 
 @utility btn-danger-sm {
-  @apply btn-danger tap-target;
+  @apply btn-danger;
   @apply px-3 py-1.5 text-xs font-medium;
 }
 
