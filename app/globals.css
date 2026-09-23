@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* 暗い画面は html[data-scheme="dark"] で決める。
+   端末の設定に合わせるか、明るい・暗いを固定するかは利用者が選べるので、
+   prefers-color-scheme を直接見ず、layout の小さなスクリプトが属性を付ける。 */
+@custom-variant dark (&:where([data-scheme="dark"], [data-scheme="dark"] *));
+
 /* =============================================================================
    デザインシステム: グラスモーフィズム
    =============================================================================
@@ -158,37 +163,55 @@
   --accent: 124 58 237;
 }
 
-@media (prefers-color-scheme: dark) {
-  [data-theme="glass"] {
-    --background: #080a12;
-    --foreground: #e8eaf2;
-    --orb-1: 99 102 241;
-    --orb-2: 190 24 93;
-    --orb-3: 13 148 136;
-    --orb-4: 180 83 9;
-    --glass-bg: 255 255 255;
-    --glass-bg-alpha: 0.06;
-    --glass-border: 255 255 255;
-    --glass-border-alpha: 0.14;
-  }
-
-  :root,
-  [data-theme="pop"],
-  [data-theme="citrus"],
-  [data-theme="mint"],
-  [data-theme="berry"] {
-    --background: #0b1220;
-    --foreground: #e8eaf2;
-    --orb-alpha-1: 0.22;
-    --orb-alpha-2: 0.18;
-    --glass-bg: 22 30 46;
-    --glass-bg-alpha: 1;
-    --glass-border: 255 255 255;
-    --glass-border-alpha: 0.10;
-    --surface-shadow: 0 4px 16px -2px rgb(0 0 0 / 0.4);
-    --surface-shadow-hover: 0 18px 36px -8px rgb(0 0 0 / 0.55);
-  }
+/* 暗い画面。テーマ（data-theme）と同じ html に付くので、属性を重ねて指定する */
+[data-scheme="dark"][data-theme="glass"] {
+  --background: #080a12;
+  --foreground: #e8eaf2;
+  --orb-1: 99 102 241;
+  --orb-2: 190 24 93;
+  --orb-3: 13 148 136;
+  --orb-4: 180 83 9;
+  --glass-bg: 255 255 255;
+  --glass-bg-alpha: 0.06;
+  --glass-border: 255 255 255;
+  --glass-border-alpha: 0.14;
 }
+
+:root[data-scheme="dark"],
+[data-scheme="dark"][data-theme="pop"],
+[data-scheme="dark"][data-theme="citrus"],
+[data-scheme="dark"][data-theme="mint"],
+[data-scheme="dark"][data-theme="berry"] {
+  --background: #0b1220;
+  --foreground: #e8eaf2;
+  --orb-alpha-1: 0.22;
+  --orb-alpha-2: 0.18;
+  --glass-bg: 22 30 46;
+  --glass-bg-alpha: 1;
+  --glass-border: 255 255 255;
+  --glass-border-alpha: 0.10;
+  --surface-shadow: 0 4px 16px -2px rgb(0 0 0 / 0.4);
+  --surface-shadow-hover: 0 18px 36px -8px rgb(0 0 0 / 0.55);
+}
+
+/* 文字に使う差し色。--accent はボタンや面の色で、そのまま文字にすると
+   明るい面でも暗い面でも読みにくい（暗い面では 2.2:1 まで落ちていた）。
+   明るい画面では一段濃く、暗い画面では一段明るくして、どちらも 4.5:1 を超える。 */
+:root,
+[data-theme="pop"]     { --accent-ink: 29 78 216; }
+[data-theme="citrus"]  { --accent-ink: 194 65 12; }
+[data-theme="mint"]    { --accent-ink: 4 120 87; }
+[data-theme="berry"]   { --accent-ink: 109 40 217; }
+[data-theme="glass"]   { --accent-ink: 79 70 229; }
+[data-scheme="dark"]:root,
+[data-scheme="dark"][data-theme="pop"]    { --accent-ink: 147 197 253; }
+[data-scheme="dark"][data-theme="citrus"] { --accent-ink: 253 186 116; }
+[data-scheme="dark"][data-theme="mint"]   { --accent-ink: 110 231 183; }
+[data-scheme="dark"][data-theme="berry"]  { --accent-ink: 196 181 253; }
+[data-scheme="dark"][data-theme="glass"]  { --accent-ink: 165 180 252; }
+
+/* フォームの部品やスクロールバーも暗い版にする */
+[data-scheme="dark"] { color-scheme: dark; }
 
 @theme inline {
   --color-background: var(--background);
@@ -420,9 +443,27 @@ body::after {
   @apply hover:-translate-y-0.5 hover:shadow-lg hover:brightness-105;
 }
 
+/**
+ * 押せる範囲だけを 44px 四方まで広げる。見た目の大きさは変えない。
+ * 指で押す的は 44px を下回ると外しやすい（小さいボタンは 28〜32px だった）。
+ * 透明な擬似要素を重ねるので、隣と 44px 以上離れていれば取り合わない。
+ */
+@utility tap-target {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
+
 /** 一覧の中に並べる小さめのボタン */
 @utility btn-ghost-sm {
-  @apply btn-ghost;
+  @apply btn-ghost tap-target;
   @apply px-3 py-1.5 text-xs font-medium;
 }
 
@@ -436,7 +477,7 @@ body::after {
 }
 
 @utility btn-danger-sm {
-  @apply btn-danger;
+  @apply btn-danger tap-target;
   @apply px-3 py-1.5 text-xs font-medium;
 }
 
@@ -885,18 +926,17 @@ a {
   --pin: var(--accent);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* 暗い画面で明るいコルクが浮くので、板も紙も一段落とす */
-    --cork-1: 118 92 61;
-    --cork-2: 88 68 44;
-    --frame-1: 94 72 48;
-    --frame-2: 58 43 28;
-    --note-bg: 238 232 218;
-    --note-fg: 38 31 21;
-    --note-meta: 116 99 73;
-    --note-pinned-bg: 240 224 165;
-  }
+/* 暗い画面で明るいコルクが浮くので、板も紙も一段落とす */
+:root[data-scheme="dark"] {
+  --cork-1: 118 92 61;
+  --cork-2: 88 68 44;
+  --frame-1: 94 72 48;
+  --frame-2: 58 43 28;
+  --note-bg: 238 232 218;
+  --note-fg: 38 31 21;
+  /* 署名などの小さな文字。固定掲示の黄色い紙の上でも 4.5:1 を超える濃さ */
+  --note-meta: 100 84 60;
+  --note-pinned-bg: 240 224 165;
 }
 
 /** 木枠。コルク面を内側に持つ */
@@ -1012,14 +1052,15 @@ a {
 
 /** まだ何も貼られていない場所 */
 @utility note-blank {
-  border: 2px dashed rgb(255 255 255 / 0.45);
+  border: 2px dashed rgb(255 255 255 / 0.55);
   border-radius: 3px;
-  color: rgb(255 255 255 / 0.9);
-  text-shadow: 0 1px 3px rgb(40 26 12 / 0.6);
-  background-color: rgb(255 255 255 / 0.08);
-  @apply w-full px-4 py-3 text-left text-sm;
+  color: rgb(255 255 255);
+  /* 明るいコルクの上に白い字だけを置くと 2.1:1 しかない。
+     下に焦げ茶を薄く敷き、どちらのコルクでも 4.5:1 を超えるようにする */
+  background-color: rgb(40 26 12 / 0.52);
+  @apply w-full px-4 py-3 text-left text-sm font-semibold;
   @apply transition-all duration-300 ease-out;
-  @apply hover:-translate-y-0.5 hover:bg-white/15;
+  @apply hover:-translate-y-0.5 hover:bg-[rgb(40_26_12/0.62)];
 }
 
 /* 削除だけは色で区別する。.note-action:hover より後に置いて上書きする */
@@ -1218,6 +1259,13 @@ a {
 }
 
 /* 判子欄。紙の決裁と同じく、横一列に並べる */
+/* 判子欄の代わりに置く断り書き。枠で囲んで、欄の位置にあることを示す */
+.paper-note {
+  border: 1px solid #111;
+  padding: 3mm 4mm;
+  font-size: 10pt;
+  line-height: 1.6;
+}
 .paper-seals {
   display: flex;
   flex-wrap: wrap;

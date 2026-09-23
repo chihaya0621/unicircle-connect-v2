@@ -34,7 +34,9 @@
 --  29. migrations/0029_seals.sql
 --  30. migrations/0030_handover.sql
 --  31. migrations/0031_events_public_listed_rls.sql
---  32. seed.sql
+--  32. migrations/0032_event_guide.sql
+--  33. migrations/0033_circle_category.sql
+--  34. seed.sql
 --
 -- 再生成: npm run db:bundle
 --
@@ -6137,6 +6139,119 @@ SELECT
   count(*) FILTER (WHERE visibility = 'public' AND NOT public_listed)   AS 学内だけに留める,
   count(*) FILTER (WHERE visibility <> 'public')                        AS 限定公開
 FROM events;
+
+-- ▼▼▼ migrations/0032_event_guide.sql ▼▼▼
+
+-- =============================================================================
+-- 0032: イベントの会場と、参加・申込みの方法
+-- =============================================================================
+-- 学外向けのイベントを高校生が開いても、日時と説明しか無く、
+-- 「どこへ行けばいいか」「申し込みが要るか」が分からなかった。
+-- その2つを独立した欄として持つ。説明文に混ぜると、書く人ごとに
+-- 書き方がばらばらになり、読む側が探すことになる。
+--
+-- 書き込みは既存の create_event / update_event を変えず、別の関数で行う。
+-- 引数を足すと古い形の関数が残って（オーバーロード）、呼び分けが曖昧になるため。
+-- =============================================================================
+
+ALTER TABLE events
+  ADD COLUMN IF NOT EXISTS venue       TEXT,
+  ADD COLUMN IF NOT EXISTS how_to_join TEXT;
+
+COMMENT ON COLUMN events.venue IS
+  '会場。建物や教室、キャンパスの所在地など。';
+COMMENT ON COLUMN events.how_to_join IS
+  '参加・申込みの方法。申込みが要るか、どこから申し込むか。';
+
+
+/**
+ * 会場と参加方法を保存する。空文字は「未記入」に戻す。
+ * 主催者だけが書ける（update_event と同じ判定）。
+ */
+CREATE OR REPLACE FUNCTION public.set_event_guide(
+  p_event_id    UUID,
+  p_venue       TEXT,
+  p_how_to_join TEXT
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_venue TEXT := nullif(btrim(coalesce(p_venue, '')), '');
+  v_how   TEXT := nullif(btrim(coalesce(p_how_to_join, '')), '');
+BEGIN
+  IF NOT public.app_can_manage_event(p_event_id) THEN
+    RAISE EXCEPTION 'このイベントの主催者のみ編集できます';
+  END IF;
+  IF char_length(v_venue) > 200 THEN
+    RAISE EXCEPTION '会場は200文字以内で入力してください';
+  END IF;
+  IF char_length(v_how) > 500 THEN
+    RAISE EXCEPTION '参加・申込みの方法は500文字以内で入力してください';
+  END IF;
+
+  UPDATE public.events
+     SET venue = v_venue, how_to_join = v_how
+   WHERE id = p_event_id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.set_event_guide(uuid, text, text) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.set_event_guide(uuid, text, text) TO authenticated;
+
+-- ▼▼▼ migrations/0033_circle_category.sql ▼▼▼
+
+-- =============================================================================
+-- 0033: サークルの分野
+-- =============================================================================
+-- 「ボランティア系を探したい」ときに、検索語を当てるしかなかった。
+-- 名前に「ボランティア」と入っていない団体（子ども食堂の手伝い、
+-- 清掃活動など）は見つからない。分野を1つ持たせて、一覧で絞れるようにする。
+--
+-- 分野はアプリ側の一覧（lib/circle-categories.ts）と同じ値に限る。
+-- 未設定（NULL）も許す。既存のサークルに一斉に付けることはしない。
+-- =============================================================================
+
+ALTER TABLE circles
+  ADD COLUMN IF NOT EXISTS category TEXT;
+
+ALTER TABLE circles DROP CONSTRAINT IF EXISTS circles_category_check;
+ALTER TABLE circles ADD CONSTRAINT circles_category_check CHECK (
+  category IS NULL OR category IN (
+    'sports', 'music', 'culture', 'academic', 'volunteer', 'international', 'other'
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_circles_category ON circles(category);
+
+COMMENT ON COLUMN circles.category IS
+  '分野。一覧の絞り込みに使う。値は lib/circle-categories.ts と揃える。';
+
+
+/** 分野を設定する（サークル管理者のみ）。NULL で未設定に戻す */
+CREATE OR REPLACE FUNCTION public.set_circle_category(
+  p_circle_id UUID,
+  p_category  TEXT
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NOT public.app_is_circle_admin(p_circle_id) THEN
+    RAISE EXCEPTION 'サークルの管理者のみ変更できます';
+  END IF;
+
+  -- 値の検査は CHECK 制約に任せる。ここで二重に持つと食い違う
+  UPDATE public.circles
+     SET category = nullif(btrim(coalesce(p_category, '')), '')
+   WHERE id = p_circle_id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.set_circle_category(uuid, text) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.set_circle_category(uuid, text) TO authenticated;
 
 -- ▼▼▼ seed.sql ▼▼▼
 

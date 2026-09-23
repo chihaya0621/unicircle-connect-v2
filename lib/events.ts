@@ -18,6 +18,10 @@ export type EventListItem = {
   /** 学外の方向けの案内に載せるか（0025） */
   public_listed: boolean;
   image_path: string | null;
+  /** 会場（0032） */
+  venue: string | null;
+  /** 参加・申込みの方法（0032） */
+  how_to_join: string | null;
   host_university_id: string | null;
   host_circle_id: string | null;
   host_university: { name: string } | null;
@@ -60,6 +64,8 @@ const EVENT_SELECT = `
   target_grades,
   public_listed,
   image_path,
+  venue,
+  how_to_join,
   host_university_id,
   host_circle_id,
   host_university:universities!events_host_university_id_fkey(name),

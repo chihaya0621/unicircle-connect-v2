@@ -49,6 +49,8 @@ export default async function EditEventPage({
             visibility: event.visibility,
             target_grades: event.target_grades,
             public_listed: event.public_listed,
+            venue: event.venue,
+            how_to_join: event.how_to_join,
             scopedUniversityIds: event.scoped_universities.map(
               (u) => u.university_id,
             ),

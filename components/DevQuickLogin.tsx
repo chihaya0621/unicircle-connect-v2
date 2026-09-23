@@ -6,8 +6,10 @@ import { devQuickLogin } from "@/app/actions/auth";
 import { DEV_USERS, type DevUser } from "@/lib/dev-users";
 
 const ROLE_STYLE: Record<DevUser["role"], string> = {
-  student: "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
-  staff: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  student:
+    "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
+  staff:
+    "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
   general: "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400",
 };
 
@@ -16,6 +18,36 @@ const ROLE_LABEL: Record<DevUser["role"], string> = {
   staff: "職員",
   general: "一般",
 };
+
+/**
+ * 最初に来た人向けの近道。59人の一覧から選ばせると、誰を選べば
+ * 何が見えるのかが分からない。立場で選べば、中の人は決め打ちでよい。
+ */
+const SHORTCUTS: {
+  email: string;
+  label: string;
+  hint: string;
+  role: DevUser["role"];
+}[] = [
+  {
+    email: "student1@aozora.test",
+    label: "学生として見る",
+    hint: "カレンダー・サークル運営・掲示板・施設予約",
+    role: "student",
+  },
+  {
+    email: "staff1@aozora.test",
+    label: "大学職員として見る",
+    hint: "サークルの承認と押印・予約の承認",
+    role: "staff",
+  },
+  {
+    email: "general1@example.test",
+    label: "高校生・一般として見る",
+    hint: "サークル探しと学外向けイベント",
+    role: "general",
+  },
+];
 
 /**
  * ユーザー切り替えパネル。
@@ -79,47 +111,88 @@ export function DevQuickLogin({
 
       {open && (
         <div className="mt-4 space-y-4">
-          {Object.entries(grouped).map(([university, users]) => (
-            <div key={university}>
-              <p
-                className={
-                  isDemo
-                    ? "mb-1.5 text-xs font-medium text-indigo-800 dark:text-indigo-300"
-                    : "mb-1.5 text-xs font-medium text-amber-800 dark:text-amber-300"
-                }
-              >
-                {university}
-              </p>
-              <ul className="space-y-1.5">
-                {users.map((u) => (
-                  <li key={u.email}>
-                    <form
-                      action={devQuickLogin}
-                      onSubmit={() => setPending(u.email)}
-                    >
-                      <input type="hidden" name="email" value={u.email} />
-                      {next && <input type="hidden" name="next" value={next} />}
-                      <button
-                        type="submit"
-                        disabled={pending !== null}
-                        className="flex w-full items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-left text-sm transition hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                      >
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs ${ROLE_STYLE[u.role]}`}
+          <ul className="grid gap-2 sm:grid-cols-3">
+            {SHORTCUTS.map((c) => (
+              <li key={c.email}>
+                <form
+                  action={devQuickLogin}
+                  onSubmit={() => setPending(c.email)}
+                >
+                  <input type="hidden" name="email" value={c.email} />
+                  {next && <input type="hidden" name="next" value={next} />}
+                  <button
+                    type="submit"
+                    disabled={pending !== null}
+                    className="flex h-full min-h-11 w-full flex-col items-start gap-1 rounded-xl border border-black/10 bg-white px-3.5 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 dark:border-white/10 dark:bg-white/5"
+                  >
+                    <span className="text-sm font-bold">
+                      {pending === c.email ? "ログイン中…" : c.label}
+                    </span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                      {c.hint}
+                    </span>
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+
+          <details className="group">
+            <summary
+              className={`cursor-pointer text-xs font-semibold ${
+                isDemo
+                  ? "text-indigo-800 dark:text-indigo-300"
+                  : "text-amber-800 dark:text-amber-300"
+              }`}
+            >
+              ほかのアカウントを選ぶ（{DEV_USERS.length}人）
+            </summary>
+            <div className="mt-3 space-y-4">
+              {Object.entries(grouped).map(([university, users]) => (
+                <div key={university}>
+                  <p
+                    className={
+                      isDemo
+                        ? "mb-1.5 text-xs font-medium text-indigo-800 dark:text-indigo-300"
+                        : "mb-1.5 text-xs font-medium text-amber-800 dark:text-amber-300"
+                    }
+                  >
+                    {university}
+                  </p>
+                  <ul className="space-y-1.5">
+                    {users.map((u) => (
+                      <li key={u.email}>
+                        <form
+                          action={devQuickLogin}
+                          onSubmit={() => setPending(u.email)}
                         >
-                          {ROLE_LABEL[u.role]}
-                        </span>
-                        <span className="font-medium">{u.name}</span>
-                        <span className="ml-auto truncate text-xs text-gray-500 dark:text-gray-400">
-                          {pending === u.email ? "ログイン中…" : u.email}
-                        </span>
-                      </button>
-                    </form>
-                  </li>
-                ))}
-              </ul>
+                          <input type="hidden" name="email" value={u.email} />
+                          {next && (
+                            <input type="hidden" name="next" value={next} />
+                          )}
+                          <button
+                            type="submit"
+                            disabled={pending !== null}
+                            className="flex w-full items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-left text-sm transition hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+                          >
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs ${ROLE_STYLE[u.role]}`}
+                            >
+                              {ROLE_LABEL[u.role]}
+                            </span>
+                            <span className="font-medium">{u.name}</span>
+                            <span className="ml-auto truncate text-xs text-gray-500 dark:text-gray-400">
+                              {pending === u.email ? "ログイン中…" : u.email}
+                            </span>
+                          </button>
+                        </form>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
-          ))}
+          </details>
 
           {isDemo ? (
             <p className="text-xs text-indigo-800 dark:text-indigo-300">
@@ -130,8 +203,9 @@ export function DevQuickLogin({
             </p>
           ) : (
             <p className="text-xs text-amber-800 dark:text-amber-300">
-              アカウントが無い場合は <code>npm run db:users</code> を実行してください。
-              職員は <code>supabase/promote_staff.sql</code> の実行も必要です。
+              アカウントが無い場合は <code>npm run db:users</code>{" "}
+              を実行してください。 職員は{" "}
+              <code>supabase/promote_staff.sql</code> の実行も必要です。
             </p>
           )}
         </div>

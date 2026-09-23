@@ -27,6 +27,7 @@ export function EventCard({
 }) {
   const host = eventHost(event);
   const image = imageUrl(event.image_path);
+  const isPast = new Date(event.event_date) < new Date();
 
   return (
     <article
@@ -50,6 +51,11 @@ export function EventCard({
           </Link>
         </h3>
         <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+        {isPast && (
+          <span className="badge bg-gray-500/15 font-semibold text-gray-700 dark:text-gray-300">
+            終了
+          </span>
+        )}
         {RELATION_LABEL[relation] && (
           <span
             className={`rounded-full px-2 py-0.5 text-xs ${RELATION_BADGE[relation]}`}
@@ -77,6 +83,7 @@ export function EventCard({
         <time dateTime={event.event_date}>
           {dateFormatter.format(new Date(event.event_date))}
         </time>
+        {event.venue && <span>・{event.venue}</span>}
       </p>
 
       <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">

@@ -6,12 +6,14 @@ import { createReservation, type ActionState } from "@/app/actions/facilities";
 import { Field, FormMessage, Input, Select } from "@/components/Field";
 import { SubmitButton } from "@/components/SubmitButton";
 import type { FacilityCategory } from "@/lib/database.types";
+import { toJstInput } from "@/lib/jst";
 
-/** 今日の日付を input[type=date] の min 用に整形する */
+/**
+ * 今日の日付（日本時間）を input[type=date] の min 用に整形する。
+ * 閲覧者の時間帯で出すと、サーバーで描いた値（UTC）と食い違う
+ */
 function todayISO() {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+  return toJstInput(new Date()).slice(0, 10);
 }
 
 /**

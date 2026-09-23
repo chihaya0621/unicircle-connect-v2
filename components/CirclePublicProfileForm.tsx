@@ -10,6 +10,7 @@ import { FormMessage } from "@/components/Field";
 import { SubmitButton } from "@/components/SubmitButton";
 import type { CirclePublicProfile } from "@/lib/circles";
 import type { Campus } from "@/lib/discovery";
+import { CIRCLE_CATEGORIES } from "@/lib/circle-categories";
 
 /**
  * 公開プロフィールの編集。サークル管理者にのみ出す。
@@ -72,6 +73,28 @@ export function CirclePublicProfileForm({
           placeholder="どんな活動をしているか、どんな人が集まっているかを書いてください。"
           className="field-input"
         />
+      </div>
+
+      <div>
+        <label htmlFor="category" className="mb-1 block text-sm font-medium">
+          分野
+        </label>
+        <select
+          id="category"
+          name="category"
+          defaultValue={profile.category ?? ""}
+          className="field-input"
+        >
+          <option value="">指定しない</option>
+          {CIRCLE_CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+          サークル一覧を分野で絞り込む人に見つけてもらえます。
+        </p>
       </div>
 
       {campuses.length > 0 && (

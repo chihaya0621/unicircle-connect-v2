@@ -63,7 +63,13 @@ export default async function CirclePrintPage({
   const activeCount = members.filter((m) => m.status === "active").length;
 
   // 空の判子欄も描く。紙の決裁は、空欄があるから残りが分かる
-  const blanks = Math.max(0, required - relevant.length);
+  // 承認の記録を取り始める前に設立されたサークルは、承認済みなのに記録が無い。
+  // 空の判子欄を並べると窓口で「未承認」に見えるので、欄の代わりに事情を書く。
+  const approvedBeforeRecords =
+    !isClosure && circle.status === "approved" && relevant.length === 0;
+  const blanks = approvedBeforeRecords
+    ? 0
+    : Math.max(0, required - relevant.length);
 
   // 受付番号は UUID の頭8桁。窓口で照合するとき、
   // 36字を読み上げるのは現実的でない
@@ -144,6 +150,12 @@ export default async function CirclePrintPage({
           <h2 className="paper-subtitle">
             承認欄（必要{required}名）
           </h2>
+          {approvedBeforeRecords && (
+            <p className="paper-note">
+              承認済み。このサークルは、承認の記録をこの仕組みで取り始める前に
+              設立が承認されたため、承認者の押印の記録はありません。
+            </p>
+          )}
           <div className="paper-seals">
             {relevant.map((a) => (
               <div key={a.id} className="paper-seal">

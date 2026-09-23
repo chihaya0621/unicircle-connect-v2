@@ -132,11 +132,29 @@ export default async function EventDetailPage({
           </span>
         </div>
 
-        <p className="mt-3 text-sm text-gray-700 dark:text-gray-300">
-          <time dateTime={event.event_date}>
-            {dateFormatter.format(new Date(event.event_date))}
-          </time>
-        </p>
+        {isPast && (
+          <p className="mt-3 inline-flex rounded-full bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 dark:bg-white/10 dark:text-gray-300">
+            このイベントは終了しました
+          </p>
+        )}
+
+        {/* 行く人が最初に知りたい3つ。説明文の中を探させない */}
+        <dl className="mt-4 grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[6.5rem_1fr]">
+          <dt className="font-semibold text-gray-600 dark:text-gray-400">日時</dt>
+          <dd>
+            <time dateTime={event.event_date}>
+              {dateFormatter.format(new Date(event.event_date))}
+            </time>
+          </dd>
+          <dt className="font-semibold text-gray-600 dark:text-gray-400">会場</dt>
+          <dd>{event.venue ?? "主催者にお問い合わせください"}</dd>
+          <dt className="font-semibold text-gray-600 dark:text-gray-400">
+            参加・申込み
+          </dt>
+          <dd className="whitespace-pre-wrap">
+            {event.how_to_join ?? "主催者にお問い合わせください"}
+          </dd>
+        </dl>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           {host.kind === "university" ? "大学主催" : "サークル主催"} ／ {host.name}
         </p>

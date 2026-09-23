@@ -33,6 +33,7 @@ import { listUniversityPublicEvents } from "@/lib/events";
 import { currentTermYear, listStaleCircles } from "@/lib/handover";
 import { PREFECTURE_UNKNOWN } from "@/lib/prefectures";
 import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
+import { CIRCLE_CATEGORIES, isCircleCategory } from "@/lib/circle-categories";
 
 export const metadata: Metadata = { title: "サークル | UniCircle Connect" };
 
@@ -46,6 +47,7 @@ export default async function CirclesPage({
     university?: string;
     campus?: string;
     q?: string;
+    cat?: string;
   }>;
 }) {
   // 未ログインにも開く。公開設定のサークルだけが見えることは
@@ -60,8 +62,10 @@ export default async function CirclesPage({
 
   // 他大学のサークル（インカレ・合同）を出すかは URL クエリで持つ。
   // 既定は非表示。インカレが増えるほど自大学の一覧が埋もれるため。
-  const { others, fav, pref, university, campus, q } = await searchParams;
+  const { others, fav, pref, university, campus, q, cat } = await searchParams;
   const search = (q ?? "").trim();
+  // 分野（0033）。知らない値は無視して全部を出す
+  const category = isCircleCategory(cat) ? cat : null;
   const showOtherUniversities = others === "1";
   const favoritesOnly = fav === "1";
 
@@ -97,14 +101,22 @@ export default async function CirclesPage({
           ? { id: selected.campusId, includeUnassigned: selected.isPrimary }
           : undefined,
         search,
+        category,
       )
     : isAnon || isGeneral
-      ? await listPublicCircles(watchedIds, favoriteIds, undefined, search)
+      ? await listPublicCircles(
+          watchedIds,
+          favoriteIds,
+          undefined,
+          search,
+          category,
+        )
       : await listApprovedCircles(universityId, {
           isStaff: user.role === "staff",
           showOtherUniversities,
           myCircleIds,
           search,
+          category,
         });
 
   // 大学を選んだときは、その大学の学外向けイベントも一緒に見せる
@@ -119,15 +131,16 @@ export default async function CirclesPage({
 
   // 職員には自分の大学の承認待ちキューを見せる
   const isStaff = user?.role === "staff";
-  const [pending, closureRequests, requiredApprovals, staffCount, stale] = isStaff
-    ? await Promise.all([
-        listPendingCircles(user.id),
-        listClosureRequests(universityId),
-        getRequiredApprovals(universityId),
-        countStaff(universityId),
-        listStaleCircles(universityId),
-      ])
-    : [[], [], 1, 0, []];
+  const [pending, closureRequests, requiredApprovals, staffCount, stale] =
+    isStaff
+      ? await Promise.all([
+          listPendingCircles(user.id),
+          listClosureRequests(universityId),
+          getRequiredApprovals(universityId),
+          countStaff(universityId),
+          listStaleCircles(universityId),
+        ])
+      : [[], [], 1, 0, []];
 
   // 「あと何人か」を出すために、集まっている承認の数を引く
   const [setupCounts, closureCounts] = isStaff
@@ -148,13 +161,14 @@ export default async function CirclesPage({
   // 「まとめる」経路のまま空の配列を描いてしまう。
   // 検索したときは階層を飛ばして結果だけ出す。
   // 「都道府県を選び直してから検索」では手間が増えるだけなので。
-  const showDirectory = useDirectory && !selected && !search;
+  // 検索語か分野を指定したら、都道府県から辿らずに結果を並べる
+  const showDirectory = useDirectory && !selected && !search && !category;
   const showGrouped = groupByUniversity && !selected;
 
   // 大学ごとにまとめる。大学名の五十音順、同じ大学の中はサークル名順。
   const byUniversity = showGrouped
-    ? [...
-        circles
+    ? [
+        ...circles
           .reduce((map, c) => {
             const name = c.university?.name ?? "所属大学未設定";
             (map.get(name) ?? map.set(name, []).get(name)!).push(c);
@@ -270,7 +284,8 @@ export default async function CirclesPage({
                 </div>
                 <div className="w-full sm:w-auto sm:shrink-0">
                   <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
-                    承認 {setupCounts.get(circle.id) ?? 0} / {requiredApprovals}人
+                    承認 {setupCounts.get(circle.id) ?? 0} / {requiredApprovals}
+                    人
                   </p>
                   <form action={decideCircle} className="flex flex-wrap gap-2">
                     <input type="hidden" name="circle_id" value={circle.id} />
@@ -318,7 +333,8 @@ export default async function CirclesPage({
                 <div className="min-w-0">
                   <p className="font-medium">{circle.name}</p>
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    承認 {closureCounts.get(circle.id) ?? 0} / {requiredApprovals}人
+                    承認 {closureCounts.get(circle.id) ?? 0} /{" "}
+                    {requiredApprovals}人
                   </p>
                 </div>
                 <form action={decideClosure} className="flex flex-wrap gap-2">
@@ -359,7 +375,8 @@ export default async function CirclesPage({
           </h2>
           <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
             年度が替わっても代表が前のままだと、卒業した人がサークルを
-            握ったままになります。{currentTermYear()}年度の代表が登録されていない一覧です。
+            握ったままになります。{currentTermYear()}
+            年度の代表が登録されていない一覧です。
           </p>
           <ul className="flex flex-wrap gap-x-4 gap-y-1.5">
             {stale.map((c) => (
@@ -427,8 +444,50 @@ export default async function CirclesPage({
         action="/circles"
         placeholder="サークル名・活動内容で検索"
         value={search}
-        hidden={{ pref, university, campus, others, fav }}
+        hidden={{
+          pref,
+          university,
+          campus,
+          others,
+          fav,
+          cat: category ?? undefined,
+        }}
       />
+
+      {/* 分野で絞る。検索語を思いつけない人の入口にもなる */}
+      <nav
+        aria-label="分野で絞り込む"
+        className="-mt-2 mb-6 flex flex-wrap gap-2"
+      >
+        {[{ value: null, label: "すべて" }, ...CIRCLE_CATEGORIES].map((c) => {
+          const active = c.value === category;
+          const params = new URLSearchParams(
+            Object.entries({
+              pref,
+              university,
+              campus,
+              others,
+              fav,
+              q: search || undefined,
+              cat: c.value ?? undefined,
+            }).filter((e): e is [string, string] => Boolean(e[1])),
+          );
+          return (
+            <Link
+              key={c.label}
+              href={`/circles${params.size ? `?${params}` : ""}`}
+              aria-current={active ? "true" : undefined}
+              className={`inline-flex min-h-11 items-center rounded-full border px-4 text-sm font-semibold transition-colors ${
+                active
+                  ? "border-transparent bg-[rgb(var(--accent-ink))] text-white dark:text-gray-900"
+                  : "border-black/10 text-gray-700 hover:bg-black/5 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/10"
+              }`}
+            >
+              {c.label}
+            </Link>
+          );
+        })}
+      </nav>
 
       {truncated && (
         <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
@@ -490,17 +549,19 @@ export default async function CirclesPage({
         <p className="glass-empty py-12">
           {search
             ? `「${search}」に一致するサークルはありません。`
-            : favoritesOnly
-            ? "気になるサークルはまだありません。カードのハートで印を付けられます。"
-            : isAnon
-              ? "公開されているサークルはまだありません。"
-              : isGeneral
-                ? watchedIds.length > 0
-                  ? "指定した大学に公開サークルがありません。指定を見直してみてください。"
-                  : "公開されているサークルはまだありません。"
-                : showOtherUniversities
-                  ? "参加できるサークルはまだありません。"
-                  : "自大学のサークルはまだありません。「他大学のサークルも表示する」で範囲を広げられます。"}
+            : category
+              ? "この分野のサークルはまだありません。ほかの分野も見てみてください。"
+              : favoritesOnly
+                ? "気になるサークルはまだありません。カードのハートで印を付けられます。"
+                : isAnon
+                  ? "公開されているサークルはまだありません。"
+                  : isGeneral
+                    ? watchedIds.length > 0
+                      ? "指定した大学に公開サークルがありません。指定を見直してみてください。"
+                      : "公開されているサークルはまだありません。"
+                    : showOtherUniversities
+                      ? "参加できるサークルはまだありません。"
+                      : "自大学のサークルはまだありません。「他大学のサークルも表示する」で範囲を広げられます。"}
         </p>
       ) : showGrouped ? (
         <div className="space-y-10">

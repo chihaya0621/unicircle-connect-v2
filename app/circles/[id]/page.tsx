@@ -226,7 +226,8 @@ export default async function CircleDetailPage({
         )}
       </header>
 
-      {isMember && user && (
+      {/* 返事が要る申し出だけを先頭に出す。申し出の入力欄は末尾に畳んである */}
+      {isMember && user && pendingHandover && (
         <HandoverPanel
           circleId={id}
           pending={pendingHandover}
@@ -240,7 +241,9 @@ export default async function CircleDetailPage({
       {handoverNote?.note && !pendingHandover && (
         <section className="mb-10 glass-panel">
           <h2 className="mb-1 text-lg font-semibold">前の代からの申し送り</h2>
-          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mb-3 text-xs text-gray-600 dark:text-gray-400">
+            前の代表が、引き継ぐときに残したメモです。
+            {" "}
             {handoverNote.from_name} さん → {handoverNote.to_name} さん（
             {handoverNote.term_year} 年度）
           </p>
@@ -302,6 +305,31 @@ export default async function CircleDetailPage({
         </section>
       )}
 
+      {/* 学外の人が「次にどうすればいいか」で止まらないように。
+          連絡先が書かれていなければ、大学の窓口という道を示す */}
+      {isOutsider && !circle.public_contact && (
+        <section className="mb-10 rounded-2xl border border-black/10 p-5 text-sm dark:border-white/15">
+          <h2 className="mb-1 font-semibold">このサークルに連絡したいとき</h2>
+          <p className="text-gray-700 dark:text-gray-300">
+            連絡先はまだ載っていません。
+            {circle.university?.name ?? "大学"}
+            の学生支援の窓口（学生課など）に問い合わせると、代表者につないでもらえます。
+          </p>
+          {circle.university?.website_url && (
+            <p className="mt-2">
+              <a
+                href={circle.university.website_url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="font-semibold underline"
+              >
+                {circle.university.name}の公式サイト
+              </a>
+            </p>
+          )}
+        </section>
+      )}
+
       {upcoming.length > 0 && (
         <section className="mb-10">
           <div className="mb-3 flex items-baseline justify-between">
@@ -353,6 +381,7 @@ export default async function CircleDetailPage({
               public_schedule: circle.public_schedule,
               public_contact: circle.public_contact,
               campus_id: circle.campus_id,
+              category: circle.category,
             }}
           />
         </section>
@@ -456,6 +485,17 @@ export default async function CircleDetailPage({
         <section className="mt-10 space-y-6 glass-panel">
           <h2 className="text-lg font-semibold">このサークルとの関係</h2>
           {isMember && <LeaveCircleButton circleId={circle.id} />}
+          {canManage && user && !pendingHandover && (
+            <HandoverPanel
+              circleId={id}
+              pending={null}
+              candidates={handoverCandidates}
+              isAdmin
+              viewerId={user.id}
+              termYear={circle.term_year}
+              embedded
+            />
+          )}
           {canManage && circle.status === "approved" && (
             <ClosureRequest
               circleId={circle.id}

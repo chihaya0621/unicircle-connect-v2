@@ -46,6 +46,8 @@ SOURCES=(
   "migrations/0029_seals.sql"
   "migrations/0030_handover.sql"
   "migrations/0031_events_public_listed_rls.sql"
+  "migrations/0032_event_guide.sql"
+  "migrations/0033_circle_category.sql"
   "seed.sql"
 )
 

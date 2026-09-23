@@ -165,7 +165,14 @@ export function PageHero({
 }) {
   return (
     <header className="glass-panel relative mb-6 overflow-hidden p-0">
-      <Decoration variant={variant} />
+      {/* 狭い画面では説明文が図形の上まで回り込み、読めなくなる。
+          図形を薄くして、文字の下に色が残る程度に留める */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 max-sm:opacity-30"
+      >
+        <Decoration variant={variant} />
+      </div>
 
       <div className="relative flex flex-wrap items-end justify-between gap-4 p-5 sm:gap-6 sm:p-6">
         <div className="flex min-w-0 items-end gap-3 sm:gap-5">
@@ -174,7 +181,7 @@ export function PageHero({
             {eyebrow && (
               <p
                 className="text-xs font-bold uppercase tracking-[0.2em]"
-                style={{ color: "rgb(var(--accent) / 0.75)" }}
+                style={{ color: "rgb(var(--accent-ink))" }}
               >
                 {eyebrow}
               </p>

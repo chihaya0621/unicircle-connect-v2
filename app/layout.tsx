@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, M_PLUS_2 } from "next/font/google";
 import "./globals.css";
 
 import { Header } from "@/components/Header";
+import { ModeSwitcher } from "@/components/ModeSwitcher";
 import { getTheme } from "@/lib/dal";
 
 const geistSans = Geist({
@@ -45,6 +46,22 @@ export const metadata: Metadata = {
     "大学のサークル活動・イベント告知・施設予約をひとつにするプラットフォーム",
 };
 
+/**
+ * 明るい・暗いを、描画の前に決めるスクリプト。
+ *
+ * 利用者の選択（端末に合わせる／明るい／暗い）はこの端末の localStorage に
+ * あり、サーバーからは見えない。サーバーで決めると一瞬ちがう色で描かれるので、
+ * HTML を読んでいる途中に同期で走らせ、html に data-scheme を付ける。
+ * 「端末に合わせる」のときは、端末の設定が変わったら追いかける。
+ * 値の読み書きは components/ModeSwitcher.tsx と揃えること。
+ */
+const SCHEME_SCRIPT = `(function(){try{
+var d=document.documentElement,q=matchMedia("(prefers-color-scheme: dark)");
+function m(){try{return localStorage.getItem("uc-mode")}catch(e){return null}}
+function a(){var v=m();d.dataset.scheme=v==="dark"||(v!=="light"&&q.matches)?"dark":"light"}
+a();q.addEventListener("change",a);
+}catch(e){}})()`;
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -57,11 +74,21 @@ export default async function RootLayout({
     <html
       lang="ja"
       data-theme={theme}
+      // data-scheme は下のスクリプトが付ける。サーバーの出力と食い違うのは想定どおり
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${mplus.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: SCHEME_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <Header />
         <main className="flex-1">{children}</main>
+        {/* 明るさは未ログインの人も選べるよう、全画面の末尾に置く */}
+        <footer className="mx-auto mt-12 flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 pb-8 text-xs text-gray-600 print:hidden dark:text-gray-400">
+          <span>UniCircle Connect</span>
+          <ModeSwitcher compact />
+        </footer>
       </body>
     </html>
   );

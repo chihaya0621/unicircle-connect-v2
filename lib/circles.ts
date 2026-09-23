@@ -10,6 +10,7 @@ import type {
   UserRole,
 } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase-server";
+import type { CircleCategory } from "@/lib/circle-categories";
 
 export type CircleListItem = {
   id: string;
@@ -20,6 +21,8 @@ export type CircleListItem = {
   image_path: string | null;
   university_id: string | null;
   campus_id: string | null;
+  /** 分野（0033） */
+  category: string | null;
   university: { name: string } | null;
   member_count: { count: number }[];
   scoped_universities: { university_id: string }[];
@@ -41,6 +44,8 @@ export type CirclePublicProfile = {
   public_contact: string | null;
   /** 主な活動拠点。同じ大学のキャンパスのみ */
   campus_id: string | null;
+  /** 分野（0033） */
+  category: string | null;
 };
 
 export type CircleDetail = CirclePublicProfile & {
@@ -56,7 +61,7 @@ export type CircleDetail = CirclePublicProfile & {
   closure_requested_at: string | null;
   /** いまの代が引き継いだ年度。null は設立の代のまま（0030） */
   term_year: number | null;
-  university: { name: string } | null;
+  university: { name: string; website_url: string | null } | null;
   campus: { name: string; address: string | null } | null;
   scoped_universities: {
     university_id: string;
@@ -66,6 +71,7 @@ export type CircleDetail = CirclePublicProfile & {
 
 const LIST_SELECT = `
   id, name, description, status, scope, image_path, university_id, campus_id,
+  category,
   university:universities!circles_university_id_fkey(name),
   member_count:circle_members(count),
   scoped_universities:circle_universities(university_id)
@@ -92,11 +98,14 @@ export async function listApprovedCircles(
     showOtherUniversities = false,
     myCircleIds = new Set<string>(),
     search = "",
+    category = null,
   }: {
     isStaff?: boolean;
     showOtherUniversities?: boolean;
     myCircleIds?: Set<string>;
     search?: string;
+    /** 分野で絞る（0033）。null なら全部 */
+    category?: CircleCategory | null;
   } = {},
 ) {
   const supabase = await createClient();
@@ -113,6 +122,7 @@ export async function listApprovedCircles(
     search,
   );
   if (clause) query = query.or(clause);
+  if (category) query = query.eq("category", category);
 
   const { data, error } = await query.returns<CircleListItem[]>();
 
@@ -189,6 +199,8 @@ export async function listPublicCircles(
   /** 拠点で絞る。代表キャンパスなら拠点未設定のものも含める */
   campus?: { id: string; includeUnassigned: boolean },
   search = "",
+  /** 分野で絞る（0033）。null なら全部 */
+  category: CircleCategory | null = null,
 ) {
   const supabase = await createClient();
 
@@ -206,6 +218,7 @@ export async function listPublicCircles(
     search,
   );
   if (clause) query = query.or(clause);
+  if (category) query = query.eq("category", category);
 
   const { data, error } = await query.returns<CircleListItem[]>();
 
@@ -323,8 +336,8 @@ export const getCircle = cache(
       .select(
         `id, name, description, status, scope, image_path, university_id, created_at,
          public_listed, public_intro, public_schedule, public_contact, campus_id,
-         closure_requested_at, term_year,
-         university:universities!circles_university_id_fkey(name),
+         category, closure_requested_at, term_year,
+         university:universities!circles_university_id_fkey(name, website_url),
          campus:campuses!circles_campus_id_fkey(name, address),
          scoped_universities:circle_universities(
            university_id,

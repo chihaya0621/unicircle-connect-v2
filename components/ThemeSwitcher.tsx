@@ -12,6 +12,8 @@ const THEMES: {
   description: string;
   /** プレビュー用の配色。CSS 側の変数と同じ値にしている */
   swatch: string[];
+  /** 暗い画面で差し色が変わるテーマだけ持つ */
+  swatchDark?: string[];
 }[] = [
   {
     value: "pop",
@@ -42,6 +44,7 @@ const THEMES: {
     name: "グラス",
     description: "淡いグラデーションの上にすりガラスの面が浮かぶ、質感の違う一枚。",
     swatch: ["#818cf8", "#f472b6", "#2dd4bf", "#fbbf24"],
+    swatchDark: ["#6366f1", "#be185d", "#0d9488", "#b45309"],
   },
 ];
 
@@ -73,19 +76,26 @@ export function ThemeSwitcher({ current }: { current: Theme }) {
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-semibold">{t.name}</span>
                     {active && (
-                      <span className="badge bg-[rgb(var(--accent)/0.15)] text-[rgb(var(--accent))]">
+                      <span className="badge bg-[rgb(var(--accent)/0.15)] font-semibold text-[rgb(var(--accent-ink))]">
                         使用中
                       </span>
                     )}
                   </span>
 
-                  <span className="mt-2 flex gap-1.5">
-                    {t.swatch.map((c) => (
-                      <span
-                        key={c}
-                        className="size-5 rounded-full shadow-sm transition-transform duration-300 ease-out"
-                        style={{ backgroundColor: c }}
-                      />
+                  {/* 見本は、いまの明るさの面の上に置く。暗い画面で選ぶ人に
+                      明るい版の見本だけを見せると、選んだ後の色と食い違う */}
+                  <span className="mt-2 flex gap-1.5 rounded-xl border border-black/5 bg-white p-2 dark:border-white/10 dark:bg-[#0b1220]">
+                    {t.swatch.map((c, i) => (
+                      <span key={c} className="size-5 rounded-full shadow-sm">
+                        <span
+                          className="block size-full rounded-full dark:hidden"
+                          style={{ backgroundColor: c }}
+                        />
+                        <span
+                          className="hidden size-full rounded-full dark:block"
+                          style={{ backgroundColor: t.swatchDark?.[i] ?? c }}
+                        />
+                      </span>
                     ))}
                   </span>
 
@@ -100,7 +110,7 @@ export function ThemeSwitcher({ current }: { current: Theme }) {
       </ul>
 
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        テーマはアカウントごとに保存されます。別の端末でログインしても同じ見た目になります。
+        配色テーマはアカウントごとに保存されます。別の端末でログインしても同じ配色になります。
       </p>
     </div>
   );

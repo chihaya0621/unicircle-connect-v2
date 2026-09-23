@@ -5,6 +5,7 @@ import { FavoriteButton } from "@/components/FavoriteButton";
 import type { CircleListItem } from "@/lib/circles";
 import type { Scope } from "@/lib/database.types";
 import { imageUrl } from "@/lib/images";
+import { categoryLabel } from "@/lib/circle-categories";
 
 const SCOPE_BADGE: Record<Scope, { label: string; className: string } | null> = {
   university: null, // 自大学のみは既定なのでバッジを出さない
@@ -18,6 +19,16 @@ const SCOPE_BADGE: Record<Scope, { label: string; className: string } | null> = 
       "bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
   },
 };
+
+/**
+ * 画像の無いサークルの目印にする1文字。
+ * 「【確認用】…」「『…』」のように記号で始まる名前は、記号を飛ばして
+ * 最初の文字（かな・漢字・英数字）を使う。記号だけでは誰のことか分からない。
+ */
+function initialOf(name: string): string {
+  const chars = [...name];
+  return chars.find((ch) => /[\p{L}\p{N}]/u.test(ch)) ?? chars[0] ?? "";
+}
 
 /**
  * カード全体をリンクにしつつ、中に「気になる」ボタンを置いている。
@@ -64,7 +75,7 @@ export function CircleCard({
             aria-hidden
             className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white/30 text-sm font-semibold text-gray-500 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-400"
           >
-            {circle.name.slice(0, 1)}
+            {initialOf(circle.name)}
           </div>
         )}
 
@@ -111,6 +122,8 @@ export function CircleCard({
               0 を「メンバーがいない」と読ませたくないので、その場合は出さない。 */}
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {circle.university?.name ?? "所属大学未設定"}
+            {categoryLabel(circle.category) &&
+              ` ／ ${categoryLabel(circle.category)}`}
             {memberCount > 0 && ` ／ メンバー${memberCount}人`}
           </p>
 

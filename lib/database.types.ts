@@ -330,6 +330,8 @@ export type Database = {
           closure_requested_at: string | null;
           /** いまの代が引き継いだ年度。null は設立の代のまま（0030） */
           term_year: number | null;
+          /** 分野（0033）。値は lib/circle-categories.ts */
+          category: string | null;
           created_at: string;
         };
         Insert: {
@@ -380,6 +382,10 @@ export type Database = {
           /** 学外の方向けの案内に載せるか（0025） */
           public_listed: boolean;
           image_path: string | null;
+          /** 会場（0032） */
+          venue: string | null;
+          /** 参加・申込みの方法（0032） */
+          how_to_join: string | null;
           created_at: string;
         };
         /**
@@ -690,6 +696,16 @@ export type Database = {
       };
       /** 表示テーマの変更（0016。対象は常に自分自身） */
       set_my_theme: { Args: { p_theme: Theme }; Returns: undefined };
+      /** サークルの分野（0033。管理者のみ。空文字で未設定） */
+      set_circle_category: {
+        Args: { p_circle_id: string; p_category: string };
+        Returns: undefined;
+      };
+      /** 会場と参加・申込みの方法（0032。主催者のみ） */
+      set_event_guide: {
+        Args: { p_event_id: string; p_venue: string; p_how_to_join: string };
+        Returns: undefined;
+      };
       /** 通知を既読にする（0014。p_ids 省略で全件） */
       mark_notifications_read: {
         Args: { p_ids?: string[] };

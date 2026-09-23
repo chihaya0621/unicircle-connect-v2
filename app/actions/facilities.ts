@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/dal";
 import { createClient } from "@/lib/supabase-server";
+import { parseJstInput } from "@/lib/jst";
 
 export type ActionState = { error?: string; notice?: string } | null;
 
@@ -38,8 +39,9 @@ export async function createReservation(
 
   // 備品の貸し出しは日をまたぐため、開始日と終了日を別々に受け取る。
   // 施設の場合はフォーム側で end_date に start_date を入れている。
-  const start = new Date(`${startDate}T${startTime}`);
-  const end = new Date(`${endDate}T${endTime}`);
+  // 入力は日本時間。サーバーは UTC で動くので、時差を付けて読む
+  const start = parseJstInput(startDate, startTime);
+  const end = parseJstInput(endDate, endTime);
 
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
     return { error: "日時の形式が正しくありません。" };
@@ -87,6 +89,46 @@ export async function decideReservation(formData: FormData): Promise<void> {
 
   revalidatePath("/reservations");
   revalidatePath("/facilities");
+}
+
+/**
+ * 予約のまとめて承認（大学職員のみ。判定は DB 側）。
+ *
+ * 1件ずつ decide_reservation を呼ぶ。まとめて1つの関数にすると、
+ * 1件の失敗（時間が重なる・既に処理済み）で全部が止まってしまう。
+ * 通ったものは通し、通らなかった件数だけを返す。
+ */
+export async function approveReservations(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireUser();
+  const ids = [...new Set(formData.getAll("reservation_ids").map(String))].filter(
+    Boolean,
+  );
+  if (ids.length === 0) return { error: "承認する予約を選んでください。" };
+
+  const supabase = await createClient();
+  let approved = 0;
+  const failures: string[] = [];
+  for (const id of ids) {
+    const { error } = await supabase.rpc("decide_reservation", {
+      p_reservation_id: id,
+      p_approve: true,
+    });
+    if (error) failures.push(error.message);
+    else approved++;
+  }
+
+  revalidatePath("/reservations");
+  revalidatePath("/facilities");
+
+  if (failures.length === 0) return { notice: `${approved}件を承認しました。` };
+  return {
+    error:
+      `${approved}件を承認しました。${failures.length}件は承認できませんでした` +
+      `（${[...new Set(failures)].join(" / ")}）。`,
+  };
 }
 
 /** 予約の取り消し（申請者本人またはサークル管理者。判定は DB 側） */

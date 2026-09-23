@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type { CalendarEvent } from "@/lib/calendar";
 import { SOURCE_COLOR, SOURCE_DOT, SOURCE_LABEL } from "@/lib/event-sources";
+import { jstDayKey } from "@/lib/jst";
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
@@ -11,25 +12,23 @@ const timeFormatter = new Intl.DateTimeFormat("ja-JP", {
   timeZone: "Asia/Tokyo",
 });
 
-/** その月のカレンダーに並べる日付（前後の月で6週ぶんを埋める） */
+/**
+ * その月のカレンダーに並べる日付（前後の月で6週ぶんを埋める）。
+ * 暦の計算だけなので、時差の影響を受けない UTC の日付で持つ。
+ */
 function buildDays(year: number, month: number) {
-  const first = new Date(year, month, 1);
-  const start = new Date(first);
-  start.setDate(1 - first.getDay());
-
+  const firstWeekday = new Date(Date.UTC(year, month, 1)).getUTCDay();
   return Array.from({ length: 42 }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    return d;
+    const d = new Date(Date.UTC(year, month, 1 - firstWeekday + i));
+    return { year: d.getUTCFullYear(), month: d.getUTCMonth(), day: d.getUTCDate() };
   });
 }
 
-/** 日付をキーにしてイベントを引けるようにする（ローカル時刻基準） */
+/** 日付をキーにしてイベントを引けるようにする（日本時間の日付） */
 function groupByDate(events: CalendarEvent[]) {
   const map = new Map<string, CalendarEvent[]>();
   for (const e of events) {
-    const d = new Date(e.event_date);
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const key = jstDayKey(new Date(e.event_date));
     const list = map.get(key);
     if (list) list.push(e);
     else map.set(key, [e]);
@@ -62,10 +61,7 @@ export function CalendarGrid({
 }) {
   const days = buildDays(year, month);
   const byDate = groupByDate(events);
-  const todayKey = (() => {
-    const t = new Date();
-    return `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`;
-  })();
+  const todayKey = jstDayKey(new Date());
 
   /** 曜日ごとの文字色。日曜は赤、土曜は青系 */
   const weekdayTone = (i: number) =>
@@ -96,9 +92,9 @@ export function CalendarGrid({
         {/* 日付 */}
         <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
           {days.map((d, i) => {
-            const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+            const key = `${d.year}-${d.month}-${d.day}`;
             const dayEvents = byDate.get(key) ?? [];
-            const isCurrentMonth = d.getMonth() === month;
+            const isCurrentMonth = d.month === month;
             const isToday = key === todayKey;
             const dow = i % 7;
 
@@ -122,7 +118,7 @@ export function CalendarGrid({
                           : "text-gray-700 dark:text-gray-300"
                   }`}
                 >
-                  {d.getDate()}
+                  {d.day}
                 </div>
 
                 {/* 狭い画面: 色の点で密度だけを見せる。詳細は下の一覧で読む */}

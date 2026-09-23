@@ -139,7 +139,7 @@ export function HomeHero({ action }: { action: ReactNode }) {
       <div className="min-w-0">
         <p
           className="mb-4 text-xs font-bold uppercase tracking-[0.24em]"
-          style={{ color: "rgb(var(--accent) / 0.75)" }}
+          style={{ color: "rgb(var(--accent-ink))" }}
         >
           University circles, connected
         </p>

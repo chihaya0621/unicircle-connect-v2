@@ -179,7 +179,7 @@ export function EventDeck({ events }: { events: UpcomingEvent[] }) {
                 <div className="shrink-0 text-center">
                   <p
                     className="text-2xl font-extrabold leading-none tracking-tight tabular-nums sm:text-3xl"
-                    style={{ color: "rgb(var(--accent))" }}
+                    style={{ color: "rgb(var(--accent-ink))" }}
                   >
                     {dayFormatter.format(date)}
                   </p>

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import type { Scope } from "@/lib/database.types";
 import { requireRole, requireUser } from "@/lib/dal";
 import { createClient } from "@/lib/supabase-server";
+import { isCircleCategory } from "@/lib/circle-categories";
 
 export type ActionState = { error?: string; notice?: string } | null;
 
@@ -160,6 +161,19 @@ export async function updateCirclePublicProfile(
   });
 
   if (error) return { error: `保存に失敗しました: ${error.message}` };
+
+  // 分野（0033）。「指定しない」は空文字で届き、未設定に戻る
+  const category = String(formData.get("category") ?? "");
+  if (category && !isCircleCategory(category)) {
+    return { error: "分野の指定が不正です。" };
+  }
+  const { error: categoryError } = await supabase.rpc("set_circle_category", {
+    p_circle_id: circleId,
+    p_category: category,
+  });
+  if (categoryError) {
+    return { error: `分野の保存に失敗しました: ${categoryError.message}` };
+  }
 
   revalidatePath(`/circles/${circleId}`);
   revalidatePath("/circles");

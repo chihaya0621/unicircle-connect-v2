@@ -7,6 +7,7 @@ import { DeleteAccount } from "@/components/DeleteAccount";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { ProfileForm } from "@/components/ProfileForm";
 import { SealEditor } from "@/components/SealEditor";
+import { ModeSwitcher } from "@/components/ModeSwitcher";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { UniversityWatchPanel } from "@/components/UniversityWatchPanel";
 import { CircleCard } from "@/components/CircleCard";
@@ -264,7 +265,15 @@ export default async function MyPage() {
       )}
 
       <section className="mt-10 glass-panel">
-        <h2 className="mb-4 text-lg font-semibold">表示テーマ</h2>
+        <h2 className="mb-4 text-lg font-semibold">表示</h2>
+
+        <h3 className="mb-2 text-sm font-semibold">明るさ</h3>
+        <ModeSwitcher />
+        <p className="mt-2 mb-6 text-xs text-gray-600 dark:text-gray-400">
+          この端末だけに保存されます。スマホは暗く、パソコンは明るく、のように分けられます。
+        </p>
+
+        <h3 className="mb-2 text-sm font-semibold">配色テーマ</h3>
         <ThemeSwitcher current={user.theme} />
       </section>
 

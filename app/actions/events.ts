@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import type { EventVisibility } from "@/lib/database.types";
 import { requireUser } from "@/lib/dal";
 import { createClient } from "@/lib/supabase-server";
+import { parseJstInput } from "@/lib/jst";
 
 export type ActionState = { error?: string; notice?: string } | null;
 
@@ -50,7 +51,8 @@ export async function createEvent(
   }
   if (!date || !time) return { error: "開催日時を入力してください。" };
 
-  const eventDate = new Date(`${date}T${time}`);
+  // 入力は日本時間。サーバーは UTC で動くので、時差を付けて読む
+  const eventDate = parseJstInput(date, time);
   if (Number.isNaN(eventDate.getTime())) {
     return { error: "日時の形式が正しくありません。" };
   }
@@ -84,6 +86,22 @@ export async function createEvent(
   });
 
   if (error) return { error: error.message };
+
+  // 会場と参加方法は別の関数で書く（0032）。書かれていなければ呼ばない
+  const venue = String(formData.get("venue") ?? "").trim();
+  const howToJoin = String(formData.get("how_to_join") ?? "").trim();
+  if (venue || howToJoin) {
+    const { error: guideError } = await supabase.rpc("set_event_guide", {
+      p_event_id: data,
+      p_venue: venue,
+      p_how_to_join: howToJoin,
+    });
+    // イベント自体はできているので、ここで止めずに詳細へ進める。
+    // 詳細ページで空欄に気づけば、編集から入れ直せる
+    if (guideError) {
+      console.error("会場・参加方法の保存に失敗しました:", guideError.message);
+    }
+  }
 
   revalidatePath("/events");
   revalidatePath("/calendar");
@@ -202,6 +220,10 @@ export async function updateEvent(
   if (!eventId) return { error: "イベントが指定されていません。" };
   if (!title) return { error: "イベント名を入力してください。" };
   if (!eventDate) return { error: "開催日時を入力してください。" };
+  const parsedDate = parseJstInput(eventDate);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return { error: "日時の形式が正しくありません。" };
+  }
   if (visibility === "scoped" && universityIds.length === 0) {
     return { error: "範囲を指定する場合は対象大学を1つ以上選んでください。" };
   }
@@ -210,8 +232,8 @@ export async function updateEvent(
   const { error } = await supabase.rpc("update_event", {
     p_event_id: eventId,
     p_title: title,
-    // datetime-local は時間帯を持たないので、閲覧者の時間帯として解釈する
-    p_event_date: new Date(eventDate).toISOString(),
+    // datetime-local は時間帯を持たないので、日本時間として読む
+    p_event_date: parsedDate.toISOString(),
     p_description: description,
     p_visibility: visibility as EventVisibility,
     p_target_grades: targetGrades.length ? targetGrades : undefined,
@@ -220,6 +242,16 @@ export async function updateEvent(
   });
 
   if (error) return { error: `保存に失敗しました: ${error.message}` };
+
+  // 会場と参加方法（0032）。空にすれば未記入に戻る
+  const { error: guideError } = await supabase.rpc("set_event_guide", {
+    p_event_id: eventId,
+    p_venue: String(formData.get("venue") ?? ""),
+    p_how_to_join: String(formData.get("how_to_join") ?? ""),
+  });
+  if (guideError) {
+    return { error: `会場・参加方法の保存に失敗しました: ${guideError.message}` };
+  }
 
   revalidatePath(`/events/${eventId}`);
   revalidatePath("/events");

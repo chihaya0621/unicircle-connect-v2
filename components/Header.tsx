@@ -80,7 +80,7 @@ export async function Header() {
   const bell = user && (
     <Link
       href="/notifications"
-      className={`relative ${navLink}`}
+      className={`tap-target ${navLink}`}
       aria-label={unread > 0 ? `通知 ${unread}件の未読` : "通知"}
     >
       <span aria-hidden>🔔</span>
@@ -132,10 +132,13 @@ export async function Header() {
             <MobileNav items={items}>{account}</MobileNav>
           ) : (
             <>
-              <Link href="/login" className={navLink}>
+              <Link href="/login" className={`tap-target ${navLink}`}>
                 ログイン
               </Link>
-              <Link href="/signup" className="btn-primary px-3 py-1.5 text-xs">
+              <Link
+                href="/signup"
+                className="btn-primary tap-target px-3 py-1.5 text-xs"
+              >
                 新規登録
               </Link>
             </>

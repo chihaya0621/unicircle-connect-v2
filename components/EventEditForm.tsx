@@ -6,6 +6,7 @@ import { updateEvent, type ActionState } from "@/app/actions/events";
 import { Field, FormMessage, Input, Select } from "@/components/Field";
 import { SubmitButton } from "@/components/SubmitButton";
 import type { EventVisibility, Tables } from "@/lib/database.types";
+import { toJstInput } from "@/lib/jst";
 
 type University = Pick<Tables<"universities">, "id" | "name">;
 
@@ -39,6 +40,8 @@ export function EventEditForm({
     visibility: EventVisibility;
     target_grades: string[] | null;
     public_listed: boolean;
+    venue: string | null;
+    how_to_join: string | null;
     scopedUniversityIds: string[];
   };
   universities: University[];
@@ -57,14 +60,9 @@ export function EventEditForm({
   const grades = new Set(event.target_grades ?? []);
   const selectable = universities.filter((u) => u.id !== hostUniversityId);
 
-  // datetime-local は「その場の時間帯の壁掛け時計」を求めるので、
-  // 保存されている時刻を閲覧者の時間帯に直してから渡す
-  const local = new Date(event.event_date);
-  const localValue = new Date(
-    local.getTime() - local.getTimezoneOffset() * 60000,
-  )
-    .toISOString()
-    .slice(0, 16);
+  // datetime-local は時間帯を持たない壁掛け時計の値なので、日本時間で渡す。
+  // 閲覧者の時間帯に合わせると、サーバーで描いた値（UTC）と食い違う
+  const localValue = toJstInput(new Date(event.event_date));
 
   return (
     <form action={action} className="space-y-4">
@@ -91,6 +89,29 @@ export function EventEditForm({
           rows={4}
           maxLength={2000}
           defaultValue={event.description ?? ""}
+          className="field-input"
+        />
+      </Field>
+
+      <Field label="会場" hint="建物・教室名や、キャンパスの所在地。学外の方も読みます。">
+        <Input
+          name="venue"
+          maxLength={200}
+          defaultValue={event.venue ?? ""}
+          placeholder="例: 本館 3階 301教室"
+        />
+      </Field>
+
+      <Field
+        label="参加・申込みの方法"
+        hint="申込みが要るか、どこから申し込むか。要らなければ「申込み不要」と書きましょう。"
+      >
+        <textarea
+          name="how_to_join"
+          rows={2}
+          maxLength={500}
+          defaultValue={event.how_to_join ?? ""}
+          placeholder="例: 申込み不要。当日そのままお越しください。"
           className="field-input"
         />
       </Field>

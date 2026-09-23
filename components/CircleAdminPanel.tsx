@@ -220,6 +220,7 @@ export function ClosureRequest({
     <form action={requestClosure} className="space-y-2">
       <input type="hidden" name="circle_id" value={circleId} />
       <p className="text-sm text-gray-700 dark:text-gray-300">
+        廃止は、サークルをたたんで一覧から外す手続きです。
         大学職員{requiredApprovals}人の承認で廃止されます。
         申請中も活動は続けられ、取り下げもできます。
       </p>

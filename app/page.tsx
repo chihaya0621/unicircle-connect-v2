@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { HomeHero } from "@/components/HomeHero";
 import { getCurrentUser } from "@/lib/dal";
+import { IS_DEMO } from "@/lib/dev-users";
 
 const FEATURES = [
   {
@@ -25,17 +26,47 @@ export default async function Home() {
     <div className="mx-auto max-w-5xl px-4 py-16">
       <HomeHero
         action={
-          <>
-            <Link
-              href={user ? "/calendar" : "/signup"}
-              className="btn-primary px-5"
-            >
-              {user ? "カレンダーを見る" : "はじめる"}
-            </Link>
-            <Link href="/events" className="btn-ghost px-5">
-              公開イベントを見る
-            </Link>
-          </>
+          user ? (
+            <>
+              <Link href="/calendar" className="btn-primary px-5">
+                カレンダーを見る
+              </Link>
+              <Link href="/events" className="btn-ghost px-5">
+                公開イベントを見る
+              </Link>
+            </>
+          ) : (
+            // 「はじめる」だと登録が要るのか分からない。見るだけなら
+            // 登録は要らないので、探す入口を先に置き、登録は後ろに回す
+            <>
+              <Link href="/circles" className="btn-primary px-5">
+                サークルを探す
+              </Link>
+              <Link href="/events" className="btn-ghost px-5">
+                公開イベントを見る
+              </Link>
+              <p className="basis-full text-sm text-gray-600 dark:text-gray-400">
+                見るだけなら登録は要りません。
+                {IS_DEMO ? (
+                  <>
+                    学生や職員の画面は、
+                    <Link href="/login" className="font-semibold underline">
+                      デモ用アカウント
+                    </Link>
+                    で登録なしに試せます。
+                  </>
+                ) : (
+                  <>
+                    学生・職員の方は
+                    <Link href="/signup" className="font-semibold underline">
+                      アカウントを作成
+                    </Link>
+                    してください。
+                  </>
+                )}
+              </p>
+            </>
+          )
         }
       />
 

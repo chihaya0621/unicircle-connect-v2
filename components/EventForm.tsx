@@ -6,6 +6,7 @@ import { createEvent, type ActionState } from "@/app/actions/events";
 import { Field, FormMessage, Input, Select } from "@/components/Field";
 import { SubmitButton } from "@/components/SubmitButton";
 import type { EventVisibility, Tables, UserRole } from "@/lib/database.types";
+import { toJstInput } from "@/lib/jst";
 
 type University = Pick<Tables<"universities">, "id" | "name">;
 
@@ -18,10 +19,12 @@ const VISIBILITY_HELP: Record<EventVisibility, string> = {
   public: "ログインしていない人を含め、誰でも閲覧できます。",
 };
 
+/**
+ * 今日の日付（日本時間）を input[type=date] の min 用に整形する。
+ * 閲覧者の時間帯で出すと、サーバーで描いた値（UTC）と食い違う
+ */
 function todayISO() {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+  return toJstInput(new Date()).slice(0, 10);
 }
 
 export function EventForm({
@@ -83,7 +86,28 @@ export function EventForm({
           name="description"
           rows={5}
           maxLength={2000}
-          placeholder="会場、持ち物、参加方法などを書きましょう。"
+          placeholder="内容や持ち物などを書きましょう。"
+          className="field-input"
+        />
+      </Field>
+
+      <Field label="会場" hint="建物・教室名や、キャンパスの所在地。学外の方も読みます。">
+        <Input
+          name="venue"
+          maxLength={200}
+          placeholder="例: 本館 3階 301教室"
+        />
+      </Field>
+
+      <Field
+        label="参加・申込みの方法"
+        hint="申込みが要るか、どこから申し込むか。要らなければ「申込み不要」と書きましょう。"
+      >
+        <textarea
+          name="how_to_join"
+          rows={2}
+          maxLength={500}
+          placeholder="例: 申込み不要。当日そのままお越しください。"
           className="field-input"
         />
       </Field>

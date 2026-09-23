@@ -49,7 +49,7 @@ export function MobileNav({
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={open ? "メニューを閉じる" : "メニューを開く"}
-        className="btn-ghost-sm px-2.5 py-2"
+        className="btn-ghost-sm size-11 p-0"
       >
         {/* 3本線と×を、線を動かして入れ替える */}
         <span aria-hidden className="relative block h-3.5 w-4">

@@ -11,6 +11,7 @@ import { listWatchedUniversityIds } from "@/lib/discovery";
 import { SOURCE_COLOR, SOURCE_LABEL } from "@/lib/event-sources";
 import { getMyUniversityId, requireUser } from "@/lib/dal";
 import { createClient } from "@/lib/supabase-server";
+import { jstDate, jstParts } from "@/lib/jst";
 
 export const metadata: Metadata = { title: "カレンダー | UniCircle Connect" };
 
@@ -33,7 +34,7 @@ const timeFormatter = new Intl.DateTimeFormat("ja-JP", {
 
 /** ?ym=2026-08 を年と月に分解する。不正な値なら今月。 */
 function parseMonth(ym: string | undefined) {
-  const now = new Date();
+  const now = jstParts(new Date());
   if (ym) {
     const m = /^(\d{4})-(\d{1,2})$/.exec(ym);
     if (m) {
@@ -42,7 +43,7 @@ function parseMonth(ym: string | undefined) {
       if (month >= 0 && month <= 11) return { year, month };
     }
   }
-  return { year: now.getFullYear(), month: now.getMonth() };
+  return { year: now.year, month: now.month };
 }
 
 function ymString(year: number, month: number) {
@@ -64,11 +65,11 @@ export default async function CalendarPage({
   const universityId = await getMyUniversityId();
 
   const { year, month } = parseMonth(sp.ym);
-  // カレンダーは前後の月をはみ出して表示するので、6週ぶんを取得範囲にする
-  const gridStart = new Date(year, month, 1);
-  gridStart.setDate(1 - gridStart.getDay());
-  const gridEnd = new Date(gridStart);
-  gridEnd.setDate(gridStart.getDate() + 42);
+  // カレンダーは前後の月をはみ出して表示するので、6週ぶんを取得範囲にする。
+  // 区切りは日本時間の0時（サーバーは UTC で動く）
+  const firstWeekday = new Date(Date.UTC(year, month, 1)).getUTCDay();
+  const gridStart = jstDate(year, month, 1 - firstWeekday);
+  const gridEnd = jstDate(year, month, 1 - firstWeekday + 42);
 
   const isGeneral = user.role === "general";
 
@@ -118,13 +119,13 @@ export default async function CalendarPage({
     (m) => m.status === "active" && m.circle,
   );
 
-  const prev = new Date(year, month - 1, 1);
-  const next = new Date(year, month + 1, 1);
+  const prev = new Date(Date.UTC(year, month - 1, 1));
+  const next = new Date(Date.UTC(year, month + 1, 1));
 
   // 当月ぶんだけを見出しの件数と下の一覧に使う（前後の月のはみ出しは除く）
   const thisMonth = events.filter((e) => {
-    const d = new Date(e.event_date);
-    return d.getFullYear() === year && d.getMonth() === month;
+    const d = jstParts(new Date(e.event_date));
+    return d.year === year && d.month === month;
   });
 
   return (
@@ -139,7 +140,7 @@ export default async function CalendarPage({
         lead={
           <span
             className="text-5xl font-extrabold leading-none tracking-tighter tabular-nums sm:text-8xl"
-            style={{ color: "rgb(var(--accent))" }}
+            style={{ color: "rgb(var(--accent-ink))" }}
           >
             {String(month + 1).padStart(2, "0")}
           </span>
@@ -147,7 +148,7 @@ export default async function CalendarPage({
         action={
           <>
             <Link
-              href={`/calendar?ym=${ymString(prev.getFullYear(), prev.getMonth())}`}
+              href={`/calendar?ym=${ymString(prev.getUTCFullYear(), prev.getUTCMonth())}`}
               className="btn-ghost-sm px-3 py-1.5"
               aria-label="前の月"
             >
@@ -157,7 +158,7 @@ export default async function CalendarPage({
               今月
             </Link>
             <Link
-              href={`/calendar?ym=${ymString(next.getFullYear(), next.getMonth())}`}
+              href={`/calendar?ym=${ymString(next.getUTCFullYear(), next.getUTCMonth())}`}
               className="btn-ghost-sm px-3 py-1.5"
               aria-label="次の月"
             >
