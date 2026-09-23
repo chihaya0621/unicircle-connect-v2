@@ -132,6 +132,10 @@ export default async function EventDetailPage({
           </span>
         </div>
 
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          {host.kind === "university" ? "大学主催" : "サークル主催"} ／ {host.name}
+        </p>
+
         {isPast && (
           <p className="mt-3 inline-flex rounded-full bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 dark:bg-white/10 dark:text-gray-300">
             このイベントは終了しました
@@ -155,9 +159,6 @@ export default async function EventDetailPage({
             {event.how_to_join ?? "主催者にお問い合わせください"}
           </dd>
         </dl>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {host.kind === "university" ? "大学主催" : "サークル主催"} ／ {host.name}
-        </p>
 
         {event.visibility === "scoped" &&
           event.scoped_university_names.length > 0 && (

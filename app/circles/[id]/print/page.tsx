@@ -152,8 +152,8 @@ export default async function CirclePrintPage({
           </h2>
           {approvedBeforeRecords && (
             <p className="paper-note">
-              承認済み。このサークルは、承認の記録をこの仕組みで取り始める前に
-              設立が承認されたため、承認者の押印の記録はありません。
+              承認済み。このサークルは、承認の記録をこの仕組みで取り始める前に設立が承認されたため、
+              承認者の押印の記録はありません。
             </p>
           )}
           <div className="paper-seals">
