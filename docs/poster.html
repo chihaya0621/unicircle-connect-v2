@@ -371,6 +371,11 @@ html,body{ margin:0; padding:0; background:#2A2838; }
 }
 .float .ft{ font-size:2.1mm; font-weight:800; line-height:1.4; display:block; }
 .float .fs{ font-family:var(--f-mono); font-size:1.8mm; color:var(--ink-3); display:block; }
+/* 承認欄。アプリの押印と同じく、押された判子と空いた欄を並べる */
+.seals{ display:flex; gap:1.6mm; align-items:center; margin:1.4mm 0 1mm; }
+.seals .slot{ width:9mm; height:9mm; border:.25mm dashed #B9B6CF; border-radius:50%; display:grid; place-items:center; }
+.seals .slot.on{ border:none; }
+.seals svg{ width:9mm; height:9mm; display:block; transform:rotate(-6deg); }
 
 /* 引き出し線。端末群に重ねて描き、線の先は必ず実在の要素の上に落とす */
 .leadlines{ position:absolute; inset:0; z-index:7; pointer-events:none; }
@@ -803,9 +808,13 @@ html,body{ margin:0; padding:0; background:#2A2838; }
         </div>
 
         <div class="float" style="left:0;top:0;width:52mm">
-          <span class="ft">承認 1 / 2人</span>
+          <span class="ft">承認 1 / 2人 ── あと1人</span>
+          <span class="seals">
+            <span class="slot on"><svg viewBox="0 0 40 40" aria-label="押された印影"><circle cx="20" cy="20" r="18" fill="none" stroke="#C8322E" stroke-width="2.4"/><text x="20" y="18.2" text-anchor="middle" font-family="M PLUS 2" font-weight="900" font-size="11" fill="#C8322E">青</text><text x="20" y="30" text-anchor="middle" font-family="M PLUS 2" font-weight="900" font-size="11" fill="#C8322E">空</text></svg></span>
+            <span class="slot" aria-label="まだ押されていない欄"></span>
+            <span class="fs" style="margin-left:1mm">押されたときのまま</span>
+          </span>
           <span class="fs">サークル設立 ／ 青空大学</span>
-          <span class="bar"><i style="width:50%"></i></span>
         </div>
 
         <div class="float" style="left:1mm;bottom:0;width:50mm">
@@ -869,17 +878,17 @@ html,body{ margin:0; padding:0; background:#2A2838; }
         <div class="feat">
           <span class="ftag">02 — カレンダー</span>
           <h5>参加登録した予定が、<br>そのまま載る</h5>
-          <p>予定を見る場所は1つだけにした。同じ情報が一覧とダッシュボードに分かれていると、どちらを見ればいいのか分からなくなる。直近5件は横スライドのカードで、月表示のすぐ隣に置いた。</p>
+          <p>予定を見る場所は1つだけにした。一覧とダッシュボードに分かれていると、どちらを見ればいいのか分からなくなる。何分前に知らせるかは本人が選び、日時が変わった予定は自動で送り直しの対象に戻る。</p>
         </div>
         <div class="feat">
-          <span class="ftag">03 — 複数人の承認</span>
+          <span class="ftag">03 — 押印と承認</span>
           <h5>判子が揃って、<br>はじめて通る</h5>
-          <p>設立と廃止は、大学が決めた人数（1〜5人）が揃って成立する。却下はひとりで成立する。同じ職員が二度押すことはできない。誰がいつ何と書いて押したかは記録に残り、あとから辿れる。</p>
+          <p>設立と廃止は、大学が決めた人数（1〜5人）の判子が揃って成立し、却下はひとりで成立する。職員は自分の印影で押し、空いた欄と止まっている日数が見える。記録は前の記録とつながっていて、あとから書き換えると分かる。</p>
         </div>
         <div class="feat">
-          <span class="ftag">04 — リマインド</span>
-          <h5>何分前に知らせるかは、<br>本人が決める</h5>
-          <p>参加登録したイベントごとに、通知のタイミングを個人単位で選ぶ。配信はデータベース側のスケジューラが5分おきに回す。日時が変わったイベントは、送信済みでも自動的に送り直しの対象へ戻る。</p>
+          <span class="ftag">04 — 代替わり</span>
+          <h5>代表が替わっても、<br>運営が途切れない</h5>
+          <p>代表の交代は、頼まれた人が受けて初めて成立する。押し付けられた代表は続かないから。前の代は申し送りを残し、次の代がサークルのページで最初に読む。今年度まだ替わっていないサークルは、職員の一覧に出る。</p>
         </div>
       </div>
     </section>
@@ -926,7 +935,7 @@ html,body{ margin:0; padding:0; background:#2A2838; }
             <span class="mini" style="display:block;margin-top:.5mm">青空大学 ／ メンバー 24人 ／ 掲示 3件</span>
             <span class="bar" style="margin-top:1.6mm"><i style="width:72%"></i></span>
           </div>
-          <p class="mini" style="margin:2mm 0 0">角丸・影・ボタンの形はテーマをまたいで共通で、変わるのは配色だけ。5種類から選べる。</p>
+          <p class="mini" style="margin:2mm 0 0">角丸・影・ボタンの形はテーマをまたいで共通で、変わるのは配色だけ。配色は5種類、明るさは「端末に合わせる／明るい／暗い」から選べる。</p>
         </div>
       </div>
     </section>
@@ -940,11 +949,11 @@ html,body{ margin:0; padding:0; background:#2A2838; }
         </div>
         <div class="role b">
           <b>職員</b><span class="to">ログイン後 → カレンダー</span>
-          <span class="d">承認の列、学生の登録、キャンパスと施設のマスタ管理。承認に必要な人数もここで決める。</span>
+          <span class="d">承認の列（自分の印影で押す）、予約のまとめて承認、学生の登録、キャンパスと施設の管理。承認に必要な人数もここで決める。</span>
         </div>
         <div class="role c">
           <b>一般（高校生・企業）</b><span class="to">ログイン後 → サークル一覧</span>
-          <span class="d">公開情報の閲覧と、気になる大学・サークルの登録。参加登録や施設予約はできない。</span>
+          <span class="d">公開情報の閲覧と、気になる大学・サークルの登録。分野で探し、イベントの会場と申込み方法まで見られる。参加登録や施設予約はできない。</span>
         </div>
       </div>
     </section>
@@ -1098,6 +1107,7 @@ html,body{ margin:0; padding:0; background:#2A2838; }
               <tr><th>event_participants</th><td>本人 ／ そのイベントの主催者</td></tr>
               <tr><th>facility_reservations</th><td>本人 ／ サークルのメンバー ／ 施設の大学の職員</td></tr>
               <tr><th>approvals</th><td>対象そのものが読める人</td></tr>
+              <tr><th>circle_handovers</th><td>そのサークルのメンバー ／ 所属大学の職員</td></tr>
             </tbody>
           </table>
         </div>
@@ -1139,6 +1149,14 @@ html,body{ margin:0; padding:0; background:#2A2838; }
           <h5>拡大率に依存しない背景</h5>
           <p>ブラウザの拡大縮小は <code>rem</code> も <code>px</code> も変えない。変わるのは、ビューポートに収まる CSS ピクセルの数のほうだ。固定配置の装飾を <code>rem</code> で組むと、引いて表示したときにだけ破綻する。単位を <code>vw</code> / <code>vh</code> / <code>vmin</code> に統一して解決した。</p>
         </span></div>
+        <div class="f"><span class="fn">05</span><span>
+          <h5>押された判子を、あとから書き換えさせない</h5>
+          <p>承認の記録は、1件ごとに「前の記録のハッシュ」を含めてハッシュを取り、鎖のようにつないでいる。途中の1件でも書き換えると、そこから先の値が合わなくなる。画面には「押されたときのまま」かどうかを出す。暗号で署名するほどの重さは持たせず、紙の割印くらいの確かさを狙った。</p>
+        </span></div>
+        <div class="f"><span class="fn">06</span><span>
+          <h5>権限は、データベースを本当に動かして確かめる</h5>
+          <p>使い捨ての PostgreSQL に全マイグレーションを流し、学生・職員・未ログインになりきって読み書きする検査を69件、画面を PC とスマホの幅で操作する E2E を56件用意した。この検査で、学外に出さないはずのイベント225件が未ログインから読めていた漏れが見つかり、直した。</p>
+        </span></div>
       </div>
     </section>
 
@@ -1149,6 +1167,7 @@ html,body{ margin:0; padding:0; background:#2A2838; }
           <dl>
             <dt>Frontend</dt><dd>Next.js 16（App Router）／ TypeScript ／ Tailwind CSS v4 ／ React Server Components</dd>
             <dt>Backend</dt><dd>Supabase — Auth ／ PostgreSQL（Row Level Security）／ Storage</dd>
+            <dt>Testing</dt><dd>PostgreSQL での権限の検査 69件 ／ Playwright の E2E 56件（PC・スマホ）</dd>
             <dt>Typeface</dt><dd>M PLUS 2 ／ Geist</dd>
           </dl>
         </div>
