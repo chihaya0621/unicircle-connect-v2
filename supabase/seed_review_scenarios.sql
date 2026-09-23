@@ -9,6 +9,9 @@
 --   2. npm run db:users を流し、staff2 / staff3 が作られていること
 --      （複数人承認は職員が2人以上いないと設定できない）
 --
+-- 確認用のサークルとイベントは学内だけに見せる（public_listed = false）。
+-- 学外の一覧の先頭に【確認用】が並ぶと、展示で来た人が戸惑う。
+--
 -- 何度流しても増えない。UUID を決め打ちにして ON CONFLICT で受ける。
 -- ユーザーはメールアドレスで引くので、ID を書き換える必要はない。
 -- =============================================================================
@@ -22,17 +25,17 @@ UPDATE universities SET required_circle_approvals = 2
 -- 1. 設立の承認待ち
 -- -----------------------------------------------------------------------------
 
-INSERT INTO circles (id, university_id, name, description, status, scope) VALUES
+INSERT INTO circles (id, university_id, name, description, status, scope, public_listed) VALUES
   ('d0000000-0000-4000-8000-000000000001',
    'a0000000-0000-4000-8000-000000000001',
    '【確認用】設立申請ちょうど出したところ',
    'まだ誰も承認していない状態です。職員2人の承認で成立します。',
-   'pending', 'university'),
+   'pending', 'university', false),
   ('d0000000-0000-4000-8000-000000000002',
    'a0000000-0000-4000-8000-000000000001',
    '【確認用】設立申請あと1人',
    '職員がひとり承認済みです。もうひとりで承認が成立します。',
-   'pending', 'university')
+   'pending', 'university', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- 申請者（学生1）を管理者として入れておく
@@ -59,17 +62,17 @@ ON CONFLICT DO NOTHING;
 -- 2. 承認の記録が残っているサークル
 -- -----------------------------------------------------------------------------
 
-INSERT INTO circles (id, university_id, name, description, status, scope) VALUES
+INSERT INTO circles (id, university_id, name, description, status, scope, public_listed) VALUES
   ('d0000000-0000-4000-8000-000000000003',
    'a0000000-0000-4000-8000-000000000001',
    '【確認用】承認の記録つき',
    '2人の職員の承認を経て設立されたサークルです。詳細に記録が出ます。',
-   'approved', 'university'),
+   'approved', 'university', false),
   ('d0000000-0000-4000-8000-000000000004',
    'a0000000-0000-4000-8000-000000000001',
    '【確認用】却下されたサークル',
    '職員1人の却下で不成立になった例です。',
-   'rejected', 'university')
+   'rejected', 'university', false)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO circle_members (circle_id, user_id, role, status)
@@ -98,17 +101,17 @@ ON CONFLICT DO NOTHING;
 -- 申請中も status は approved のまま。承認が揃った時点で closed になる。
 
 INSERT INTO circles (id, university_id, name, description, status, scope,
-                     closure_requested_at) VALUES
+                     closure_requested_at, public_listed) VALUES
   ('d0000000-0000-4000-8000-000000000005',
    'a0000000-0000-4000-8000-000000000001',
    '【確認用】廃止申請 承認0件',
    '管理者が廃止を申請したところです。職員2人の承認で廃止されます。',
-   'approved', 'university', now()),
+   'approved', 'university', now(), false),
   ('d0000000-0000-4000-8000-000000000006',
    'a0000000-0000-4000-8000-000000000001',
    '【確認用】廃止申請 あと1人',
    '職員がひとり承認済みです。もうひとりで廃止が成立します。',
-   'approved', 'university', now())
+   'approved', 'university', now(), false)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO circle_members (circle_id, user_id, role, status)
@@ -135,17 +138,17 @@ ON CONFLICT DO NOTHING;
 -- 管理者がひとりだけのサークルからは抜けられない。
 -- 2人いれば抜けられる。両方を用意して違いを見る。
 
-INSERT INTO circles (id, university_id, name, description, status, scope) VALUES
+INSERT INTO circles (id, university_id, name, description, status, scope, public_listed) VALUES
   ('d0000000-0000-4000-8000-000000000007',
    'a0000000-0000-4000-8000-000000000001',
    '【確認用】管理者がひとり',
    '学生1が唯一の管理者です。退会しようとすると止まります。',
-   'approved', 'university'),
+   'approved', 'university', false),
   ('d0000000-0000-4000-8000-000000000008',
    'a0000000-0000-4000-8000-000000000001',
    '【確認用】管理者がふたり',
    '学生1と学生2が管理者です。学生1は退会できます。',
-   'approved', 'university')
+   'approved', 'university', false)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO circle_members (circle_id, user_id, role, status)
@@ -174,7 +177,8 @@ INSERT INTO events (id, host_university_id, host_circle_id, title, description,
    'a0000000-0000-4000-8000-000000000001', NULL,
    '【確認用】日時を動かしてみるイベント',
    '参加者のリマインドが送信済みになっています。日時を変えると送り直しの対象に戻ります。',
-   now() + interval '10 days', 'public', ARRAY['高校生','一般'], true)
+   ((now() AT TIME ZONE 'Asia/Tokyo')::date + 10 + time '13:00') AT TIME ZONE 'Asia/Tokyo',
+   'public', ARRAY['高校生','一般'], false)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO event_participants (event_id, user_id, status)

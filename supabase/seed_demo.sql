@@ -202,7 +202,7 @@ BEGIN
         v_id, NULL, c.id,
         v_titles[1 + (n % array_length(v_titles, 1))],
         '詳細は各サークルの案内をご確認ください。',
-        date_trunc('hour', now()) + (v_offset || ' days')::interval
+        (((now() AT TIME ZONE 'Asia/Tokyo')::date)::timestamp AT TIME ZONE 'Asia/Tokyo') + (v_offset || ' days')::interval
           + ((10 + (n % 8)) || ' hours')::interval,
         v_visibility,
         CASE WHEN n % 3 = 0 THEN ARRAY['1年','2年'] ELSE NULL END
@@ -235,7 +235,7 @@ BEGIN
         v_id, u.id, NULL,
         v_uni_titles[1 + (n % array_length(v_uni_titles, 1))],
         '大学公式の行事です。',
-        date_trunc('hour', now()) + (v_offset || ' days')::interval
+        (((now() AT TIME ZONE 'Asia/Tokyo')::date)::timestamp AT TIME ZONE 'Asia/Tokyo') + (v_offset || ' days')::interval
           + ((9 + (n % 7)) || ' hours')::interval,
         v_visibility,
         CASE WHEN i = 1 THEN ARRAY['1年'] ELSE NULL END

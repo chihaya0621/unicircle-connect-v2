@@ -49,6 +49,7 @@ ON CONFLICT (id) DO NOTHING;
 -- イベント
 -- -----------------------------------------------------------------------------
 -- 一覧は「今日以降」を表示するため、現在時刻からの相対日時で入れています。
+-- 時刻は日本時間の昼間に揃えます（now() + interval だと流した時刻が残り、深夜になる）。
 --
 -- 排他的関連の確認用に、大学主催とサークル主催の両方を用意しています。
 -- visibility の出し分け確認用に public / internal の両方も入れています。
@@ -65,35 +66,35 @@ VALUES
    'a0000000-0000-4000-8000-000000000001', NULL,
    'オープンキャンパス2026',
    '学部紹介、模擬授業、キャンパスツアーを実施します。どなたでも参加できます。',
-   NOW() + INTERVAL '7 days', 'public', ARRAY['高校生', '一般']),
+   ((now() AT TIME ZONE 'Asia/Tokyo')::date + 7 + time '13:00') AT TIME ZONE 'Asia/Tokyo', 'public', ARRAY['高校生', '一般']),
 
   -- 大学主催・学内限定
   ('e0000000-0000-4000-8000-000000000002',
    'a0000000-0000-4000-8000-000000000001', NULL,
    '春学期 履修登録ガイダンス',
    '履修登録システムの使い方と注意点を説明します。',
-   NOW() + INTERVAL '3 days', 'internal', ARRAY['1年', '2年']),
+   ((now() AT TIME ZONE 'Asia/Tokyo')::date + 3 + time '10:30') AT TIME ZONE 'Asia/Tokyo', 'internal', ARRAY['1年', '2年']),
 
   -- サークル主催・公開
   ('e0000000-0000-4000-8000-000000000003',
    NULL, 'c0000000-0000-4000-8000-000000000001',
    '軽音楽部 新歓ライブ',
    '入場無料。5バンドが出演します。楽器未経験でも大歓迎です。',
-   NOW() + INTERVAL '14 days', 'public', ARRAY['1年', '2年', '3年', '4年']),
+   ((now() AT TIME ZONE 'Asia/Tokyo')::date + 14 + time '17:00') AT TIME ZONE 'Asia/Tokyo', 'public', ARRAY['1年', '2年', '3年', '4年']),
 
   -- サークル主催・学内限定
   ('e0000000-0000-4000-8000-000000000004',
    NULL, 'c0000000-0000-4000-8000-000000000002',
    'もくもく会 #12',
    '各自の作業を持ち寄って黙々と進める会です。飛び入り参加OK。',
-   NOW() + INTERVAL '5 days', 'internal', NULL),
+   ((now() AT TIME ZONE 'Asia/Tokyo')::date + 5 + time '15:00') AT TIME ZONE 'Asia/Tokyo', 'internal', NULL),
 
   -- サークル主催・公開（少し先）
   ('e0000000-0000-4000-8000-000000000005',
    NULL, 'c0000000-0000-4000-8000-000000000003',
    'フットサル交流戦',
    '他大学との合同練習試合です。見学だけでも歓迎。',
-   NOW() + INTERVAL '21 days', 'public', ARRAY['1年', '2年'])
+   ((now() AT TIME ZONE 'Asia/Tokyo')::date + 21 + time '14:00') AT TIME ZONE 'Asia/Tokyo', 'public', ARRAY['1年', '2年'])
 ON CONFLICT (id) DO NOTHING;
 
 

@@ -42,7 +42,7 @@ BEGIN
     FOR i IN 1..4 LOOP
       n := n + 1;
       v_id := ('e3000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid;
-      v_when := date_trunc('hour', now())
+      v_when := (((now() AT TIME ZONE 'Asia/Tokyo')::date)::timestamp AT TIME ZONE 'Asia/Tokyo')
                 - ((3 + (n * 7 + i * 5) % 78) || ' days')::interval
                 + ((14 + (n % 5)) || ' hours')::interval;
 
@@ -62,7 +62,7 @@ BEGIN
     FOR i IN 1..2 LOOP
       n := n + 1;
       v_id := ('e3000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid;
-      v_when := date_trunc('hour', now())
+      v_when := (((now() AT TIME ZONE 'Asia/Tokyo')::date)::timestamp AT TIME ZONE 'Asia/Tokyo')
                 + ((2 + (n * 3 + i * 4) % 40) || ' days')::interval
                 + ((13 + (n % 6)) || ' hours')::interval;
 
@@ -110,7 +110,7 @@ BEGIN
         v_id, u.id, NULL,
         titles[1 + (n % array_length(titles, 1))],
         '大学が主催する行事です。',
-        date_trunc('hour', now())
+        (((now() AT TIME ZONE 'Asia/Tokyo')::date)::timestamp AT TIME ZONE 'Asia/Tokyo')
           + (((n * 5 + i * 3) % 70 - 25) || ' days')::interval
           + ((10 + (n % 6)) || ' hours')::interval,
         CASE WHEN i = 1 THEN 'public' ELSE 'internal' END,
@@ -291,7 +291,7 @@ BEGIN
     FOR i IN 1..3 LOOP
       n := n + 1;
       -- 施設ごと・回ごとに別の日にして重複を避ける
-      v_start := date_trunc('day', now())
+      v_start := (((now() AT TIME ZONE 'Asia/Tokyo')::date)::timestamp AT TIME ZONE 'Asia/Tokyo')
                  + ((n * 2 + i) || ' days')::interval
                  + ((9 + (i * 3)) || ' hours')::interval;
       v_status := CASE i WHEN 1 THEN 'approved' WHEN 2 THEN 'pending' ELSE 'rejected' END;

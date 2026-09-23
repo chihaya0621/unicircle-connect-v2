@@ -79,6 +79,12 @@ w("")
 def uid(prefix, n):
     return "%s-0000-4000-8000-%012d" % (prefix, n)
 
+def jst_at(days):
+    """日本時間で days 日後の、昼間の時刻。
+    now() + interval だと流した時刻がそのまま残り、深夜のイベントになる"""
+    return ("((now() AT TIME ZONE 'Asia/Tokyo')::date + %d + time '%02d:00') "
+            "AT TIME ZONE 'Asia/Tokyo'" % (days, 10 + days % 8))
+
 prefs = list(PREF.keys())
 unis = []
 used_names = set()
@@ -186,18 +192,18 @@ for u in unis:
         n_ev += 1
         days = random.randint(3, 300)
         event_rows.append(
-            "  ('%s', '%s', NULL, '%s%d', '%s', now() + interval '%d days', "
+            "  ('%s', '%s', NULL, '%s%d', '%s', %s, "
             "'public', ARRAY['高校生','一般'], true)"
-            % (uid("b4000000", n_ev), u["id"], title, 2026, desc, days))
+            % (uid("b4000000", n_ev), u["id"], title, 2026, desc, jst_at(days)))
     # 学内向け: 各大学2〜4件
     for title, desc in random.sample(INTERNAL, random.randint(2, 4)):
         n_ev += 1
         days = random.randint(3, 200)
         vis = "public" if random.random() < 0.5 else "internal"
         event_rows.append(
-            "  ('%s', '%s', NULL, '%s', '%s', now() + interval '%d days', "
+            "  ('%s', '%s', NULL, '%s', '%s', %s, "
             "'%s', NULL, false)"
-            % (uid("b4000000", n_ev), u["id"], title, desc, days, vis))
+            % (uid("b4000000", n_ev), u["id"], title, desc, jst_at(days), vis))
 
 # サークル主催。未ログインには出ないが、学生の一覧では件数が増える
 CIRCLE_EVENTS = ["新歓ライブ", "練習試合", "定期演奏会", "作品展示会", "合宿説明会", "もくもく会"]
@@ -209,8 +215,8 @@ for row in circle_rows:
     days = random.randint(2, 120)
     event_rows.append(
         "  ('%s', NULL, '%s', '%s', 'メンバー向けの案内です。', "
-        "now() + interval '%d days', 'public', NULL, false)"
-        % (uid("b4000000", n_ev), cid, random.choice(CIRCLE_EVENTS), days))
+        "%s, 'public', NULL, false)"
+        % (uid("b4000000", n_ev), cid, random.choice(CIRCLE_EVENTS), jst_at(days)))
 
 w("INSERT INTO events (id, host_university_id, host_circle_id, title, description,")
 w("                    event_date, visibility, target_grades, public_listed) VALUES")
