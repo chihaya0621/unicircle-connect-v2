@@ -176,7 +176,7 @@ export function HandoverPanel({
         <label className="block space-y-1.5">
           <span className="text-sm font-medium">申し送り（任意）</span>
           <span className="block text-xs text-gray-600 dark:text-gray-400">
-            次の代表に残すメモです。引き継いだ人がサークルのページで読めます。
+            引き継ぐ相手に残すメモです。受けた人がサークルのページで読めます。
           </span>
           <textarea
             name="note"

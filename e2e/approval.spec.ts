@@ -42,7 +42,8 @@ test.describe("学生（サークルの管理者）", () => {
     await expect(page.getByRole("heading", { name: /承認欄（必要\d+名）/ })).toBeVisible();
 
     // 画面にだけ出る操作が、紙には出ない指定になっているか
-    const controls = page.locator(".print\\:hidden");
+    // 全画面共通の足（明るさの切り替え）も print:hidden なので、申請書の側だけを見る
+    const controls = page.locator("main .print\\:hidden");
     await expect(controls).toBeVisible();
     await expect(
       controls.evaluate((el) => getComputedStyle(el).display),
