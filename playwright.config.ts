@@ -37,12 +37,31 @@ export default defineConfig({
   projects: [
     // 先にログインして、あとのテストはその状態を使い回す。
     // 毎回ログインし直すと、Supabase 側のレート制限に当たる。
+    // ログインは広い画面で済ませる。狭い画面では氏名がメニューの中に
+    // 畳まれていて、ログインできたことを確かめにくい。
+    // 保存されるのは Cookie なので、どちらの幅から取っても同じ。
     { name: "setup", testMatch: /auth\.setup\.ts/ },
+
     {
-      name: "chromium",
+      name: "desktop",
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
-      testIgnore: /auth\.setup\.ts/,
+      testIgnore: /(auth\.setup|mobile\.spec)\.ts/,
+    },
+
+    /**
+     * 狭い画面。
+     *
+     * 全部を流し直しはしない。印影の保存や引き継ぎの申し出は、
+     * 同じデータを広い画面のぶんと取り合ううえ、処理そのものは
+     * 幅で変わらない。狭い画面で確かめたいのは配置と操作なので、
+     * 読むだけの access と、狭い画面専用の mobile に絞る。
+     */
+    {
+      name: "mobile",
+      use: { ...devices["Pixel 7"] },
+      dependencies: ["setup"],
+      testMatch: /(access|mobile)\.spec\.ts/,
     },
   ],
 
