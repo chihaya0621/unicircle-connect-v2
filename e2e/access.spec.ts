@@ -36,6 +36,61 @@ test.describe("未ログイン", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
+  test("大学を選ぶと、札の件数どおりにサークルが並ぶ", async ({ page }) => {
+    // 以前は全国から名前順に120件だけ取ってから大学で絞っていたので、
+    // 9件ある大学を開いても1件しか出ないことがあった
+    await page.goto(`/circles?pref=${encodeURIComponent("東京都")}`);
+    const tiles = await page
+      .locator("main a[href*='university=']")
+      .evaluateAll((links) =>
+        links.map((a) => ({
+          href: a.getAttribute("href") ?? "",
+          count: Number(/(\d+)件/.exec(a.textContent ?? "")?.[1] ?? NaN),
+        })),
+      );
+    expect(tiles.length).toBeGreaterThan(0);
+
+    for (const tile of tiles) {
+      await page.goto(tile.href);
+      const shown = await page
+        .locator("main a[href^='/circles/']")
+        .evaluateAll(
+          (links) => new Set(links.map((a) => a.getAttribute("href"))).size,
+        );
+      expect(shown, tile.href).toBe(tile.count);
+    }
+  });
+
+  test("県を選んでから分野で絞っても、県の外の大学は混ざらない", async ({
+    page,
+  }) => {
+    const pref = encodeURIComponent("東京都");
+    await page.goto(`/circles?pref=${pref}`);
+    // 札の名前は、拠点が複数ある大学だけ「大学名（拠点）」になっている
+    const universities = new Set(
+      (
+        await page
+          .locator("main a[href*='university='] span.font-medium")
+          .allTextContents()
+      ).map((label) => label.replace(/（.*）$/, "")),
+    );
+
+    await page.goto(`/circles?pref=${pref}&cat=music`);
+    const groups = await page.locator("main section h2").allTextContents();
+    expect(groups.length).toBeGreaterThan(0);
+    for (const name of groups) expect(universities, name).toContain(name);
+  });
+
+  test("見つからないサークルは、日本語の画面で戻り道を出す", async ({
+    page,
+  }) => {
+    await page.goto("/circles/00000000-0000-4000-8000-000000000000");
+    await expect(
+      page.getByRole("heading", { name: "ページが見つかりません" }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "トップへ戻る" })).toBeVisible();
+  });
+
   test("ログイン画面にデモの案内が出ている", async ({ page }) => {
     await page.goto("/login");
     // 展示で来た人が、登録せずに触れることが分かる状態か
