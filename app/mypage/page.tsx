@@ -167,11 +167,10 @@ export default async function MyPage() {
     : [[], [] as string[]];
 
   // 一覧は RLS 越しに引き直す。お気に入りの ID だけでは名前も画像も出せない。
+  // ID で絞って取る。全国から上限まで取ってから絞ると、上限の外が消える。
   const favorites =
     favoriteIds.size > 0
-      ? (await listPublicCircles([], favoriteIds)).circles.filter((c) =>
-          favoriteIds.has(c.id),
-        )
+      ? (await listPublicCircles({ favoriteIds, onlyIds: favoriteIds })).circles
       : [];
 
   // 職員はサークルに所属せず、イベント参加も個人予約もしない。

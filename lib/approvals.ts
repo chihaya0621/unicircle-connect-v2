@@ -129,6 +129,38 @@ export async function countApprovals(
 
 
 /**
+ * 自分がもう承認した対象。
+ *
+ * 同じ職員は同じ案件に二度押せない。承認が揃うまで案件は承認待ちに
+ * 残るので、ボタンを出したままだと、押しても何も起きないように見える。
+ * 押した人には、ボタンの代わりに「あと何人か」を見せる。
+ */
+export async function listMyApprovals(
+  targetType: ApprovalTarget,
+  targetIds: string[],
+  userId: string,
+): Promise<Set<string>> {
+  const mine = new Set<string>();
+  if (targetIds.length === 0) return mine;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("approvals")
+    .select("target_id")
+    .eq("target_type", targetType)
+    .eq("approver_id", userId)
+    .eq("decision", "approved")
+    .in("target_id", targetIds);
+
+  if (error) {
+    console.error("自分の承認の取得に失敗しました:", error.message);
+    return mine;
+  }
+  for (const row of data ?? []) mine.add(row.target_id);
+  return mine;
+}
+
+/**
  * 承認の記録が押された当時のままか確かめる。
  *
  * 記録は1件ずつ前の記録のハッシュを抱えているので、途中の1行を

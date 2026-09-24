@@ -73,11 +73,14 @@ export async function createReservation(
 }
 
 /** 予約の承認 / 却下（大学職員のみ。判定は DB 側） */
-export async function decideReservation(formData: FormData): Promise<void> {
+export async function decideReservation(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireUser();
   const id = String(formData.get("reservation_id") ?? "");
   const approve = formData.get("approve") === "true";
-  if (!id) return;
+  if (!id) return { error: "予約が指定されていません。" };
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("decide_reservation", {
@@ -85,10 +88,16 @@ export async function decideReservation(formData: FormData): Promise<void> {
     p_approve: approve,
   });
 
-  if (error) console.error("予約審査に失敗しました:", error.message);
-
+  // 失敗しても一覧は引き直す。ほかの職員が先に決めていれば、それが見える
   revalidatePath("/reservations");
   revalidatePath("/facilities");
+
+  if (error) {
+    return {
+      error: `${approve ? "承認" : "却下"}できませんでした（${error.message}）。`,
+    };
+  }
+  return null;
 }
 
 /**

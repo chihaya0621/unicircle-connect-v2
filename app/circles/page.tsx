@@ -4,6 +4,7 @@ import Link from "next/link";
 import { decideCircle, decideClosure } from "@/app/actions/circles";
 import { PageHero } from "@/components/PageHero";
 import { ApprovalPolicy } from "@/components/ApprovalPolicy";
+import { DecisionForm } from "@/components/DecisionForm";
 import { CircleCard } from "@/components/CircleCard";
 import { EventCard } from "@/components/EventCard";
 import { SearchForm } from "@/components/SearchForm";
@@ -13,16 +14,21 @@ import {
   UniversityList,
 } from "@/components/CircleDirectory";
 import {
+  areaOfDirectory,
+  CIRCLE_RESULT_LIMIT,
   getMyCircleIds,
   listApprovedCircles,
   listClosureRequests,
   listPendingCircles,
   listPublicCircles,
+  type CircleArea,
+  type CircleListItem,
 } from "@/lib/circles";
 import {
   countApprovals,
   countStaff,
   getRequiredApprovals,
+  listMyApprovals,
 } from "@/lib/approvals";
 import {
   listCampusDirectory,
@@ -93,30 +99,54 @@ export default async function CirclesPage({
       ) ?? null)
     : null;
 
-  const listed = selected
-    ? await listPublicCircles(
-        [selected.universityId],
-        favoriteIds,
-        selected.campusId
-          ? { id: selected.campusId, includeUnassigned: selected.isPrimary }
-          : undefined,
-        search,
-        category,
-      )
-    : isAnon || isGeneral
-      ? await listPublicCircles(
-          watchedIds,
+  // 大学を1つ選んだあとは、まとめる意味が無いので平坦に並べる。
+  // 描画の分岐もこの値を見る。データ側だけ条件を足すと、
+  // 「まとめる」経路のまま空の配列を描いてしまう。
+  // 検索したときは階層を飛ばして結果だけ出す。
+  // 「都道府県を選び直してから検索」では手間が増えるだけなので。
+  // 検索語か分野を指定したら、都道府県から辿らずに結果を並べる
+  const showDirectory =
+    useDirectory && !selected && !search && !category && !favoritesOnly;
+  const showGrouped = groupByUniversity && !selected;
+
+  // どこのサークルを出すか。都道府県を選んでから検索・分野で絞ったときも、
+  // その県の外を混ぜない（パンくずは県を指したままなので）
+  const area: CircleArea = selected
+    ? areaOfDirectory([selected])
+    : useDirectory && pref
+      ? areaOfDirectory(
+          directory.filter(
+            (e) => (e.prefecture ?? PREFECTURE_UNKNOWN) === pref,
+          ),
+        )
+      : watchedIds.length > 0
+        ? { kind: "universities", universityIds: watchedIds }
+        : { kind: "all" };
+  const onlyIds = favoritesOnly ? favoriteIds : undefined;
+
+  const listed = showDirectory
+    ? // 都道府県や大学の札を並べる画面では、サークルそのものは要らない
+      {
+        circles: [] as CircleListItem[],
+        hiddenCount: 0,
+        truncated: false,
+        error: null as string | null,
+      }
+    : selected || isAnon || isGeneral
+      ? await listPublicCircles({
+          area,
           favoriteIds,
-          undefined,
+          onlyIds,
           search,
           category,
-        )
+        })
       : await listApprovedCircles(universityId, {
           isStaff: user.role === "staff",
           showOtherUniversities,
           myCircleIds,
           search,
           category,
+          onlyIds,
         });
 
   // 大学を選んだときは、その大学の学外向けイベントも一緒に見せる
@@ -124,10 +154,7 @@ export default async function CirclesPage({
     ? await listUniversityPublicEvents(selected.universityId)
     : [];
 
-  const { hiddenCount, truncated, error } = listed;
-  const circles = favoritesOnly
-    ? listed.circles.filter((c) => favoriteIds.has(c.id))
-    : listed.circles;
+  const { circles, hiddenCount, truncated, error } = listed;
 
   // 職員には自分の大学の承認待ちキューを見せる
   const isStaff = user?.role === "staff";
@@ -142,8 +169,9 @@ export default async function CirclesPage({
         ])
       : [[], [], 1, 0, []];
 
-  // 「あと何人か」を出すために、集まっている承認の数を引く
-  const [setupCounts, closureCounts] = isStaff
+  // 「あと何人か」を出すために、集まっている承認の数を引く。
+  // 自分がもう押したものは、ボタンの代わりにそれを見せる
+  const [setupCounts, closureCounts, mySetup, myClosure] = isStaff
     ? await Promise.all([
         countApprovals(
           "circle",
@@ -153,17 +181,23 @@ export default async function CirclesPage({
           "circle_closure",
           closureRequests.map((c) => c.id),
         ),
+        listMyApprovals(
+          "circle",
+          pending.map((c) => c.id),
+          user.id,
+        ),
+        listMyApprovals(
+          "circle_closure",
+          closureRequests.map((c) => c.id),
+          user.id,
+        ),
       ])
-    : [new Map<string, number>(), new Map<string, number>()];
-
-  // 大学を1つ選んだあとは、まとめる意味が無いので平坦に並べる。
-  // 描画の分岐もこの値を見る。データ側だけ条件を足すと、
-  // 「まとめる」経路のまま空の配列を描いてしまう。
-  // 検索したときは階層を飛ばして結果だけ出す。
-  // 「都道府県を選び直してから検索」では手間が増えるだけなので。
-  // 検索語か分野を指定したら、都道府県から辿らずに結果を並べる
-  const showDirectory = useDirectory && !selected && !search && !category;
-  const showGrouped = groupByUniversity && !selected;
+    : [
+        new Map<string, number>(),
+        new Map<string, number>(),
+        new Set<string>(),
+        new Set<string>(),
+      ];
 
   // 大学ごとにまとめる。大学名の五十音順、同じ大学の中はサークル名順。
   const byUniversity = showGrouped
@@ -192,6 +226,8 @@ export default async function CirclesPage({
                 selected.campusId &&
                 "拠点が未設定のサークルもここに含めています。"}
             </>
+          ) : favoritesOnly ? (
+            <>気になる印を付けたサークルです。</>
           ) : useDirectory ? (
             pref ? (
               <>{pref}の大学から選んでください。</>
@@ -287,31 +323,43 @@ export default async function CirclesPage({
                     承認 {setupCounts.get(circle.id) ?? 0} / {requiredApprovals}
                     人
                   </p>
-                  <form action={decideCircle} className="flex flex-wrap gap-2">
-                    <input type="hidden" name="circle_id" value={circle.id} />
-                    <input
-                      name="comment"
-                      maxLength={200}
-                      placeholder="所見（任意）"
-                      className="field-input w-full sm:w-56"
+                  {mySetup.has(circle.id) ? (
+                    <MyApprovalNote
+                      remaining={
+                        requiredApprovals - (setupCounts.get(circle.id) ?? 0)
+                      }
                     />
-                    <button
-                      type="submit"
-                      name="approve"
-                      value="true"
-                      className="btn-primary tap-target px-3 py-1.5 text-xs"
+                  ) : (
+                    <DecisionForm
+                      action={decideCircle}
+                      className="flex flex-wrap gap-2"
                     >
-                      承認
-                    </button>
-                    <button
-                      type="submit"
-                      name="approve"
-                      value="false"
-                      className="btn-ghost-sm"
-                    >
-                      却下
-                    </button>
-                  </form>
+                      <input type="hidden" name="circle_id" value={circle.id} />
+                      <input
+                        name="comment"
+                        maxLength={200}
+                        placeholder="所見（任意）"
+                        aria-label="所見（任意）"
+                        className="field-input w-full sm:w-56"
+                      />
+                      <button
+                        type="submit"
+                        name="approve"
+                        value="true"
+                        className="btn-primary tap-target px-3 py-1.5 text-xs"
+                      >
+                        承認
+                      </button>
+                      <button
+                        type="submit"
+                        name="approve"
+                        value="false"
+                        className="btn-ghost-sm"
+                      >
+                        却下
+                      </button>
+                    </DecisionForm>
+                  )}
                 </div>
               </li>
             ))}
@@ -337,31 +385,43 @@ export default async function CirclesPage({
                     {requiredApprovals}人
                   </p>
                 </div>
-                <form action={decideClosure} className="flex flex-wrap gap-2">
-                  <input type="hidden" name="circle_id" value={circle.id} />
-                  <input
-                    name="comment"
-                    maxLength={200}
-                    placeholder="所見（任意）"
-                    className="field-input w-full sm:w-56"
+                {myClosure.has(circle.id) ? (
+                  <MyApprovalNote
+                    remaining={
+                      requiredApprovals - (closureCounts.get(circle.id) ?? 0)
+                    }
                   />
-                  <button
-                    type="submit"
-                    name="approve"
-                    value="true"
-                    className="btn-danger-sm"
+                ) : (
+                  <DecisionForm
+                    action={decideClosure}
+                    className="flex flex-wrap gap-2"
                   >
-                    廃止を承認
-                  </button>
-                  <button
-                    type="submit"
-                    name="approve"
-                    value="false"
-                    className="btn-ghost-sm"
-                  >
-                    却下
-                  </button>
-                </form>
+                    <input type="hidden" name="circle_id" value={circle.id} />
+                    <input
+                      name="comment"
+                      maxLength={200}
+                      placeholder="所見（任意）"
+                      aria-label="所見（任意）"
+                      className="field-input w-full sm:w-56"
+                    />
+                    <button
+                      type="submit"
+                      name="approve"
+                      value="true"
+                      className="btn-danger-sm"
+                    >
+                      廃止を承認
+                    </button>
+                    <button
+                      type="submit"
+                      name="approve"
+                      value="false"
+                      className="btn-ghost-sm"
+                    >
+                      却下
+                    </button>
+                  </DecisionForm>
+                )}
               </li>
             ))}
           </ul>
@@ -491,8 +551,10 @@ export default async function CirclesPage({
 
       {truncated && (
         <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-          該当が多いため一部だけ表示しています。検索語を足すか、
-          大学を選んで絞り込んでください。
+          該当が多いため、名前順で最初の{CIRCLE_RESULT_LIMIT}件だけを表示しています。
+          {useDirectory && !selected && !pref
+            ? "検索語や分野を足すか、都道府県から大学を選んで絞り込んでください。"
+            : "検索語や分野で絞り込んでください。"}
         </p>
       )}
 
@@ -594,5 +656,21 @@ export default async function CirclesPage({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * 自分がもう承認した案件に、ボタンの代わりに出す一言。
+ *
+ * 同じ職員は二度押せない。成立には、ほかの職員の承認が要ることを伝える。
+ * 必要な人数が途中で減ると差が0以下になるが、その場合も次の1人の承認で
+ * 成立するので「あと1人」と出す。
+ */
+function MyApprovalNote({ remaining }: { remaining: number }) {
+  return (
+    <p className="max-w-xs text-sm text-gray-700 dark:text-gray-300">
+      <span className="font-semibold">承認済みです。</span>
+      あと{Math.max(1, remaining)}人、ほかの職員が承認すると成立します。
+    </p>
   );
 }

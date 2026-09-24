@@ -1,5 +1,6 @@
 import { cancelReservation, decideReservation } from "@/app/actions/facilities";
 import { BULK_FORM_ID, BulkApproveBar } from "@/components/BulkApproveBar";
+import { DecisionForm } from "@/components/DecisionForm";
 import type { Reservation } from "@/lib/facilities";
 import { reservationBooker } from "@/lib/facilities";
 
@@ -98,7 +99,7 @@ export function ReservationList({
                 </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs ${status.className}`}
                 >
@@ -106,25 +107,28 @@ export function ReservationList({
                 </span>
 
                 {canDecide && r.status === "pending" && (
-                  <>
-                    <form action={decideReservation}>
-                      <input type="hidden" name="reservation_id" value={r.id} />
-                      <input type="hidden" name="approve" value="true" />
-                      <button
-                        type="submit"
-                        className="btn-primary tap-target px-3 py-1.5 text-xs"
-                      >
-                        承認
-                      </button>
-                    </form>
-                    <form action={decideReservation}>
-                      <input type="hidden" name="reservation_id" value={r.id} />
-                      <input type="hidden" name="approve" value="false" />
-                      <button type="submit" className="btn-ghost-sm">
-                        却下
-                      </button>
-                    </form>
-                  </>
+                  <DecisionForm
+                    action={decideReservation}
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    <input type="hidden" name="reservation_id" value={r.id} />
+                    <button
+                      type="submit"
+                      name="approve"
+                      value="true"
+                      className="btn-primary tap-target px-3 py-1.5 text-xs"
+                    >
+                      承認
+                    </button>
+                    <button
+                      type="submit"
+                      name="approve"
+                      value="false"
+                      className="btn-ghost-sm"
+                    >
+                      却下
+                    </button>
+                  </DecisionForm>
                 )}
 
                 {canCancel && r.status !== "rejected" && (

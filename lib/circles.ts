@@ -11,6 +11,7 @@ import type {
 } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase-server";
 import type { CircleCategory } from "@/lib/circle-categories";
+import type { DirectoryEntry } from "@/lib/discovery";
 
 export type CircleListItem = {
   id: string;
@@ -78,6 +79,71 @@ const LIST_SELECT = `
 ` as const;
 
 /**
+ * 一度に返すサークルの上限。
+ *
+ * 通常は都道府県 → 大学 と辿るので数十件に収まるが、
+ * 上の階層から検索されると全大学が対象になる。
+ * 打ち止めにして、絞り込みを促す。
+ *
+ * 上限は、絞り込みを問い合わせに入れたあとで掛ける。先に全国から
+ * 上限まで取ってからアプリで絞ると、上限の外のサークルが黙って消える。
+ * 実際に、9件ある大学を選んでも1件しか出ないことがあった。
+ */
+export const CIRCLE_RESULT_LIMIT = 120;
+
+/** 何にも一致させない条件。id は主キーなので NULL にならない */
+const MATCH_NOTHING = "id.is.null";
+
+/**
+ * どこのサークルを出すか。問い合わせの時点で絞るための範囲。
+ */
+export type CircleArea =
+  | { kind: "all" }
+  /** 大学で絞る。一般ユーザーが指定した「気になる大学」 */
+  | { kind: "universities"; universityIds: string[] }
+  /** 拠点で絞る。拠点未設定のサークルは unassignedOf の大学のぶんだけ含める */
+  | { kind: "campuses"; campusIds: string[]; unassignedOf: string[] };
+
+/**
+ * 都道府県 → 大学（拠点）と辿った先の範囲。
+ *
+ * 札の件数（listCampusDirectory）と同じ数え方にそろえる。拠点に属する
+ * サークルと、代表拠点なら拠点未設定のサークル。拠点の無い大学は
+ * 代表として扱われるので、その大学のサークルが全部入る。
+ */
+export function areaOfDirectory(entries: DirectoryEntry[]): CircleArea {
+  return {
+    kind: "campuses",
+    campusIds: entries.flatMap((e) => (e.campusId ? [e.campusId] : [])),
+    unassignedOf: entries.flatMap((e) => (e.isPrimary ? [e.universityId] : [])),
+  };
+}
+
+function areaFilter(area: CircleArea): string | null {
+  switch (area.kind) {
+    case "all":
+      return null;
+    case "universities":
+      return area.universityIds.length > 0
+        ? `university_id.in.(${area.universityIds.join(",")})`
+        : MATCH_NOTHING;
+    case "campuses": {
+      const parts = [
+        area.campusIds.length > 0 &&
+          `campus_id.in.(${area.campusIds.join(",")})`,
+        area.unassignedOf.length > 0 &&
+          `and(campus_id.is.null,university_id.in.(${area.unassignedOf.join(",")}))`,
+      ].filter(Boolean);
+      return parts.length > 0 ? parts.join(",") : MATCH_NOTHING;
+    }
+  }
+}
+
+function idsFilter(ids: Set<string>): string {
+  return ids.size > 0 ? `id.in.(${[...ids].join(",")})` : MATCH_NOTHING;
+}
+
+/**
  * 閲覧者が参加できるサークルを、既定では自大学のものに絞って返す。
  *
  * インカレ（scope='public'）は大学を問わず参加できるため、増えるほど
@@ -87,9 +153,9 @@ const LIST_SELECT = `
  * ただし所属中のサークルは常に表示する。設定によって自分の所属先が
  * 一覧から消えるのは分かりにくいため。
  *
- * 絞り込みはアプリ側で行う。PostgREST では「scope 別に条件を変える」
- * 複合条件を1クエリで表現しづらいうえ、判定ロジックが
- * circle_allows_university() と二重管理になるため。
+ * 「自大学か所属中か」は問い合わせで絞る。参加資格の判定はアプリ側で行う。
+ * PostgREST では「scope 別に条件を変える」複合条件を1クエリで表現しづらいうえ、
+ * 判定ロジックが circle_allows_university() と二重管理になるため。
  */
 export async function listApprovedCircles(
   viewerUniversityId: string | null,
@@ -99,6 +165,7 @@ export async function listApprovedCircles(
     myCircleIds = new Set<string>(),
     search = "",
     category = null,
+    onlyIds,
   }: {
     isStaff?: boolean;
     showOtherUniversities?: boolean;
@@ -106,25 +173,53 @@ export async function listApprovedCircles(
     search?: string;
     /** 分野で絞る（0033）。null なら全部 */
     category?: CircleCategory | null;
+    /** この ID だけを出す（気になるのみ）。大学は問わない */
+    onlyIds?: Set<string>;
   } = {},
 ) {
   const supabase = await createClient();
+
+  const clause = searchClause(
+    ["name", "description", "public_intro"],
+    search,
+  );
+  const ownOnly = !showOtherUniversities && !onlyIds;
+  const ownFilter =
+    [
+      viewerUniversityId && `university_id.eq.${viewerUniversityId}`,
+      myCircleIds.size > 0 && `id.in.(${[...myCircleIds].join(",")})`,
+    ]
+      .filter(Boolean)
+      .join(",") || MATCH_NOTHING;
 
   let query = supabase
     .from("circles")
     .select(LIST_SELECT)
     .eq("status", "approved")
     .order("name")
-    .limit(CIRCLE_RESULT_LIMIT);
-
-  const clause = searchClause(
-    ["name", "description", "public_intro"],
-    search,
-  );
+    .limit(CIRCLE_RESULT_LIMIT + 1);
   if (clause) query = query.or(clause);
   if (category) query = query.eq("category", category);
+  if (onlyIds) query = query.or(idsFilter(onlyIds));
+  if (ownOnly) query = query.or(ownFilter);
 
-  const { data, error } = await query.returns<CircleListItem[]>();
+  // 畳んでいる他大学のサークルの数。参加資格の判定に要る列だけを取って数える
+  let others = supabase
+    .from("circles")
+    .select("id, scope, university_id, scoped_universities:circle_universities(university_id)")
+    .eq("status", "approved");
+  if (clause) others = others.or(clause);
+  if (category) others = others.eq("category", category);
+  if (viewerUniversityId) others = others.neq("university_id", viewerUniversityId);
+
+  const [{ data, error }, hidden] = await Promise.all([
+    query.returns<CircleListItem[]>(),
+    ownOnly
+      ? others.returns<
+          Pick<CircleListItem, "id" | "scope" | "university_id" | "scoped_universities">[]
+        >()
+      : null,
+  ]);
 
   if (error) {
     console.error("サークル取得に失敗しました:", error.message);
@@ -136,18 +231,21 @@ export async function listApprovedCircles(
     };
   }
 
+  const rows = data ?? [];
+  const truncated = rows.length > CIRCLE_RESULT_LIMIT;
+
   // 参加資格のあるものだけに絞る（職員は承認業務のため自大学を全件見る）
-  const eligible = (data ?? []).filter((c) =>
+  const eligibleFor = (
+    c: Pick<CircleListItem, "scope" | "university_id" | "scoped_universities">,
+  ) =>
     isStaff
       ? c.university_id === viewerUniversityId || c.scope === "public"
-      : circleAllowsUniversity(c, viewerUniversityId),
-  );
+      : circleAllowsUniversity(c, viewerUniversityId);
 
-  const isOwn = (c: CircleListItem) =>
-    c.university_id === viewerUniversityId || myCircleIds.has(c.id);
-
-  const visible = showOtherUniversities ? eligible : eligible.filter(isOwn);
-  const hiddenCount = eligible.length - visible.length;
+  const visible = rows.slice(0, CIRCLE_RESULT_LIMIT).filter(eligibleFor);
+  const hiddenCount = (hidden?.data ?? []).filter(
+    (c) => !myCircleIds.has(c.id) && eligibleFor(c),
+  ).length;
 
   // 所属中のサークルを先頭に。一覧の並びに元々意味が無いので、
   // 自分に関係のあるものから読めるようにする。
@@ -156,12 +254,7 @@ export async function listApprovedCircles(
     return mine !== 0 ? mine : x.name.localeCompare(y.name, "ja");
   });
 
-  return {
-    circles,
-    hiddenCount,
-    truncated: (data ?? []).length >= CIRCLE_RESULT_LIMIT,
-    error: null,
-  };
+  return { circles, hiddenCount, truncated, error: null };
 }
 
 /**
@@ -171,15 +264,6 @@ export async function listApprovedCircles(
  * 「全部に一致する」検索語を作れてしまい、絞り込みの意味が無くなる。
  * カンマと括弧は or 条件の区切りなので、残すと式そのものが壊れる。
  */
-/**
- * 一度に返すサークルの上限。
- *
- * 通常は都道府県 → 大学 と辿るので数十件に収まるが、
- * 上の階層から検索されると全大学が対象になる。
- * 打ち止めにして、絞り込みを促す。
- */
-export const CIRCLE_RESULT_LIMIT = 120;
-
 function searchClause(columns: string[], term: string): string | null {
   const safe = term.trim().replace(/[%_,()\\]/g, " ").trim();
   if (!safe) return null;
@@ -187,21 +271,28 @@ function searchClause(columns: string[], term: string): string | null {
 }
 
 /**
- * 一般ユーザー向けの一覧。
+ * 一般ユーザー・未ログイン向けの一覧。
  *
  * RLS が scope='public' の承認済みしか返さないので、ここでの絞り込みは
- * 認可ではなく「気にしている大学に寄せる」ためだけのもの。
- * 指定が無いときは全部見せる。最初に来た人に空の画面を出さないため。
+ * 認可ではなく「見たい範囲に寄せる」ためだけのもの。
+ * 範囲の指定が無いときは全部見せる。最初に来た人に空の画面を出さないため。
  */
-export async function listPublicCircles(
-  watchedUniversityIds: string[],
-  favoriteIds: Set<string> = new Set(),
-  /** 拠点で絞る。代表キャンパスなら拠点未設定のものも含める */
-  campus?: { id: string; includeUnassigned: boolean },
+export async function listPublicCircles({
+  area = { kind: "all" },
+  favoriteIds = new Set<string>(),
+  onlyIds,
   search = "",
+  category = null,
+}: {
+  area?: CircleArea;
+  /** 印を付けたものを先頭に並べる */
+  favoriteIds?: Set<string>;
+  /** この ID だけを出す（気になるのみ） */
+  onlyIds?: Set<string>;
+  search?: string;
   /** 分野で絞る（0033）。null なら全部 */
-  category: CircleCategory | null = null,
-) {
+  category?: CircleCategory | null;
+} = {}) {
   const supabase = await createClient();
 
   let query = supabase
@@ -209,7 +300,7 @@ export async function listPublicCircles(
     .select(LIST_SELECT)
     .eq("status", "approved")
     .order("name")
-    .limit(CIRCLE_RESULT_LIMIT);
+    .limit(CIRCLE_RESULT_LIMIT + 1);
 
   // 名前だけでなく紹介文も対象にする。「初心者歓迎」のような
   // 言葉で探す人が、名前だけの検索では何も見つけられない。
@@ -219,6 +310,9 @@ export async function listPublicCircles(
   );
   if (clause) query = query.or(clause);
   if (category) query = query.eq("category", category);
+  const inArea = areaFilter(area);
+  if (inArea) query = query.or(inArea);
+  if (onlyIds) query = query.or(idsFilter(onlyIds));
 
   const { data, error } = await query.returns<CircleListItem[]>();
 
@@ -232,33 +326,20 @@ export async function listPublicCircles(
     };
   }
 
-  const all = data ?? [];
-  const watched = new Set(watchedUniversityIds);
-  const inWatched =
-    watched.size === 0
-      ? all
-      : all.filter((c) => c.university_id && watched.has(c.university_id));
-
-  const visible = campus
-    ? inWatched.filter(
-        (c) =>
-          c.campus_id === campus.id ||
-          (campus.includeUnassigned && c.campus_id === null),
-      )
-    : inWatched;
+  const rows = data ?? [];
 
   // 気になるものを先頭に。並びに元々意味が無いので、
   // 自分で印を付けたものから読めるようにする。
-  const circles = [...visible].sort((x, y) => {
+  const circles = rows.slice(0, CIRCLE_RESULT_LIMIT).sort((x, y) => {
     const fav = Number(favoriteIds.has(y.id)) - Number(favoriteIds.has(x.id));
     return fav !== 0 ? fav : x.name.localeCompare(y.name, "ja");
   });
 
   return {
     circles,
-    hiddenCount: all.length - visible.length,
-    // 上限に達したなら、絞り込めばもっと出てくる可能性がある
-    truncated: all.length >= CIRCLE_RESULT_LIMIT,
+    hiddenCount: 0,
+    // 上限を超えたなら、絞り込めばもっと出てくる
+    truncated: rows.length > CIRCLE_RESULT_LIMIT,
     error: null,
   };
 }

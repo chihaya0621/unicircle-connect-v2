@@ -101,11 +101,14 @@ export async function decideMember(formData: FormData): Promise<void> {
 }
 
 /** サークル設立の承認 / 却下（大学職員のみ。判定は DB 側） */
-export async function decideCircle(formData: FormData): Promise<void> {
+export async function decideCircle(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireUser();
   const circleId = String(formData.get("circle_id") ?? "");
   const approve = formData.get("approve") === "true";
-  if (!circleId) return;
+  if (!circleId) return { error: "サークルが指定されていません。" };
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("decide_circle", {
@@ -114,10 +117,16 @@ export async function decideCircle(formData: FormData): Promise<void> {
     p_comment: String(formData.get("comment") ?? "").trim() || undefined,
   });
 
-  if (error) console.error("サークル審査に失敗しました:", error.message);
-
+  // 失敗しても一覧は引き直す。ほかの職員が先に決めていれば、それが見える
   revalidatePath("/circles");
   revalidatePath(`/circles/${circleId}`);
+
+  if (error) {
+    return {
+      error: `${approve ? "承認" : "却下"}できませんでした（${error.message}）。`,
+    };
+  }
+  return null;
 }
 
 /**
@@ -297,21 +306,31 @@ export async function requestClosure(formData: FormData) {
 }
 
 /** 廃止の承認・却下。職員のみ。 */
-export async function decideClosure(formData: FormData) {
+export async function decideClosure(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireUser();
   const circleId = String(formData.get("circle_id") ?? "");
-  if (!circleId) return;
+  const approve = formData.get("approve") === "true";
+  if (!circleId) return { error: "サークルが指定されていません。" };
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("decide_circle_closure", {
     p_circle_id: circleId,
-    p_approve: formData.get("approve") === "true",
+    p_approve: approve,
     p_comment: String(formData.get("comment") ?? "").trim() || undefined,
   });
-  if (error) console.error("廃止の判断に失敗しました:", error.message);
 
   revalidatePath("/circles");
   revalidatePath(`/circles/${circleId}`);
+
+  if (error) {
+    return {
+      error: `${approve ? "廃止を承認" : "却下"}できませんでした（${error.message}）。`,
+    };
+  }
+  return null;
 }
 
 /** 承認に必要な人数の変更。職員のみ。 */
