@@ -97,6 +97,54 @@ SELECT test.ok(
   '連なりの検証が通る');
 
 
+SELECT test.section('押した順と時刻の順が食い違っても、連なりが崩れない');
+
+-- 2人がほぼ同時に押すと、あとの人は鍵（0034）を待ってから書く。このとき、
+-- あとから書く側のトランザクションのほうが先に始まっていると、created_at の
+-- 既定値（開始時刻）は前の記録より早くなる。1つの接続では待ち合わせを
+-- 再現できないので、時刻を巻き戻した記録を直接入れて、同じ状態を作る。
+RESET ROLE;
+INSERT INTO circles (id, university_id, name, description, status, scope)
+VALUES ('cc111111-0000-4000-8000-000000000009',
+        'a1111111-0000-4000-8000-000000000001',
+        '同時押しの部', '検証用', 'pending', 'university');
+
+INSERT INTO approvals
+  (target_type, target_id, approver_id, approver_name, decision, seal_text, seal_shape)
+VALUES ('circle', 'cc111111-0000-4000-8000-000000000009',
+        test.uid('staff-a@t.test'), '甲大職員', 'approved', '甲大', 'circle');
+
+INSERT INTO approvals
+  (target_type, target_id, approver_id, approver_name, decision, seal_text, seal_shape,
+   created_at)
+VALUES ('circle', 'cc111111-0000-4000-8000-000000000009',
+        test.uid('staff-a2@t.test'), '甲大職員2', 'approved', '甲大', 'circle',
+        now() - interval '1 second');
+
+SELECT test.ok(
+  (SELECT a2.created_at > a1.created_at
+     FROM approvals a1, approvals a2
+    WHERE a1.target_id = 'cc111111-0000-4000-8000-000000000009'
+      AND a2.target_id = 'cc111111-0000-4000-8000-000000000009'
+      AND a1.approver_id = test.uid('staff-a@t.test')
+      AND a2.approver_id = test.uid('staff-a2@t.test')),
+  'あとから書いた記録は、時刻も前の記録のあとに置かれる');
+
+SELECT test.ok(
+  (SELECT a2.prev_hash = a1.row_hash
+     FROM approvals a1, approvals a2
+    WHERE a1.target_id = 'cc111111-0000-4000-8000-000000000009'
+      AND a2.target_id = 'cc111111-0000-4000-8000-000000000009'
+      AND a1.approver_id = test.uid('staff-a@t.test')
+      AND a2.approver_id = test.uid('staff-a2@t.test')),
+  'あとから書いた記録が、前の記録のハッシュを抱えている');
+
+SELECT test.ok(
+  (SELECT ok FROM public.verify_approval_chain(
+     'circle','cc111111-0000-4000-8000-000000000009')),
+  '食い違っても、連なりの検証が通る');
+
+
 SELECT test.section('書き換えに気づけるか');
 
 -- 所見を後から書き換える。RLS を迂回できる立場でやってみる。
