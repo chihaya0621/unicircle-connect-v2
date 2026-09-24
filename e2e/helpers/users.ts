@@ -44,6 +44,6 @@ export const PUBLIC_EVENT = {
 /** 役割ごとの、ログイン直後の着地点（lib/home.ts と対応） */
 export const HOME = {
   student: "/calendar",
-  staff: "/calendar",
+  staff: "/staff",
   general: "/circles",
 } as const;

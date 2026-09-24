@@ -27,6 +27,7 @@ test.describe("横にはみ出さない", () => {
     { path: `/events/${PUBLIC_EVENT.id}`, label: "イベント詳細", auth: null },
     { path: "/facilities", label: "施設・備品", auth: "staff" },
     { path: "/reservations", label: "予約", auth: "staff" },
+    { path: "/staff", label: "対応待ち", auth: "staff" },
   ] as const;
 
   for (const { path, label, auth } of PAGES) {

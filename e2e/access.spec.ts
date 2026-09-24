@@ -144,6 +144,40 @@ test.describe("学生", () => {
 test.describe("職員", () => {
   test.use({ storageState: statePath("staff") });
 
+  test("対応待ちの申請に、押印欄と申請書への道がある", async ({ page }) => {
+    await page.goto("/staff");
+    await expect(page.getByRole("heading", { name: "対応待ち" })).toBeVisible();
+
+    // 確認用のデータ（seed_review_scenarios.sql）に、承認待ちの申請が必ずある
+    const card = page.locator("main li.glass-card").first();
+    await expect(card.getByRole("list", { name: /^押印欄/ })).toBeVisible();
+    await expect(card.getByText(/あと\d+人/).first()).toBeVisible();
+    await expect(card.getByRole("link", { name: "申請書を見る" })).toHaveAttribute(
+      "href",
+      /\/circles\/[0-9a-f-]+\/print$/,
+    );
+  });
+
+  test("申請書を読んだその場で押せる", async ({ page }) => {
+    // 押すと取り消せないので、ボタンが出ていることだけを確かめる
+    await page.goto("/staff");
+    const card = page
+      .locator("main li.glass-card")
+      .filter({ has: page.getByRole("button", { name: /承認する$/ }) })
+      .first();
+    const paper = await card
+      .getByRole("link", { name: "申請書を見る" })
+      .getAttribute("href");
+    await page.goto(paper ?? "");
+
+    await expect(
+      page.getByRole("heading", { name: "この申請を判断する" }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /承認する$/ })).toBeVisible();
+    // 紙には出さない
+    await expect(page.locator("section.print\\:hidden")).toHaveCount(1);
+  });
+
   test("サークル一覧に承認のきまりが出る", async ({ page }) => {
     await page.goto("/circles");
     await expect(page.getByText("承認のきまり")).toBeVisible();
