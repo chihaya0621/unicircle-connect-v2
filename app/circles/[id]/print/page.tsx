@@ -255,7 +255,9 @@ export default async function CirclePrintPage({
             承認の記録は押された時点で固定され、あとから書き換えると
             検証で分かるようになっています。
           </p>
-          {check && (
+          {/* まだ誰も押していない申請書に「0件は押されたときのまま」と
+              出しても意味が無い。記録があるときだけ出す */}
+          {check && check.checked > 0 && (
             <p className="paper-verify">
               検証：
               {check.ok
