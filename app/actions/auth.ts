@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { DEV_PASSWORD, DEV_USERS, QUICK_LOGIN_ENABLED } from "@/lib/dev-users";
+import {
+  DEV_PASSWORD,
+  DEV_USERS,
+  isSharedDemoAccount,
+  QUICK_LOGIN_ENABLED,
+} from "@/lib/dev-users";
 import { DEFAULT_HOME, HOME_BY_ROLE, homeForRole } from "@/lib/home";
 import { createClient } from "@/lib/supabase-server";
 
@@ -114,7 +119,10 @@ export async function signIn(
 
 export async function signOut() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // この端末のセッションだけを終える。既定（global）では、同じアカウントで
+  // 入っているほかの端末まで全部ログアウトされる。公開デモでは同じアカウントを
+  // 何人もが使うので、1人のログアウトで全員が落ちていた。
+  await supabase.auth.signOut({ scope: "local" });
 
   revalidatePath("/", "layout");
   redirect("/login");
@@ -215,6 +223,12 @@ export async function updatePassword(
     return {
       error:
         "リンクの有効期限が切れています。お手数ですが、もう一度お送りください。",
+    };
+  }
+  if (isSharedDemoAccount(user.email)) {
+    return {
+      error:
+        "デモ用のアカウントは、ほかの人も使っているのでパスワードを変えられません。",
     };
   }
 

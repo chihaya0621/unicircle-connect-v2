@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/dal";
+import { isSharedDemoAccount } from "@/lib/dev-users";
 import { createClient } from "@/lib/supabase-server";
 
 export type ActionState = { error?: string; notice?: string } | null;
@@ -23,6 +24,12 @@ export async function deleteAccount(
 
   if (String(formData.get("confirm") ?? "").trim() !== "削除") {
     return { error: "確認のため「削除」と入力してください。" };
+  }
+  if (isSharedDemoAccount(user.email)) {
+    return {
+      error:
+        "デモ用のアカウントは、ほかの人も使っているので削除できません。",
+    };
   }
   if (user.role !== "general") {
     return {

@@ -60,3 +60,15 @@ export const DEV_USERS: DevUser[] = (buildDevUsers() as RosterEntry[]).map(
     university: u.universityName,
   }),
 );
+
+/**
+ * クイックログインから誰でも入れる、共有のアカウントか。
+ *
+ * 公開デモでは同じアカウントを何人もが同時に使う。1人が消したり
+ * パスワードを変えたりすると、ほかの人はもう入れない。
+ */
+export function isSharedDemoAccount(email: string | null | undefined) {
+  return (
+    QUICK_LOGIN_ENABLED && !!email && DEV_USERS.some((u) => u.email === email)
+  );
+}
