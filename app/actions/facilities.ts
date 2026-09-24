@@ -91,6 +91,7 @@ export async function decideReservation(
   // 失敗しても一覧は引き直す。ほかの職員が先に決めていれば、それが見える
   revalidatePath("/reservations");
   revalidatePath("/facilities");
+  revalidatePath("/staff");
 
   if (error) {
     return {
@@ -131,6 +132,7 @@ export async function approveReservations(
 
   revalidatePath("/reservations");
   revalidatePath("/facilities");
+  revalidatePath("/staff");
 
   if (failures.length === 0) return { notice: `${approved}件を承認しました。` };
   return {

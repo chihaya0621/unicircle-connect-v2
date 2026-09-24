@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { decideCircle, decideClosure } from "@/app/actions/circles";
 import { PageHero } from "@/components/PageHero";
 import { ApprovalPolicy } from "@/components/ApprovalPolicy";
-import { DecisionForm } from "@/components/DecisionForm";
+import { PendingApplications } from "@/components/PendingApplications";
 import { CircleCard } from "@/components/CircleCard";
 import { EventCard } from "@/components/EventCard";
 import { SearchForm } from "@/components/SearchForm";
@@ -25,10 +24,10 @@ import {
   type CircleListItem,
 } from "@/lib/circles";
 import {
-  countApprovals,
   countStaff,
   getRequiredApprovals,
-  listMyApprovals,
+  listApprovalsByTarget,
+  type ApprovalEntry,
 } from "@/lib/approvals";
 import {
   listCampusDirectory,
@@ -169,35 +168,19 @@ export default async function CirclesPage({
         ])
       : [[], [], 1, 0, []];
 
-  // 「あと何人か」を出すために、集まっている承認の数を引く。
-  // 自分がもう押したものは、ボタンの代わりにそれを見せる
-  const [setupCounts, closureCounts, mySetup, myClosure] = isStaff
+  // 押印欄に並べる記録。誰が押したか、自分はもう押したかもここから読む
+  const [setupSeals, closureSeals] = isStaff
     ? await Promise.all([
-        countApprovals(
+        listApprovalsByTarget(
           "circle",
           pending.map((c) => c.id),
         ),
-        countApprovals(
+        listApprovalsByTarget(
           "circle_closure",
           closureRequests.map((c) => c.id),
-        ),
-        listMyApprovals(
-          "circle",
-          pending.map((c) => c.id),
-          user.id,
-        ),
-        listMyApprovals(
-          "circle_closure",
-          closureRequests.map((c) => c.id),
-          user.id,
         ),
       ])
-    : [
-        new Map<string, number>(),
-        new Map<string, number>(),
-        new Set<string>(),
-        new Set<string>(),
-      ];
+    : [new Map<string, ApprovalEntry[]>(), new Map<string, ApprovalEntry[]>()];
 
   // 大学ごとにまとめる。大学名の五十音順、同じ大学の中はサークル名順。
   const byUniversity = showGrouped
@@ -296,7 +279,7 @@ export default async function CirclesPage({
         </p>
       )}
 
-      {pending.length > 0 && (
+      {user && pending.length > 0 && (
         <section className="mb-10">
           <h2 className="mb-3 inline-flex items-center gap-2 rounded-xl border border-rose-300/70 bg-rose-50/70 px-3 py-1.5 text-sm font-semibold text-rose-800 backdrop-blur-md dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
             承認待ちの設立申請が{pending.length}件あります
@@ -304,127 +287,28 @@ export default async function CirclesPage({
           <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
             承認は{requiredApprovals}人揃って成立します。却下は1人で成立します。
           </p>
-          <ul className="space-y-3">
-            {pending.map((circle) => (
-              <li
-                key={circle.id}
-                className="glass-card tint-amber flex flex-wrap items-center justify-between gap-3 p-4"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium">{circle.name}</p>
-                  {circle.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
-                      {circle.description}
-                    </p>
-                  )}
-                </div>
-                <div className="w-full sm:w-auto sm:shrink-0">
-                  <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
-                    承認 {setupCounts.get(circle.id) ?? 0} / {requiredApprovals}
-                    人
-                  </p>
-                  {mySetup.has(circle.id) ? (
-                    <MyApprovalNote
-                      remaining={
-                        requiredApprovals - (setupCounts.get(circle.id) ?? 0)
-                      }
-                    />
-                  ) : (
-                    <DecisionForm
-                      action={decideCircle}
-                      className="flex flex-wrap gap-2"
-                    >
-                      <input type="hidden" name="circle_id" value={circle.id} />
-                      <input
-                        name="comment"
-                        maxLength={200}
-                        placeholder="所見（任意）"
-                        aria-label="所見（任意）"
-                        className="field-input w-full sm:w-56"
-                      />
-                      <button
-                        type="submit"
-                        name="approve"
-                        value="true"
-                        className="btn-primary tap-target px-3 py-1.5 text-xs"
-                      >
-                        承認
-                      </button>
-                      <button
-                        type="submit"
-                        name="approve"
-                        value="false"
-                        className="btn-ghost-sm"
-                      >
-                        却下
-                      </button>
-                    </DecisionForm>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <PendingApplications
+            kind="setup"
+            circles={pending}
+            approvals={setupSeals}
+            required={requiredApprovals}
+            viewerId={user.id}
+          />
         </section>
       )}
 
-      {closureRequests.length > 0 && (
+      {user && closureRequests.length > 0 && (
         <section className="mb-10">
           <h2 className="mb-3 inline-flex items-center gap-2 rounded-xl border border-amber-300/70 bg-amber-50/70 px-3 py-1.5 text-sm font-semibold text-amber-800 backdrop-blur-md dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
             廃止の申請が{closureRequests.length}件あります
           </h2>
-          <ul className="space-y-3">
-            {closureRequests.map((circle) => (
-              <li
-                key={circle.id}
-                className="glass-card tint-amber flex flex-wrap items-center justify-between gap-3 p-4"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium">{circle.name}</p>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    承認 {closureCounts.get(circle.id) ?? 0} /{" "}
-                    {requiredApprovals}人
-                  </p>
-                </div>
-                {myClosure.has(circle.id) ? (
-                  <MyApprovalNote
-                    remaining={
-                      requiredApprovals - (closureCounts.get(circle.id) ?? 0)
-                    }
-                  />
-                ) : (
-                  <DecisionForm
-                    action={decideClosure}
-                    className="flex flex-wrap gap-2"
-                  >
-                    <input type="hidden" name="circle_id" value={circle.id} />
-                    <input
-                      name="comment"
-                      maxLength={200}
-                      placeholder="所見（任意）"
-                      aria-label="所見（任意）"
-                      className="field-input w-full sm:w-56"
-                    />
-                    <button
-                      type="submit"
-                      name="approve"
-                      value="true"
-                      className="btn-danger-sm"
-                    >
-                      廃止を承認
-                    </button>
-                    <button
-                      type="submit"
-                      name="approve"
-                      value="false"
-                      className="btn-ghost-sm"
-                    >
-                      却下
-                    </button>
-                  </DecisionForm>
-                )}
-              </li>
-            ))}
-          </ul>
+          <PendingApplications
+            kind="closure"
+            circles={closureRequests}
+            approvals={closureSeals}
+            required={requiredApprovals}
+            viewerId={user.id}
+          />
         </section>
       )}
 
@@ -656,21 +540,5 @@ export default async function CirclesPage({
         </div>
       )}
     </div>
-  );
-}
-
-/**
- * 自分がもう承認した案件に、ボタンの代わりに出す一言。
- *
- * 同じ職員は二度押せない。成立には、ほかの職員の承認が要ることを伝える。
- * 必要な人数が途中で減ると差が0以下になるが、その場合も次の1人の承認で
- * 成立するので「あと1人」と出す。
- */
-function MyApprovalNote({ remaining }: { remaining: number }) {
-  return (
-    <p className="max-w-xs text-sm text-gray-700 dark:text-gray-300">
-      <span className="font-semibold">承認済みです。</span>
-      あと{Math.max(1, remaining)}人、ほかの職員が承認すると成立します。
-    </p>
   );
 }

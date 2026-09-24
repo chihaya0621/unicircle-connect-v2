@@ -15,6 +15,8 @@ export type ApprovalEntry = {
   id: string;
   target_type: ApprovalTarget;
   decision: "approved" | "rejected";
+  /** 押した人。自分がもう押したかを見分けるのに使う。退職などで消えると null */
+  approver_id: string | null;
   approver_name: string;
   comment: string | null;
   created_at: string;
@@ -24,7 +26,7 @@ export type ApprovalEntry = {
 };
 
 const ENTRY_COLUMNS =
-  "id, target_type, decision, approver_name, comment, created_at, seal_text, seal_shape";
+  "id, target_type, decision, approver_id, approver_name, comment, created_at, seal_text, seal_shape";
 
 export async function listApprovals(
   targetType: ApprovalTarget,
@@ -97,67 +99,37 @@ export async function countStaff(universityId: string | null): Promise<number> {
 }
 
 /**
- * 対象ごとに集まっている承認の数。
+ * 対象ごとの承認の記録。承認待ちの一覧に押印欄を描くのに使う。
  *
- * 承認キューで「あと何人か」を出すのに使う。件数だけを数えるので、
- * 誰が押したかは返さない。
+ * 件数だけでは、誰が押したのか、自分はもう押したのかが読めない。
+ * 紙の回覧と同じく、押された印影と空の欄を並べて見せる。
  */
-export async function countApprovals(
+export async function listApprovalsByTarget(
   targetType: ApprovalTarget,
   targetIds: string[],
-): Promise<Map<string, number>> {
-  const counts = new Map<string, number>();
-  if (targetIds.length === 0) return counts;
+): Promise<Map<string, ApprovalEntry[]>> {
+  const byTarget = new Map<string, ApprovalEntry[]>();
+  if (targetIds.length === 0) return byTarget;
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("approvals")
-    .select("target_id")
+    .select(`${ENTRY_COLUMNS}, target_id`)
     .eq("target_type", targetType)
-    .eq("decision", "approved")
-    .in("target_id", targetIds);
+    .in("target_id", targetIds)
+    .order("created_at")
+    .returns<(ApprovalEntry & { target_id: string })[]>();
 
   if (error) {
-    console.error("承認数の取得に失敗しました:", error.message);
-    return counts;
+    console.error("承認の記録の取得に失敗しました:", error.message);
+    return byTarget;
   }
   for (const row of data ?? []) {
-    counts.set(row.target_id, (counts.get(row.target_id) ?? 0) + 1);
+    const list = byTarget.get(row.target_id) ?? [];
+    list.push(row);
+    byTarget.set(row.target_id, list);
   }
-  return counts;
-}
-
-
-/**
- * 自分がもう承認した対象。
- *
- * 同じ職員は同じ案件に二度押せない。承認が揃うまで案件は承認待ちに
- * 残るので、ボタンを出したままだと、押しても何も起きないように見える。
- * 押した人には、ボタンの代わりに「あと何人か」を見せる。
- */
-export async function listMyApprovals(
-  targetType: ApprovalTarget,
-  targetIds: string[],
-  userId: string,
-): Promise<Set<string>> {
-  const mine = new Set<string>();
-  if (targetIds.length === 0) return mine;
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("approvals")
-    .select("target_id")
-    .eq("target_type", targetType)
-    .eq("approver_id", userId)
-    .eq("decision", "approved")
-    .in("target_id", targetIds);
-
-  if (error) {
-    console.error("自分の承認の取得に失敗しました:", error.message);
-    return mine;
-  }
-  for (const row of data ?? []) mine.add(row.target_id);
-  return mine;
+  return byTarget;
 }
 
 /**

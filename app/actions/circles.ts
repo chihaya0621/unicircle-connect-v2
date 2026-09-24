@@ -117,9 +117,12 @@ export async function decideCircle(
     p_comment: String(formData.get("comment") ?? "").trim() || undefined,
   });
 
-  // 失敗しても一覧は引き直す。ほかの職員が先に決めていれば、それが見える
+  // 失敗しても一覧は引き直す。ほかの職員が先に決めていれば、それが見える。
+  // 申請書から押したときは、空の欄に印影が入ったところを見せる
   revalidatePath("/circles");
+  revalidatePath("/staff");
   revalidatePath(`/circles/${circleId}`);
+  revalidatePath(`/circles/${circleId}/print`);
 
   if (error) {
     return {
@@ -323,7 +326,9 @@ export async function decideClosure(
   });
 
   revalidatePath("/circles");
+  revalidatePath("/staff");
   revalidatePath(`/circles/${circleId}`);
+  revalidatePath(`/circles/${circleId}/print`);
 
   if (error) {
     return {

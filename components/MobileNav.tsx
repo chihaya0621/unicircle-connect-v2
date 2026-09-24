@@ -31,6 +31,9 @@ export function MobileNav({
 
   const open = openedAt === pathname;
   const close = () => setOpenedAt(null);
+  // 畳んだ中にある件数の合計。開かないと見えない場所に、
+  // 対応待ちの件数だけを置いておくわけにはいかない
+  const pending = items.reduce((sum, item) => sum + (item.badge ?? 0), 0);
 
   useEffect(() => {
     if (!open) return;
@@ -48,9 +51,23 @@ export function MobileNav({
         onClick={() => setOpenedAt(open ? null : pathname)}
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label={open ? "メニューを閉じる" : "メニューを開く"}
+        aria-label={
+          open
+            ? "メニューを閉じる"
+            : pending > 0
+              ? `メニューを開く（対応待ち ${pending}件）`
+              : "メニューを開く"
+        }
         className="btn-ghost-sm size-11 p-0"
       >
+        {pending > 0 && !open && (
+          <span
+            aria-hidden
+            className="absolute -right-1.5 -top-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 py-0.5 text-[10px] font-semibold leading-none text-white shadow-md shadow-rose-500/40"
+          >
+            {pending > 99 ? "99+" : pending}
+          </span>
+        )}
         {/* 3本線と×を、線を動かして入れ替える */}
         <span aria-hidden className="relative block h-3.5 w-4">
           {[0, 1, 2].map((i) => (

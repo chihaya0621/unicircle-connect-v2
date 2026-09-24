@@ -191,7 +191,12 @@ export default async function MyPage() {
         : Promise.resolve(null),
       isStaff
         ? getPendingCounts(user.id, user.role)
-        : Promise.resolve({ circles: 0, reservations: 0, members: 0 }),
+        : Promise.resolve({
+            circles: 0,
+            closures: 0,
+            reservations: 0,
+            members: 0,
+          }),
     ]);
 
   return (
@@ -357,17 +362,19 @@ export default async function MyPage() {
             <ul className="grid gap-3 sm:grid-cols-2">
               <li>
                 <Link
-                  href="/circles"
+                  href="/staff"
                   className={`block rounded-xl border p-4 transition hover:shadow-md ${
-                    pending.circles > 0
+                    pending.circles + pending.closures > 0
                       ? "border-rose-300 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/30"
                       : "border-black/10 bg-white dark:border-white/10 dark:bg-white/5"
                   }`}
                 >
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    サークル設立申請
+                    サークルの設立・廃止の申請
                   </p>
-                  <p className="mt-1 text-2xl font-bold">{pending.circles}件</p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {pending.circles + pending.closures}件
+                  </p>
                 </Link>
               </li>
               <li>

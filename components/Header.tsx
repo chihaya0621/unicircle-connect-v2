@@ -14,8 +14,9 @@ const ROLE_LABEL: Record<UserRole, string> = {
   general: "一般",
 };
 
+// 折り返さない。字の途中で折れると、件数の札が下の段に落ちる
 const navLink =
-  "relative rounded-lg px-2 py-1 text-gray-600 transition-all duration-300 ease-out " +
+  "relative whitespace-nowrap rounded-lg px-1.5 py-1 text-gray-600 transition-all duration-300 ease-out " +
   "hover:-translate-y-0.5 hover:text-gray-900 hover:bg-white/40 " +
   "dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-white/10";
 
@@ -33,38 +34,45 @@ export async function Header() {
   const user = await getCurrentUser();
   const pending = user
     ? await getPendingCounts(user.id, user.role)
-    : { circles: 0, reservations: 0, members: 0 };
+    : { circles: 0, closures: 0, reservations: 0, members: 0 };
+  const isStaff = user?.role === "staff";
   const unread = user ? await getUnreadCount() : 0;
 
   const items: NavItem[] = [];
   // 公開情報を見に来る人（未ログイン・一般）は、探す場所を先頭に置く。
-  // 学生・職員は自分の予定が先。
+  // 職員は承認が仕事なので、対応待ちが先。学生は自分の予定が先。
   if (!user || user.role === "general") {
     items.push({ href: "/circles", label: "サークル" });
+  }
+  // 職員の件数は、ここにまとめて1つだけ出す。サークルと施設予約にも
+  // 付けていたが、同じ数が何か所にも出て、どこで押すのかが分かりにくい
+  if (isStaff) {
+    items.push({
+      href: "/staff",
+      label: "対応待ち",
+      badge: pending.circles + pending.closures + pending.reservations,
+    });
   }
   if (user) items.push({ href: "/calendar", label: "カレンダー" });
   if (user && user.role !== "general") {
     items.push({
       href: "/circles",
       label: "サークル",
-      badge: pending.circles + pending.members,
+      badge: pending.members,
     });
   }
   items.push({ href: "/events", label: "イベント" });
   if (user?.role === "student") items.push({ href: "/board", label: "掲示板" });
   if (user && user.role !== "general") {
-    items.push({
-      href: "/facilities",
-      label: "施設予約",
-      badge: pending.reservations,
-    });
+    items.push({ href: "/facilities", label: "施設予約" });
   }
   if (user) items.push({ href: "/mypage", label: "マイページ" });
 
   const account = user && (
     <>
-      <span className="flex items-center gap-1.5">
-        <span className="font-medium">{user.name}</span>
+      {/* 幅が足りないときは名前の末尾を省く。1字ずつ折れて縦に積まれるよりよい */}
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="max-w-[8em] truncate font-medium">{user.name}</span>
         <span className="badge bg-indigo-500/15 text-indigo-700 dark:text-indigo-300">
           {ROLE_LABEL[user.role]}
         </span>
@@ -104,7 +112,7 @@ export async function Header() {
         </Link>
 
         {/* 広い画面: すべて横に並べる */}
-        <nav className="hidden items-center gap-4 text-sm lg:flex">
+        <nav className="hidden min-w-0 items-center gap-3 text-sm lg:flex">
           {items.map((item) => (
             <Link key={item.href} href={item.href} className={navLink}>
               {item.label}
