@@ -300,7 +300,7 @@ export async function canManageEvent(
  */
 export async function listUpcomingCircleEvents(circleId: string, limit = 1) {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("events")
     .select(EVENT_SELECT)
     .eq("host_circle_id", circleId)
@@ -308,6 +308,10 @@ export async function listUpcomingCircleEvents(circleId: string, limit = 1) {
     .order("event_date", { ascending: true })
     .limit(limit)
     .returns<EventListItem[]>();
+  if (error) {
+    // 画面は空のまま出すが、予定が無いのとの区別が付くよう残す
+    console.error("サークルの次の予定の取得に失敗しました:", error.message);
+  }
   return data ?? [];
 }
 

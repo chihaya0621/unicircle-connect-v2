@@ -47,7 +47,7 @@ import {
   listFavoriteCircleIds,
   listUniversities,
 } from "@/lib/discovery";
-import { getCurrentUser } from "@/lib/dal";
+import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
 
 const activityDateFormatter = new Intl.DateTimeFormat("ja-JP", {
   dateStyle: "medium",
@@ -144,6 +144,15 @@ export default async function CircleDetailPage({
   const relations = user
     ? await resolveEventRelations(user.id, upcoming)
     : new Map<string, "joined" | "my-circle" | "other">();
+  // 予定が無いと言い切れるのは、そのサークルのイベントがすべて見える人
+  // （同じ大学のメンバー）だけ。他大学から参加している人には学内限定の
+  // イベントが見えないので、「まだありません」とは言わない。
+  // 所属大学を引くのは、予定が無いときだけでよい
+  const seesAllEvents =
+    upcoming.length === 0 &&
+    isMember &&
+    circle.university_id !== null &&
+    (await getMyUniversityId()) === circle.university_id;
 
   // 活動記録はメンバーだけに見せる。外部に活動履歴まで公開する必要はない。
   const activity = isMember
@@ -345,7 +354,11 @@ export default async function CircleDetailPage({
         </section>
       )}
 
-      {upcoming.length > 0 && (
+      {/* 所属している人は、ここで予定を探す。予定が無いときに見出しごと
+          消えると、予定が無いのか、見る場所が違うのかが分からないので、
+          同じ大学のメンバーには予定が無くても出す */}
+      {(upcoming.length > 0 ||
+        (seesAllEvents && circle.status === "approved")) && (
         <section className="mb-10">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="text-lg font-semibold">次の予定</h2>
@@ -356,10 +369,16 @@ export default async function CircleDetailPage({
               イベントを見る
             </Link>
           </div>
-          <EventCard
-            event={upcoming[0]}
-            relation={relations.get(upcoming[0].id) ?? "other"}
-          />
+          {upcoming.length > 0 ? (
+            <EventCard
+              event={upcoming[0]}
+              relation={relations.get(upcoming[0].id) ?? "other"}
+            />
+          ) : (
+            <p className="glass-empty py-6">
+              予定されているイベントはまだありません。
+            </p>
+          )}
         </section>
       )}
 
