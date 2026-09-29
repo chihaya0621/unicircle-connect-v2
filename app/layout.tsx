@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, M_PLUS_2 } from "next/font/google";
 import "./globals.css";
 
+import { DemoGuide } from "@/components/DemoGuide";
 import { Header } from "@/components/Header";
 import { ModeSwitcher } from "@/components/ModeSwitcher";
-import { getTheme } from "@/lib/dal";
+import { getCurrentUser, getTheme } from "@/lib/dal";
+import { QUICK_LOGIN_ENABLED } from "@/lib/dev-users";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -69,6 +71,9 @@ export default async function RootLayout({
 }>) {
   // サーバー側でテーマを決めるので、切り替え時にちらつかない
   const theme = await getTheme();
+  // デモの案内帯に「いまの立場」を出す。ヘッダーと同じ問い合わせなので、
+  // 1回の描画の中ではまとめられ、往復は増えない
+  const demoUser = QUICK_LOGIN_ENABLED ? await getCurrentUser() : null;
 
   return (
     <html
@@ -83,6 +88,13 @@ export default async function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <Header />
+        {QUICK_LOGIN_ENABLED && (
+          <DemoGuide
+            email={demoUser?.email ?? null}
+            name={demoUser?.name ?? null}
+            role={demoUser?.role ?? null}
+          />
+        )}
         <main className="flex-1">{children}</main>
         {/* 明るさは未ログインの人も選べるよう、全画面の末尾に置く */}
         <footer className="mx-auto mt-12 flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 pb-8 text-xs text-gray-600 print:hidden dark:text-gray-400">

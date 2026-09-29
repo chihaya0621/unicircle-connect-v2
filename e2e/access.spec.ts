@@ -91,6 +91,20 @@ test.describe("未ログイン", () => {
     await expect(page.getByRole("link", { name: "トップへ戻る" })).toBeVisible();
   });
 
+  test("デモの案内帯から、職員の立場に切り替えて次へ進める", async ({ page }) => {
+    // ログインを切り替えるだけで、申請や押印はしない
+    await page.goto("/");
+    const guide = page.getByRole("region", { name: "デモの案内" });
+    await guide.getByRole("button", { name: "承認の流れを試す" }).click();
+    await guide.getByRole("button", { name: /職員1が判子を押す/ }).click();
+    await page.waitForURL("**/staff");
+    await expect(guide).toContainText("職員（青空職員太郎）");
+    await expect(guide).toContainText("手順 2/4");
+    // 入り直したら帯は畳まれ、次の手順のボタンだけが残る
+    await expect(guide.getByRole("button", { name: "次：職員2で押す" })).toBeVisible();
+    await expect(guide.getByRole("list")).toHaveCount(0);
+  });
+
   test("ログイン画面にデモの案内が出ている", async ({ page }) => {
     await page.goto("/login");
     // 展示で来た人が、登録せずに触れることが分かる状態か
@@ -174,8 +188,8 @@ test.describe("職員", () => {
       page.getByRole("heading", { name: "この申請を判断する" }),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: /承認する$/ })).toBeVisible();
-    // 紙には出さない
-    await expect(page.locator("section.print\\:hidden")).toHaveCount(1);
+    // 紙には出さない（本文の中だけを数える。デモの案内帯も紙には出さない）
+    await expect(page.locator("main section.print\\:hidden")).toHaveCount(1);
   });
 
   test("サークル一覧に承認のきまりが出る", async ({ page }) => {
