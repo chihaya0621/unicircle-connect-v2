@@ -8,6 +8,7 @@ import {
   uploadCircleImage,
 } from "@/app/actions/images";
 import { ApprovalTrail } from "@/components/ApprovalTrail";
+import { BackLink } from "@/components/BackLink";
 import { HandoverPanel } from "@/components/HandoverPanel";
 import {
   CircleEditForm,
@@ -149,8 +150,22 @@ export default async function CircleDetailPage({
     ? await getCircleActivity(id, 10)
     : { activities: [], total: 0 };
 
+  // 見に来た人は、その大学のサークルの並びへ戻す。学生・職員は自分の一覧へ。
+  // 本部以外のキャンパスのサークルは、そのキャンパスの並びにしか出ないので、
+  // キャンパスまで指定して戻す
+  const back =
+    isOutsider && circle.university_id
+      ? {
+          href: `/circles?university=${circle.university_id}${
+            circle.campus_id ? `&campus=${circle.campus_id}` : ""
+          }`,
+          label: `${circle.university?.name ?? "大学"}のサークル`,
+        }
+      : { href: "/circles", label: "サークル一覧" };
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
+      <BackLink href={back.href} label={back.label} />
       <header className="mb-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-4">

@@ -8,6 +8,7 @@ import {
   removeEventImage,
   uploadEventImage,
 } from "@/app/actions/images";
+import { BackLink } from "@/components/BackLink";
 import { EventReminderPicker } from "@/components/EventReminderPicker";
 import { EventRoster, type RosterEntry } from "@/components/EventRoster";
 import { ImageUploader } from "@/components/ImageUploader";
@@ -98,6 +99,7 @@ export default async function EventDetailPage({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
+      <BackLink href="/events" label="イベント一覧" />
       {/* フライヤーは縦長・正方形など比率がまちまちなので、切らずに全体を見せる */}
       {image && (
         <div className="relative mb-6 aspect-video w-full overflow-hidden rounded-xl border border-black/10 bg-black/[0.03] dark:border-white/10 dark:bg-white/5">
