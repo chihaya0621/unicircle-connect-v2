@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { createClient } from "@/lib/supabase-server";
 
 /**
@@ -13,8 +15,11 @@ import { createClient } from "@/lib/supabase-server";
  * 呼び出し側で利用者を絞る必要はない。
  */
 
-/** 気にしている大学の ID。未指定なら空配列 */
-export async function listWatchedUniversityIds(): Promise<string[]> {
+/**
+ * 気にしている大学の ID。未指定なら空配列。
+ * 一覧の題名と本文の両方から呼ぶので、同じリクエストの中では1回だけ引く
+ */
+export const listWatchedUniversityIds = cache(async (): Promise<string[]> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("watched_universities")
@@ -25,7 +30,7 @@ export async function listWatchedUniversityIds(): Promise<string[]> {
     return [];
   }
   return (data ?? []).map((row) => row.university_id);
-}
+});
 
 /** 気になるサークルの ID。カードの状態表示に使う */
 export async function listFavoriteCircleIds(): Promise<Set<string>> {
@@ -79,8 +84,11 @@ export type DirectoryEntry = {
  * 件数は SQL の集約ではなくアプリ側で数える。RLS が閲覧者ごとに
  * 見える行を変えるので、埋め込み集約だと見えないサークルまで数に入る。
  * 素の行を引いて数えれば、数と一覧が必ず一致する。
+ *
+ * ページの題名（generateMetadata）と本文の両方から呼ぶので、
+ * 同じリクエストの中では1回だけ引く。
  */
-export async function listCampusDirectory(): Promise<DirectoryEntry[]> {
+export const listCampusDirectory = cache(async (): Promise<DirectoryEntry[]> => {
   const supabase = await createClient();
 
   const [{ data: universities }, { data: campuses }, { data: circles }] =
@@ -165,7 +173,7 @@ export async function listCampusDirectory(): Promise<DirectoryEntry[]> {
   }
 
   return entries.sort((a, b) => a.label.localeCompare(b.label, "ja"));
-}
+});
 
 export type Campus = {
   id: string;

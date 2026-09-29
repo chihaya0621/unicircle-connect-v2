@@ -30,30 +30,87 @@ import {
   type ApprovalEntry,
 } from "@/lib/approvals";
 import {
+  type DirectoryEntry,
   listCampusDirectory,
   listFavoriteCircleIds,
   listWatchedUniversityIds,
 } from "@/lib/discovery";
 import { listUniversityPublicEvents } from "@/lib/events";
 import { currentTermYear, listStaleCircles } from "@/lib/handover";
-import { PREFECTURE_UNKNOWN } from "@/lib/prefectures";
+import { PREFECTURE_UNKNOWN, PREFECTURES } from "@/lib/prefectures";
 import { getCurrentUser, getMyUniversityId } from "@/lib/dal";
-import { CIRCLE_CATEGORIES, isCircleCategory } from "@/lib/circle-categories";
+import {
+  CIRCLE_CATEGORIES,
+  categoryLabel,
+  isCircleCategory,
+} from "@/lib/circle-categories";
 
-export const metadata: Metadata = { title: "サークル | UniCircle Connect" };
+type SearchParams = Promise<{
+  others?: string;
+  fav?: string;
+  pref?: string;
+  university?: string;
+  campus?: string;
+  q?: string;
+  cat?: string;
+}>;
+
+/**
+ * 題名を、選んだ大学・都道府県・分野に合わせる。
+ * どの絞り込みでも「サークル」だと、タブや履歴、共有したリンクから、
+ * どこの一覧なのかが分からない。
+ *
+ * 本文と同じ条件で決める。県で絞るのは、都道府県から辿る人（未ログインと、
+ * 気になる大学を指定していない一般）だけ。学生や職員が ?pref= 付きの
+ * リンクを開いても、本文は自大学の一覧なので、題名にも県を出さない。
+ * 知らない値は題名に入れない（URL の文字をそのまま題名に出さない）。
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const { pref, university, campus, cat } = await searchParams;
+  const user = await getCurrentUser();
+  const isGeneral = user?.role === "general";
+  const watchedIds = isGeneral ? await listWatchedUniversityIds() : [];
+  const useDirectory = user === null || (isGeneral && watchedIds.length === 0);
+
+  const selected = university
+    ? findSelected(await listCampusDirectory(), university, campus)
+    : null;
+  const knownPref =
+    pref === PREFECTURE_UNKNOWN || PREFECTURES.some((p) => p === pref);
+  const place =
+    selected?.label ?? (useDirectory && knownPref && pref ? pref : null);
+  const category = isCircleCategory(cat) ? categoryLabel(cat) : null;
+
+  // 分野の名前には「・」が入るので、場所との区切りはパンくずと同じ「／」にする
+  const scope = [place, category].filter(Boolean).join("／");
+  return {
+    title: `${scope ? `${scope}のサークル` : "サークル"} | UniCircle Connect`,
+  };
+}
+
+/** 拠点まで指定されていればその拠点、なければ大学の代表拠点。題名と本文で同じものを選ぶ */
+function findSelected(
+  directory: DirectoryEntry[],
+  university: string,
+  campus: string | undefined,
+): DirectoryEntry | null {
+  return (
+    directory.find(
+      (e) =>
+        e.universityId === university &&
+        (campus ? e.campusId === campus : e.isPrimary),
+    ) ?? null
+  );
+}
 
 export default async function CirclesPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    others?: string;
-    fav?: string;
-    pref?: string;
-    university?: string;
-    campus?: string;
-    q?: string;
-    cat?: string;
-  }>;
+  searchParams: SearchParams;
 }) {
   // 未ログインにも開く。公開設定のサークルだけが見えることは
   // RLS（0021_circle_public_profile.sql）が担保している。
@@ -91,11 +148,7 @@ export default async function CirclesPage({
 
   // 拠点まで指定されていればその拠点、なければ大学の代表拠点
   const selected = university
-    ? (directory.find(
-        (e) =>
-          e.universityId === university &&
-          (campus ? e.campusId === campus : e.isPrimary),
-      ) ?? null)
+    ? findSelected(directory, university, campus)
     : null;
 
   // 大学を1つ選んだあとは、まとめる意味が無いので平坦に並べる。
