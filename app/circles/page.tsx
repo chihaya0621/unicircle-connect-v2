@@ -534,7 +534,9 @@ export default async function CirclesPage({
               key={circle.id}
               circle={circle}
               isMember={myCircleIds.has(circle.id)}
-              isFavorite={favoriteIds.has(circle.id)}
+              // 未ログインには出さない。押すとログイン画面に送られ、
+              // 見ていた一覧を失う（詳細ページも、ログインした人にだけ出す）
+              isFavorite={user ? favoriteIds.has(circle.id) : undefined}
             />
           ))}
         </div>
