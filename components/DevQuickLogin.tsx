@@ -111,7 +111,9 @@ export function DevQuickLogin({
 
       {open && (
         <div className="mt-4 space-y-4">
-          <ul className="grid gap-2 sm:grid-cols-3">
+          {/* 1列に並べる。ログインの枠の幅で3列にすると、1枚が約 105px しかなく、
+              名前は字の途中で折れ、説明は枠からはみ出していた */}
+          <ul className="grid gap-2">
             {SHORTCUTS.map((c) => (
               <li key={c.email}>
                 <form
