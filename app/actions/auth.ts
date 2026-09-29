@@ -11,6 +11,7 @@ import {
   QUICK_LOGIN_ENABLED,
 } from "@/lib/dev-users";
 import { DEFAULT_HOME, HOME_BY_ROLE, homeForRole } from "@/lib/home";
+import { safePath } from "@/lib/safe-path";
 import { createClient } from "@/lib/supabase-server";
 
 export type AuthFormState = {
@@ -35,13 +36,6 @@ async function homeForCurrentUser(
     .maybeSingle();
 
   return homeForRole(data?.role);
-}
-
-/** オープンリダイレクト防止: 自サイト内の相対パスのみ許可する */
-function safeRedirect(next: FormDataEntryValue | null): string | null {
-  if (typeof next !== "string") return null;
-  if (!next.startsWith("/") || next.startsWith("//")) return null;
-  return next;
 }
 
 /**
@@ -98,7 +92,8 @@ export async function signIn(
 ): Promise<AuthFormState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const next = safeRedirect(formData.get("next"));
+  // オープンリダイレクト防止: アプリの中のパスだけを通す
+  const next = safePath(formData.get("next"));
 
   if (!email || !password) {
     return { error: "メールアドレスとパスワードを入力してください。" };
@@ -149,7 +144,8 @@ export async function devQuickLogin(formData: FormData): Promise<void> {
     throw new Error("開発用ユーザーとして登録されていないアドレスです。");
   }
 
-  const next = safeRedirect(formData.get("next"));
+  // オープンリダイレクト防止: アプリの中のパスだけを通す
+  const next = safePath(formData.get("next"));
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({

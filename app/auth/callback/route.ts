@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { safePath } from "@/lib/safe-path";
 import { createClient } from "@/lib/supabase-server";
 
 /**
@@ -12,10 +13,8 @@ import { createClient } from "@/lib/supabase-server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
-
-  // オープンリダイレクト防止: 自サイト内の相対パスのみ
-  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  // オープンリダイレクト防止: アプリの中のパスだけを通す
+  const safeNext = safePath(searchParams.get("next")) ?? "/";
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=invalid_link`);

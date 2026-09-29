@@ -6,6 +6,7 @@ import { PageHero } from "@/components/PageHero";
 import { requireUser } from "@/lib/dal";
 import { TYPE_LABEL, TYPE_STYLE } from "@/lib/notification-types";
 import { listNotifications, type Notification } from "@/lib/notifications";
+import { safePath } from "@/lib/safe-path";
 
 export const metadata: Metadata = { title: "通知 | UniCircle Connect" };
 
@@ -49,9 +50,13 @@ function Row({ n }: { n: Notification }) {
     </div>
   );
 
+  // リンクは通知を作る側が決める。アプリの中の行き先でなければ、
+  // リンクにせずに本文だけを出す
+  const href = safePath(n.link);
+
   return (
     <li>
-      {n.link ? <Link href={n.link}>{inner}</Link> : inner}
+      {href ? <Link href={href}>{inner}</Link> : inner}
       {unread && (
         <form action={markRead} className="mt-1 text-right">
           <input type="hidden" name="notification_id" value={n.id} />
