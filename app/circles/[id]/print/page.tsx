@@ -96,7 +96,7 @@ export default async function CirclePrintPage({
     <div className="mx-auto max-w-[210mm] px-4 py-8 print:p-0">
       {/* 画面にだけ出る操作。紙には出さない */}
       <div className="mb-6 flex flex-wrap items-center gap-3 print:hidden">
-        <PrintButton />
+        <PrintButton quiet={canDecide && !decidedByMe} />
         {canDecide && (
           <Link href="/staff" className="btn-ghost px-4 py-2 text-sm">
             対応待ちに戻る
@@ -120,7 +120,13 @@ export default async function CirclePrintPage({
             />
           ) : (
             <>
+              {/* 空の欄だけでは、あと何人要るのかが分からない。
+                  対応待ちの一覧と同じ数え方で出す */}
               <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                <span className="font-semibold text-gray-800 dark:text-gray-200">
+                  いまは承認 {approvedCount} / {required}人、あと
+                  {Math.max(1, required - approvedCount)}人です。
+                </span>
                 承認すると、下の承認欄にあなたの印影が入ります。
                 却下は1人で成立します。
               </p>
