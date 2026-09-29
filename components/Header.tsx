@@ -102,7 +102,7 @@ export async function Header() {
 
   return (
     <header className="glass-header sticky top-0 z-40">
-      <div className="relative mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4">
+      <div className="relative mx-auto flex h-14 max-w-5xl items-center justify-between gap-2 px-4">
         <Link
           href="/"
           className="shrink-0 font-semibold tracking-tight transition-transform duration-300 ease-out hover:scale-[1.03]"
@@ -133,7 +133,8 @@ export async function Header() {
           )}
         </nav>
 
-        {/* 狭い画面: 通知だけ残して、あとは開閉メニューへ畳む */}
+        {/* 狭い画面: 通知（未ログインならログインと新規登録）だけ残して、
+            あとは開閉メニューへ畳む */}
         <div className="flex items-center gap-2 text-sm lg:hidden">
           {bell}
           {user ? (
@@ -143,12 +144,29 @@ export async function Header() {
               <Link href="/login" className={`tap-target ${navLink}`}>
                 ログイン
               </Link>
+              {/* 字の途中で折れると2行になり、隣のメニューのボタンがつぶれる。
+                  幅 375px の iPhone でも収まるよう左右を詰め、それより狭い
+                  画面ではメニューの中だけに出す。境目を rem で書いておくと、
+                  ブラウザの文字サイズを大きくした人でも、はみ出す前に隠れる */}
               <Link
                 href="/signup"
-                className="btn-primary tap-target px-3 py-1.5 text-xs"
+                className="btn-primary tap-target whitespace-nowrap px-2.5 py-1.5 text-xs max-[23.4rem]:hidden"
               >
                 新規登録
               </Link>
+              {/* 未ログインにもサークルとイベントへの道を出す。以前はログインと
+                  新規登録しか無く、QR から来た人はトップのボタンでしか移れなかった */}
+              <MobileNav items={items}>
+                <span className="text-xs text-gray-600 dark:text-gray-400">
+                  見るだけなら登録は要りません
+                </span>
+                <Link
+                  href="/signup"
+                  className="btn-primary tap-target shrink-0 px-3 py-1.5 text-xs"
+                >
+                  新規登録
+                </Link>
+              </MobileNav>
             </>
           )}
         </div>
