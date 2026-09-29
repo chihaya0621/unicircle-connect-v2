@@ -49,6 +49,7 @@ SOURCES=(
   "migrations/0032_event_guide.sql"
   "migrations/0033_circle_category.sql"
   "migrations/0034_approval_chain_lock.sql"
+  "migrations/0035_demo_reset.sql"
   "seed.sql"
 )
 
