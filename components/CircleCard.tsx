@@ -37,6 +37,11 @@ function initialOf(name: string): string {
  * 入れ子は不正なので、押しても意図した動きにならない）。
  * 見出しのリンクを疑似要素でカード全面に広げ、ボタンだけを
  * その上に重ねることで、正しいマークアップのまま同じ操作感にしている。
+ *
+ * キーボードで見出しのリンクに移ったときは、カード全体を枠で囲む。
+ * 見出しの下線だけでは、どのカードにいるのかが分かりにくい。
+ * ring は box-shadow で描くので、カードの影を上書きして消してしまう。
+ * 影とは別の枠線で描く。
  */
 export function CircleCard({
   circle,
@@ -56,7 +61,7 @@ export function CircleCard({
 
   return (
     <article
-      className={`glass-card relative p-5 ${isMember ? "tint-indigo" : ""}`}
+      className={`glass-card relative p-5 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-indigo-500 dark:has-[a:focus-visible]:outline-indigo-400 ${isMember ? "tint-indigo" : ""}`}
     >
       <div className="flex items-start gap-3">
         {/* アイコンとして扱うので正方形に切り出す */}
