@@ -41,6 +41,26 @@ export const PUBLIC_EVENT = {
   title: "オープンキャンパス2026",
 } as const;
 
+/**
+ * 本部以外のキャンパスにあるサークル。seed_public_directory.sql の固定 UUID。
+ *
+ * 大学の一覧は、キャンパスを指定しないと代表キャンパスのサークルしか
+ * 出さない。詳細から戻ったときに、ここが並ぶかで確かめる。
+ */
+export const OUTER_CIRCLE = {
+  id: "b3000000-0000-4000-8000-000000000005",
+  universityId: "b1000000-0000-4000-8000-000000000001",
+  campusId: "b2000000-0000-4000-8000-000000000002",
+} as const;
+
+/**
+ * 学生1が管理者をしている、主催イベントの無いサークル。seed_demo.sql の固定 UUID。
+ */
+export const QUIET_CIRCLE = {
+  id: "c0000000-0000-4000-8000-000000000011",
+  name: "テニスサークル SMASH",
+} as const;
+
 /** 役割ごとの、ログイン直後の着地点（lib/home.ts と対応） */
 export const HOME = {
   student: "/calendar",

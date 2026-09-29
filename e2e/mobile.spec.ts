@@ -109,6 +109,20 @@ test.describe("メニュー", () => {
   });
 });
 
+test.describe("未ログインのメニュー", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("開くと、サークルとイベントへ行ける", async ({ page }) => {
+    // 以前はログインと新規登録しか無く、QR から来た人は
+    // トップのボタンでしか移れなかった
+    await page.goto(`/events/${PUBLIC_EVENT.id}`);
+    await page.getByRole("button", { name: "メニューを開く" }).click();
+    await expect(page.getByRole("link", { name: "サークル", exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "イベント", exact: true }).click();
+    await expect(page).toHaveURL(/\/events$/);
+  });
+});
+
 test.describe("カレンダーの参加予定", () => {
   test.use({ storageState: statePath("student") });
 

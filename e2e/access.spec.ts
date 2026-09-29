@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-import { PUBLIC_EVENT, statePath } from "./helpers/users";
+import {
+  OUTER_CIRCLE,
+  PUBLIC_EVENT,
+  QUIET_CIRCLE,
+  statePath,
+} from "./helpers/users";
 
 /**
  * 誰がどこまで辿り着けるか。
@@ -114,6 +119,47 @@ test.describe("未ログイン", () => {
   });
 });
 
+test.describe("未ログインの道案内", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("大学の一覧のカードには、気になるのハートを出さない", async ({ page }) => {
+    // 押してもログイン画面に送られ、見ていた一覧を失うだけだった
+    await page.goto(`/circles?university=${OUTER_CIRCLE.universityId}`);
+    await expect(page.locator("main a[href^='/circles/']").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /気になる/ })).toHaveCount(0);
+  });
+
+  test("サークル詳細から、そのサークルが並ぶ一覧へ戻れる", async ({ page }) => {
+    await page.goto(`/circles/${OUTER_CIRCLE.id}`);
+    await page.getByRole("navigation", { name: "戻る" }).getByRole("link").click();
+    // キャンパスまで指定しないと、戻った先にこのサークルが並ばない
+    await expect(page).toHaveURL(new RegExp(`campus=${OUTER_CIRCLE.campusId}`));
+    await expect(
+      page.locator(`main a[href='/circles/${OUTER_CIRCLE.id}']`),
+    ).toBeVisible();
+  });
+
+  test("サークル一覧の題名が、選んだ都道府県に合わせて変わる", async ({
+    page,
+  }) => {
+    await page.goto(`/circles?pref=${encodeURIComponent("東京都")}`);
+    await expect(page).toHaveTitle(/^東京都のサークル/);
+  });
+
+  test("広い画面では、閉じたデモの案内帯にも、データが架空であることが出る", async ({
+    page,
+  }) => {
+    // スマホでは出さない（ボタンの下に行を足すと、文をたたいてもボタンが押される）
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(
+      page
+        .getByRole("region", { name: "デモの案内" })
+        .getByText("架空のデータです。書き込みは、ほかの人にも見えます"),
+    ).toBeVisible();
+  });
+});
+
 test.describe("一般アカウント（高校生・企業）", () => {
   test.use({ storageState: statePath("general") });
 
@@ -142,6 +188,21 @@ test.describe("一般アカウント（高校生・企業）", () => {
 
 test.describe("学生", () => {
   test.use({ storageState: statePath("student") });
+
+  test("予定の無い自分のサークルでも、次の予定の見出しがある", async ({
+    page,
+  }) => {
+    // 見出しごと消えると、予定が無いのか、見る場所が違うのかが分からない
+    await page.goto(`/circles/${QUIET_CIRCLE.id}`);
+    await expect(page.getByRole("heading", { name: "次の予定" })).toBeVisible();
+  });
+
+  test("県を指定したリンクを開いても、題名に県を出さない", async ({ page }) => {
+    // 学生の一覧は自大学のもので、県では絞らない。題名だけが県を名乗ると、
+    // 画面の中身と食い違う
+    await page.goto(`/circles?pref=${encodeURIComponent("東京都")}`);
+    await expect(page).toHaveTitle(/^サークル \|/);
+  });
 
   test("カレンダーに着地して、自分の予定が出る", async ({ page }) => {
     await page.goto("/calendar");
@@ -190,6 +251,26 @@ test.describe("職員", () => {
     await expect(page.getByRole("button", { name: /承認する$/ })).toBeVisible();
     // 紙には出さない（本文の中だけを数える。デモの案内帯も紙には出さない）
     await expect(page.locator("main section.print\\:hidden")).toHaveCount(1);
+  });
+
+  test("判断前の申請書では、あと何人かが出て、印刷は控えめになる", async ({
+    page,
+  }) => {
+    // 押すと取り消せないので、出ていることだけを確かめる
+    await page.goto("/staff");
+    const card = page
+      .locator("main li.glass-card")
+      .filter({ has: page.getByRole("button", { name: /承認する$/ }) })
+      .first();
+    const paper = await card
+      .getByRole("link", { name: "申請書を見る" })
+      .getAttribute("href");
+    await page.goto(paper ?? "");
+
+    await expect(page.getByText(/いまは承認 \d+ \/ \d+人、あと\d+人です。/)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "印刷 / PDF に保存" }),
+    ).not.toHaveClass(/btn-primary/);
   });
 
   test("サークル一覧に承認のきまりが出る", async ({ page }) => {
