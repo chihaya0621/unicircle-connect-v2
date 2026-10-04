@@ -79,7 +79,7 @@ export const SPONSORSHIP_FOR_OFFER = {
 
 /** 役割ごとの、ログイン直後の着地点（lib/home.ts と対応） */
 export const HOME = {
-  student: "/calendar",
+  student: "/home",
   staff: "/staff",
   general: "/circles",
 } as const;

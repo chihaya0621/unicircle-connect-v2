@@ -240,13 +240,19 @@ test.describe("学生", () => {
     await expect(page).toHaveTitle(/^サークル \|/);
   });
 
+  test("わたしのサークルに、所属するサークルが並ぶ", async ({ page }) => {
+    await page.goto("/home");
+    await expect(page.getByRole("heading", { name: "わたしのサークル" })).toBeVisible();
+    await expect(page.getByRole("link", { name: CIRCLE.name, exact: true })).toBeVisible();
+  });
+
   test("サークルの管理者には、協賛を募集する欄が出る", async ({ page }) => {
     await page.goto(`/circles/${CIRCLE.id}`);
     await expect(page.getByRole("heading", { name: "協賛", exact: true })).toBeVisible();
     await expect(page.getByText("協賛を募集する")).toBeVisible();
   });
 
-  test("カレンダーに着地して、自分の予定が出る", async ({ page }) => {
+  test("カレンダーに、自分の予定が出る", async ({ page }) => {
     await page.goto("/calendar");
     await expect(page.getByRole("heading", { name: /月/ }).first()).toBeVisible();
   });

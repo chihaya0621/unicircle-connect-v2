@@ -28,9 +28,15 @@ export default async function Home() {
         action={
           user ? (
             <>
-              <Link href="/calendar" className="btn-primary px-5">
-                カレンダーを見る
-              </Link>
+              {user.role === "student" ? (
+                <Link href="/home" className="btn-primary px-5">
+                  わたしのサークルを見る
+                </Link>
+              ) : (
+                <Link href="/calendar" className="btn-primary px-5">
+                  カレンダーを見る
+                </Link>
+              )}
               <Link href="/events" className="btn-ghost px-5">
                 公開イベントを見る
               </Link>

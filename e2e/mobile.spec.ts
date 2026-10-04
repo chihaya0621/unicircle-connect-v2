@@ -22,6 +22,7 @@ test.describe("横にはみ出さない", () => {
     { path: "/login", label: "ログイン", auth: null },
     { path: "/sponsorships", label: "協賛の募集", auth: null },
     { path: `/sponsorships/${SPONSORSHIP.id}`, label: "協賛の詳細", auth: "general" },
+    { path: "/home", label: "わたしのサークル", auth: "student" },
     { path: "/calendar", label: "カレンダー", auth: "student" },
     { path: "/board", label: "掲示板", auth: "student" },
     { path: "/mypage", label: "マイページ", auth: "student" },
@@ -78,7 +79,7 @@ test.describe("メニュー", () => {
     // 名前で探さないのは、承認待ちの件数がバッジで付くと
     // 読み上げ名が「サークル 3」になり、件数が変わるたびに落ちるため。
     const banner = page.getByRole("banner");
-    for (const href of ["/calendar", "/circles", "/events", "/board", "/mypage"]) {
+    for (const href of ["/home", "/calendar", "/circles", "/events", "/board", "/mypage"]) {
       await expect(
         // 広い画面用の並びも DOM には居る（隠れている）ので、見えているほうに絞る
         banner.locator(`a[href="${href}"]`).filter({ visible: true }),

@@ -3,7 +3,9 @@ import type { UserRole } from "@/lib/database.types";
 /**
  * 役割ごとの初期到達点。
  *
- * 学生はログインしたらまず自分の予定が見えるとよい。
+ * 学生は、所属サークルの次の予定と最新の連絡をまとめた「わたしのサークル」
+ * へ送る。カレンダーに着地させていたころは、自分のサークルの予定を探すのに、
+ * サークルを1つずつ開く必要があった。
  * 職員の毎日の仕事は承認なので、押すものが並ぶ対応待ちへ送る。
  * カレンダーに着地させていたころは、「参加予定のイベントはありません」
  * とだけ出て、承認の字が1つも無かった。
@@ -15,7 +17,7 @@ import type { UserRole } from "@/lib/database.types";
  * 「ログイン直後はサークル一覧、再訪時はカレンダー」とちぐはぐになる。
  */
 export const HOME_BY_ROLE: Record<UserRole, string> = {
-  student: "/calendar",
+  student: "/home",
   staff: "/staff",
   general: "/circles",
 };

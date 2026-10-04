@@ -57,6 +57,8 @@ export async function Header() {
         pending.sponsorships,
     });
   }
+  // 学生は、所属サークルの予定と連絡をまとめた「ホーム」から始める
+  if (user?.role === "student") items.push({ href: "/home", label: "ホーム" });
   if (user) items.push({ href: "/calendar", label: "カレンダー" });
   if (user && user.role !== "general") {
     items.push({
