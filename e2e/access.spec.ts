@@ -259,6 +259,17 @@ test.describe("学生", () => {
     await expect(page.getByRole("heading", { name: /月/ }).first()).toBeVisible();
   });
 
+  test("施設予約は施設・備品の順に分かれ、利用停止中は一番下にまとまる", async ({
+    page,
+  }) => {
+    await page.goto("/facilities");
+    const headings = (await page.getByRole("heading", { level: 2 }).allTextContents())
+      .map((h) => h.replace(/（.*$/, ""))
+      .filter((h) => ["施設", "備品", "未分類", "利用停止中"].includes(h));
+    expect(headings.slice(0, 2)).toEqual(["施設", "備品"]);
+    if (headings.includes("利用停止中")) expect(headings.at(-1)).toBe("利用停止中");
+  });
+
   test("掲示板に入れる", async ({ page }) => {
     await page.goto("/board");
     await expect(page).toHaveURL(/\/board$/);

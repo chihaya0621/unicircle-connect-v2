@@ -20,8 +20,15 @@ const CATEGORY_LABEL = { facility: "施設", equipment: "備品" } as const;
  * クライアント状態を持つ。
  *
  * 学生向けの表示は一覧ページ側で処理する（状態を持つ必要がないため）。
+ * 区分の見出しの下に並ぶときは、区分名を重ねて出さない（showCategory）。
  */
-export function FacilityRow({ facility }: { facility: Facility }) {
+export function FacilityRow({
+  facility,
+  showCategory = true,
+}: {
+  facility: Facility;
+  showCategory?: boolean;
+}) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
@@ -69,9 +76,11 @@ export function FacilityRow({ facility }: { facility: Facility }) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h3 className="font-semibold">{facility.name}</h3>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {facility.category ? CATEGORY_LABEL[facility.category] : "未分類"}
-              </p>
+              {showCategory && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {facility.category ? CATEGORY_LABEL[facility.category] : "未分類"}
+                </p>
+              )}
             </div>
             {!facility.is_available && (
               <span className="shrink-0 badge bg-gray-500/15 text-gray-600 dark:text-gray-400">

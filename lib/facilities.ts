@@ -68,6 +68,46 @@ export async function listFacilities(universityId: string | null) {
   return data ?? [];
 }
 
+export type FacilityGroup = {
+  key: "facility" | "equipment" | "uncategorized" | "stopped";
+  label: string;
+  facilities: Facility[];
+};
+
+/**
+ * 一覧の区切り。施設 → 備品 → 未分類 の順に並べ、利用停止中のものは
+ * 区分にかかわらず一番下にまとめる。
+ *
+ * 1つの格子に続けて並べていたころは、施設と備品の境目が分からず、
+ * 予約できないものが途中に混ざっていた。中身の無い区切りは返さない。
+ */
+export function groupFacilities(facilities: Facility[]): FacilityGroup[] {
+  const available = facilities.filter((f) => f.is_available);
+  const groups: FacilityGroup[] = [
+    {
+      key: "facility",
+      label: "施設",
+      facilities: available.filter((f) => f.category === "facility"),
+    },
+    {
+      key: "equipment",
+      label: "備品",
+      facilities: available.filter((f) => f.category === "equipment"),
+    },
+    {
+      key: "uncategorized",
+      label: "未分類",
+      facilities: available.filter((f) => !f.category),
+    },
+    {
+      key: "stopped",
+      label: "利用停止中",
+      facilities: facilities.filter((f) => !f.is_available),
+    },
+  ];
+  return groups.filter((g) => g.facilities.length > 0);
+}
+
 export async function getFacility(facilityId: string) {
   const supabase = await createClient();
   const { data } = await supabase

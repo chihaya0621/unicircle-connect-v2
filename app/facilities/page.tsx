@@ -6,13 +6,29 @@ import { CampusManager } from "@/components/CampusManager";
 import { FacilityForm } from "@/components/FacilityForm";
 import { FacilityRow } from "@/components/FacilityRow";
 import { getMyUniversityId, requireRole } from "@/lib/dal";
-import { listFacilities } from "@/lib/facilities";
+import { groupFacilities, listFacilities, type FacilityGroup } from "@/lib/facilities";
 import { listCampuses } from "@/lib/discovery";
 import { getPendingCounts } from "@/lib/pending";
 
 export const metadata: Metadata = { title: "施設予約 | UniCircle Connect" };
 
 const CATEGORY_LABEL = { facility: "施設", equipment: "備品" } as const;
+
+/** 区切りの見出しの下に添える説明。区分によって予約のしかたが違う */
+function groupNote(key: FacilityGroup["key"], isStaff: boolean): string | null {
+  switch (key) {
+    case "facility":
+      return "1日の中の時間帯で予約します。";
+    case "equipment":
+      return "日をまたいで借りられます。";
+    case "stopped":
+      return isStaff
+        ? "「利用可能にする」を押すと、上の区分に戻ります。"
+        : "いまは予約を受け付けていません。";
+    default:
+      return null;
+  }
+}
 
 export default async function FacilitiesPage() {
   // 一般ユーザーは施設予約を利用できない（要件定義書3章）
@@ -80,44 +96,65 @@ export default async function FacilitiesPage() {
           登録されている施設がありません。
         </p>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {facilities.map((f) =>
-            // 職員向けは編集・削除のためにクライアント状態が要る
-            isStaff ? (
-              <FacilityRow key={f.id} facility={f} />
-            ) : (
-              <li
-                key={f.id}
-                className="glass-panel"
+        groupFacilities(facilities).map((group) => {
+          const note = groupNote(group.key, isStaff);
+          // 区分ごとの見出しの下では区分名が重なるので、混ざる利用停止中だけに出す
+          const showCategory = group.key === "stopped";
+          return (
+            <section
+              key={group.key}
+              aria-labelledby={`facility-group-${group.key}`}
+              className="mb-10"
+            >
+              <h2
+                id={`facility-group-${group.key}`}
+                className="mb-1 text-lg font-semibold"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold">{f.name}</h3>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {f.category ? CATEGORY_LABEL[f.category] : "未分類"}
-                    </p>
-                  </div>
-                  {!f.is_available && (
-                    <span className="shrink-0 badge bg-gray-500/15 text-gray-600 dark:text-gray-400">
-                      利用停止中
-                    </span>
-                  )}
-                </div>
+                {group.label}（{group.facilities.length}件）
+              </h2>
+              {note && (
+                <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">{note}</p>
+              )}
+              <ul className="grid gap-4 sm:grid-cols-2">
+                {group.facilities.map((f) =>
+                  // 職員向けは編集・削除のためにクライアント状態が要る
+                  isStaff ? (
+                    <FacilityRow key={f.id} facility={f} showCategory={showCategory} />
+                  ) : (
+                    <li key={f.id} className="glass-panel">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="font-semibold">{f.name}</h3>
+                          {showCategory && (
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              {f.category ? CATEGORY_LABEL[f.category] : "未分類"}
+                            </p>
+                          )}
+                        </div>
+                        {!f.is_available && (
+                          <span className="shrink-0 badge bg-gray-500/15 text-gray-600 dark:text-gray-400">
+                            利用停止中
+                          </span>
+                        )}
+                      </div>
 
-                {f.is_available && (
-                  <div className="mt-4">
-                    <Link
-                      href={`/facilities/${f.id}`}
-                      className="inline-block btn-primary tap-target px-3 py-1.5 text-xs"
-                    >
-                      空き状況・予約
-                    </Link>
-                  </div>
+                      {f.is_available && (
+                        <div className="mt-4">
+                          <Link
+                            href={`/facilities/${f.id}`}
+                            className="inline-block btn-primary tap-target px-3 py-1.5 text-xs"
+                          >
+                            空き状況・予約
+                          </Link>
+                        </div>
+                      )}
+                    </li>
+                  ),
                 )}
-              </li>
-            ),
-          )}
-        </ul>
+              </ul>
+            </section>
+          );
+        })
       )}
     </div>
   );
