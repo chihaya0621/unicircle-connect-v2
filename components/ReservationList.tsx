@@ -2,7 +2,7 @@ import { cancelReservation, decideReservation } from "@/app/actions/facilities";
 import { BULK_FORM_ID, BulkApproveBar } from "@/components/BulkApproveBar";
 import { DecisionForm } from "@/components/DecisionForm";
 import type { Reservation } from "@/lib/facilities";
-import { reservationBooker } from "@/lib/facilities";
+import { reservationBooker, reservationPeople } from "@/lib/facilities";
 
 const dateTimeFormatter = new Intl.DateTimeFormat("ja-JP", {
   dateStyle: "medium",
@@ -62,6 +62,7 @@ export function ReservationList({
       <ul className="space-y-3">
         {reservations.map((r) => {
           const booker = reservationBooker(r);
+          const people = reservationPeople(r);
           const status = STATUS_STYLE[r.status];
 
           return (
@@ -96,6 +97,31 @@ export function ReservationList({
                     {booker.name}
                     {r.purpose && ` ／ ${r.purpose}`}
                   </p>
+                  {/* 使用許可願の項目。備品の貸し出しと以前の予約には無い */}
+                  {(people || r.equipment_note || r.remarks) && (
+                    <dl className="mt-1.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-xs text-gray-600 dark:text-gray-400">
+                      {people && (
+                        <>
+                          <dt>利用人員</dt>
+                          <dd className="text-gray-800 dark:text-gray-200">{people}</dd>
+                        </>
+                      )}
+                      {r.equipment_note && (
+                        <>
+                          <dt>使用用具</dt>
+                          <dd className="text-gray-800 dark:text-gray-200">{r.equipment_note}</dd>
+                        </>
+                      )}
+                      {r.remarks && (
+                        <>
+                          <dt>備考</dt>
+                          <dd className="whitespace-pre-wrap text-gray-800 dark:text-gray-200">
+                            {r.remarks}
+                          </dd>
+                        </>
+                      )}
+                    </dl>
+                  )}
                 </div>
               </div>
 

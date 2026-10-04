@@ -77,6 +77,129 @@ export async function createReservation(
   return { notice: "予約を申請しました。職員の承認をお待ちください。" };
 }
 
+/** 使用許可願の結果。成功するたびに at が変わり、フォームを空に戻す合図になる */
+export type FacilityUseState = (ActionState & { at?: number }) | null;
+
+/** 1回の使用許可願で出せる日時の数（紙の様式の行数に合わせる） */
+const MAX_SLOTS = 16;
+
+/** 人数の欄。空欄は0人、それ以外は0〜9999の整数だけを受け付ける */
+function parseCount(value: FormDataEntryValue | null): number | null {
+  const text = String(value ?? "").trim();
+  if (text === "") return 0;
+  if (!/^\d{1,4}$/.test(text)) return null;
+  return Number(text);
+}
+
+/**
+ * 施設の使用許可願。紙の「施設使用許可願」の項目に合わせている。
+ *
+ * 学生番号・氏名・連絡先はアカウントから分かるので尋ねない。
+ * 複数の日時をまとめて出せる。1つでも通らなければ全体を出さない
+ * （判定と取り下げは DB の request_facility_use が行う）。
+ */
+export async function requestFacilityUse(
+  _prev: FacilityUseState,
+  formData: FormData,
+): Promise<FacilityUseState> {
+  const user = await requireUser();
+  if (user.role !== "student") {
+    return { error: "施設の使用許可願を出せるのは学生のみです。" };
+  }
+
+  const facilityId = String(formData.get("facility_id") ?? "");
+  const circleId = String(formData.get("circle_id") ?? "");
+  const purpose = String(formData.get("purpose") ?? "").trim();
+  const equipmentNote = String(formData.get("equipment_note") ?? "").trim();
+  const remarks = String(formData.get("remarks") ?? "").trim();
+
+  if (!facilityId) return { error: "施設が指定されていません。" };
+  if (!purpose) return { error: "目的を入力してください。" };
+  if (purpose.length > 200) return { error: "目的は200文字以内で入力してください。" };
+  if (equipmentNote.length > 200) {
+    return { error: "使用用具・器具等は200文字以内で入力してください。" };
+  }
+  if (remarks.length > 500) return { error: "備考は500文字以内で入力してください。" };
+
+  // 利用人員
+  const students = parseCount(formData.get("student_count"));
+  const staff = parseCount(formData.get("staff_count"));
+  const others = parseCount(formData.get("other_count"));
+  if (students === null || staff === null || others === null) {
+    return { error: "利用人員は0以上の整数で入力してください。" };
+  }
+  const total = students + staff + others;
+  if (total < 1) return { error: "利用人員を入力してください。" };
+
+  // 学外者の利用。有りのときは人数と、禁煙を伝えることの確認が要る
+  let outside = 0;
+  if (formData.get("outside") === "yes") {
+    const n = parseCount(formData.get("outside_count"));
+    if (n === null || n < 1) return { error: "学外者の人数を入力してください。" };
+    if (n > total) return { error: "学外者の人数は、利用人員の合計以下にしてください。" };
+    if (formData.get("outside_rules") !== "on") {
+      return { error: "学外の方に、キャンパス内が全面禁煙であることを伝える旨を確かめてください。" };
+    }
+    outside = n;
+  }
+
+  // 日時。日付・開始・終了が行ごとに並んで届く。まるごと空の行は数えない
+  const dates = formData.getAll("slot_date").map(String);
+  const starts = formData.getAll("slot_start").map(String);
+  const ends = formData.getAll("slot_end").map(String);
+  const HALF_HOUR = /^([01]\d|2[0-3]):(00|30)$/;
+  const slots: { start: string; end: string }[] = [];
+  for (let i = 0; i < dates.length; i++) {
+    const [date, start, end] = [dates[i] ?? "", starts[i] ?? "", ends[i] ?? ""];
+    if (!date && !start && !end) continue;
+    if (!date || !start || !end) {
+      return { error: `${i + 1}行目の日時に、空いている欄があります。` };
+    }
+    if (!HALF_HOUR.test(start) || !HALF_HOUR.test(end)) {
+      return { error: "時刻は30分単位で選んでください。" };
+    }
+    const from = parseJstInput(date, start);
+    const to = parseJstInput(date, end);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      return { error: "日時の形式が正しくありません。" };
+    }
+    if (to <= from) {
+      return { error: `${i + 1}行目の終了時刻は、開始時刻より後にしてください。` };
+    }
+    slots.push({ start: from.toISOString(), end: to.toISOString() });
+  }
+  if (slots.length === 0) return { error: "日時を1つ以上入力してください。" };
+  if (slots.length > MAX_SLOTS) {
+    return { error: `日時は1回の申請で${MAX_SLOTS}件までです。` };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("request_facility_use", {
+    p_facility_id: facilityId,
+    p_slots: slots,
+    p_purpose: purpose,
+    p_circle_id: circleId || undefined,
+    p_student_count: students,
+    p_staff_count: staff,
+    p_other_count: others,
+    p_outside_count: outside,
+    p_equipment_note: equipmentNote || undefined,
+    p_remarks: remarks || undefined,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/facilities/${facilityId}`);
+  revalidatePath("/reservations");
+  const count = data ?? slots.length;
+  return {
+    notice:
+      count > 1
+        ? `${count}日分の使用許可願を出しました。職員の承認をお待ちください。`
+        : "使用許可願を出しました。職員の承認をお待ちください。",
+    at: Date.now(),
+  };
+}
+
 /** 予約の承認 / 却下（大学職員のみ。判定は DB 側） */
 export async function decideReservation(
   _prev: ActionState,

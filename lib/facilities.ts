@@ -20,6 +20,14 @@ export type Reservation = {
   end_time: string;
   purpose: string | null;
   status: ApprovalStatus;
+  /** 使用許可願の項目（0037）。備品の貸し出しと以前の予約は null */
+  request_id: string | null;
+  student_count: number | null;
+  staff_count: number | null;
+  other_count: number | null;
+  outside_count: number | null;
+  equipment_note: string | null;
+  remarks: string | null;
   facility: { name: string; university_id: string | null } | null;
   booker: { name: string } | null;
   circle: { name: string } | null;
@@ -28,6 +36,8 @@ export type Reservation = {
 const RESERVATION_SELECT = `
   id, facility_id, booked_by_user_id, group_circle_id,
   start_time, end_time, purpose, status,
+  request_id, student_count, staff_count, other_count, outside_count,
+  equipment_note, remarks,
   facility:facilities!facility_reservations_facility_id_fkey(name, university_id),
   booker:users!facility_reservations_booked_by_user_id_fkey(name),
   circle:circles!facility_reservations_group_circle_id_fkey(name)
@@ -50,6 +60,27 @@ export function reservationBooker(reservation: Reservation) {
     kind: "user" as const,
     name: reservation.booker?.name ?? "利用者",
   };
+}
+
+/**
+ * 利用人員の表示。「学生5名・教職員1名（うち学外1名）」のように、
+ * 0名の区分は省く。使用許可願の項目が無い予約（備品・以前の予約）は null
+ */
+export function reservationPeople(reservation: Reservation): string | null {
+  const { student_count, staff_count, other_count, outside_count } = reservation;
+  if (student_count === null && staff_count === null && other_count === null) {
+    return null;
+  }
+  const counts: [string, number | null][] = [
+    ["学生", student_count],
+    ["教職員", staff_count],
+    ["その他", other_count],
+  ];
+  const parts = counts
+    .filter(([, n]) => (n ?? 0) > 0)
+    .map(([label, n]) => `${label}${n}名`);
+  const outside = (outside_count ?? 0) > 0 ? `（うち学外${outside_count}名）` : "";
+  return parts.join("・") + outside;
 }
 
 /** 施設は大学の資産なので、自大学のものだけを返す */

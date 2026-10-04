@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { ReservationForm } from "@/components/ReservationForm";
+import { EquipmentLoanForm } from "@/components/EquipmentLoanForm";
+import { FacilityUseForm } from "@/components/FacilityUseForm";
 import { ReservationList } from "@/components/ReservationList";
 import { getMyUniversityId, requireRole } from "@/lib/dal";
 import {
@@ -57,14 +58,20 @@ export default async function FacilityDetailPage({
 
       {user.role === "student" && facility.is_available && (
         <section className="mb-10 glass-panel">
-          <h2 className="mb-4 text-sm font-semibold">
-            {facility.category === "equipment" ? "貸出を申請する" : "予約を申請する"}
-          </h2>
-          <ReservationForm
-            facilityId={facility.id}
-            category={facility.category}
-            circles={circles}
-          />
+          {facility.category === "equipment" ? (
+            <>
+              <h2 className="mb-4 text-sm font-semibold">貸出を申請する</h2>
+              <EquipmentLoanForm facilityId={facility.id} circles={circles} />
+            </>
+          ) : (
+            <>
+              <h2 className="mb-1 text-sm font-semibold">施設使用許可願</h2>
+              <p className="mb-5 text-xs text-gray-600 dark:text-gray-400">
+                紙の施設使用許可願と同じ順に並べています。
+              </p>
+              <FacilityUseForm facilityId={facility.id} circles={circles} />
+            </>
+          )}
         </section>
       )}
 

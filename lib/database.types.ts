@@ -499,6 +499,18 @@ export type Database = {
           purpose: string | null;
           status: ApprovalStatus;
           created_at: string;
+          /** 同じ使用許可願で出した日時をまとめる（0037）。備品と以前の予約は null */
+          request_id: string | null;
+          /** 利用人員（0037） */
+          student_count: number | null;
+          staff_count: number | null;
+          other_count: number | null;
+          /** 利用人員のうち学外者（0037） */
+          outside_count: number | null;
+          /** 使用用具・器具等（0037） */
+          equipment_note: string | null;
+          /** 備考（0037） */
+          remarks: string | null;
         };
         Insert: ReservationBookerInsert & {
           id?: string;
@@ -733,6 +745,25 @@ export type Database = {
           p_circle_id?: string;
         };
         Returns: string;
+      };
+      /**
+       * 施設の使用許可願を出す。複数の日時をまとめて出し、1つでも通らなければ
+       * 全体を取り下げる。返り値は作った予約の数（0037）
+       */
+      request_facility_use: {
+        Args: {
+          p_facility_id: string;
+          p_slots: { start: string; end: string }[];
+          p_purpose: string;
+          p_circle_id?: string;
+          p_student_count?: number;
+          p_staff_count?: number;
+          p_other_count?: number;
+          p_outside_count?: number;
+          p_equipment_note?: string;
+          p_remarks?: string;
+        };
+        Returns: number;
       };
       /** 予約の承認 / 却下（大学職員のみ） */
       decide_reservation: {
