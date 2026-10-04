@@ -199,6 +199,8 @@ test.describe("一般アカウント（高校生・企業）", () => {
   test("掲示板には入れない", async ({ page }) => {
     await page.goto("/board");
     expect(page.url()).not.toMatch(/\/board$/);
+    // 予定の無いカレンダーではなく、一般の着地点（サークルを探す画面）へ戻す
+    await expect(page).toHaveURL(/\/circles$/);
   });
 
   test("協賛の募集に、申し込む欄が出る", async ({ page }) => {

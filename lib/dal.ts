@@ -4,6 +4,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import type { Tables, Theme, UserRole } from "@/lib/database.types";
+import { homeForRole } from "@/lib/home";
 import { createClient } from "@/lib/supabase-server";
 
 export type CurrentUser = Pick<
@@ -56,7 +57,9 @@ export const requireUser = cache(async (): Promise<CurrentUser> => {
 });
 
 /**
- * ロール必須ページ用。権限が足りなければダッシュボードへ戻す。
+ * ロール必須ページ用。権限が足りなければ、その役割の着地点（lib/home.ts）へ戻す。
+ * カレンダーへ一律に戻していたころは、一般アカウントが学生用の画面を開くと、
+ * 何も載っていないカレンダーに着いていた。
  *
  * 認可チェックはデータソースの近くで行うのが原則なので、
  * 画面表示だけでなく Server Action 内でも必ずこれを通すこと。
@@ -65,7 +68,7 @@ export async function requireRole(
   ...allowed: UserRole[]
 ): Promise<CurrentUser> {
   const user = await requireUser();
-  if (!allowed.includes(user.role)) redirect("/calendar");
+  if (!allowed.includes(user.role)) redirect(homeForRole(user.role));
   return user;
 }
 
