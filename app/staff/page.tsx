@@ -60,6 +60,11 @@ export default async function StaffInboxPage() {
         variant="arc"
         eyebrow="PENDING"
         title="対応待ち"
+        action={
+          <Link href="/staff/report" className="btn-ghost py-2">
+            大学のレポート
+          </Link>
+        }
         description={
           nothing ? (
             <>いま対応を待っているものはありません。</>

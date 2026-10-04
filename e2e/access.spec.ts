@@ -315,6 +315,14 @@ test.describe("職員", () => {
     ).not.toHaveClass(/btn-primary/);
   });
 
+  test("大学のレポートに、今年度の数字が並ぶ", async ({ page }) => {
+    await page.goto("/staff");
+    await page.getByRole("link", { name: "大学のレポート" }).click();
+    await expect(page.getByRole("heading", { name: "大学のレポート" })).toBeVisible();
+    await expect(page.getByText("今年度に届いた申請")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "申請の内訳" })).toBeVisible();
+  });
+
   test("サークル一覧に承認のきまりが出る", async ({ page }) => {
     await page.goto("/circles");
     await expect(page.getByText("承認のきまり")).toBeVisible();

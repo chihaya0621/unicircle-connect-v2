@@ -30,6 +30,7 @@ test.describe("横にはみ出さない", () => {
     { path: "/facilities", label: "施設・備品", auth: "staff" },
     { path: "/reservations", label: "予約", auth: "staff" },
     { path: "/staff", label: "対応待ち", auth: "staff" },
+    { path: "/staff/report", label: "大学のレポート", auth: "staff" },
   ] as const;
 
   for (const { path, label, auth } of PAGES) {
