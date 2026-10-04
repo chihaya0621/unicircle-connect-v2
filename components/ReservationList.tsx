@@ -1,3 +1,5 @@
+import { Fragment } from "react";
+
 import { cancelReservation, decideReservation } from "@/app/actions/facilities";
 import { BULK_FORM_ID, BulkApproveBar } from "@/components/BulkApproveBar";
 import { DecisionForm } from "@/components/DecisionForm";
@@ -98,7 +100,7 @@ export function ReservationList({
                     {r.purpose && ` ／ ${r.purpose}`}
                   </p>
                   {/* 使用許可願の項目。備品の貸し出しと以前の予約には無い */}
-                  {(people || r.equipment_note || r.remarks) && (
+                  {(people || r.equipment_note || r.remarks || (r.answers?.length ?? 0) > 0) && (
                     <dl className="mt-1.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-xs text-gray-600 dark:text-gray-400">
                       {people && (
                         <>
@@ -120,6 +122,13 @@ export function ReservationList({
                           </dd>
                         </>
                       )}
+                      {/* 大学が足した項目への答え。出したときの項目名のまま */}
+                      {r.answers?.map((a, i) => (
+                        <Fragment key={i}>
+                          <dt>{a.label}</dt>
+                          <dd className="text-gray-800 dark:text-gray-200">{a.answer}</dd>
+                        </Fragment>
+                      ))}
                     </dl>
                   )}
                 </div>

@@ -87,6 +87,20 @@ export default async function FacilitiesPage() {
         </section>
       )}
 
+      {isStaff && (
+        <section className="mb-10 glass-panel flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="mb-1 text-sm font-semibold">使用許可願の項目</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              注意事項や、大学の様式にだけある欄（電気錠の設定など）を、学生のフォームに足せます。
+            </p>
+          </div>
+          <Link href="/facilities/form" className="btn-ghost-sm shrink-0">
+            項目を変える
+          </Link>
+        </section>
+      )}
+
       {!universityId ? (
         <p className="glass-empty py-12">
           所属大学が設定されていないため、施設を表示できません。

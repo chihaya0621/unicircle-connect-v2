@@ -2,7 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireUser } from "@/lib/dal";
+import { requireRole, requireUser } from "@/lib/dal";
+import { getFacilityUseForm } from "@/lib/facilities";
+import {
+  FORM_LIMITS,
+  questionsFor,
+  type FacilityUseFormConfig,
+  type FormQuestion,
+} from "@/lib/facility-form";
 import { createClient } from "@/lib/supabase-server";
 import { parseJstInput } from "@/lib/jst";
 
@@ -97,11 +104,19 @@ function parseCount(value: FormDataEntryValue | null): number | null {
  * 学生番号・氏名・連絡先はアカウントから分かるので尋ねない。
  * 複数の日時をまとめて出せる。1つでも通らなければ全体を出さない
  * （判定と取り下げは DB の request_facility_use が行う）。
+ *
+ * 断ったときは前回の at を引き継ぐ。at が変わるとフォームが空に戻るので、
+ * 一度出したあとに断られても、入力が消えないようにする。
  */
 export async function requestFacilityUse(
-  _prev: FacilityUseState,
+  prev: FacilityUseState,
   formData: FormData,
 ): Promise<FacilityUseState> {
+  const result = await submitFacilityUse(formData);
+  return result?.error ? { ...result, at: prev?.at } : result;
+}
+
+async function submitFacilityUse(formData: FormData): Promise<FacilityUseState> {
   const user = await requireUser();
   if (user.role !== "student") {
     return { error: "施設の使用許可願を出せるのは学生のみです。" };
@@ -114,6 +129,15 @@ export async function requestFacilityUse(
   const remarks = String(formData.get("remarks") ?? "").trim();
 
   if (!facilityId) return { error: "施設が指定されていません。" };
+
+  // 大学ごとの確認と追加の項目（0038）
+  const supabase = await createClient();
+  const { data: facility } = await supabase
+    .from("facilities")
+    .select("university_id")
+    .eq("id", facilityId)
+    .maybeSingle();
+  const form = await getFacilityUseForm(facility?.university_id ?? null);
   if (!purpose) return { error: "目的を入力してください。" };
   if (purpose.length > 200) return { error: "目的は200文字以内で入力してください。" };
   if (equipmentNote.length > 200) {
@@ -137,8 +161,8 @@ export async function requestFacilityUse(
     const n = parseCount(formData.get("outside_count"));
     if (n === null || n < 1) return { error: "学外者の人数を入力してください。" };
     if (n > total) return { error: "学外者の人数は、利用人員の合計以下にしてください。" };
-    if (formData.get("outside_rules") !== "on") {
-      return { error: "学外の方に、キャンパス内が全面禁煙であることを伝える旨を確かめてください。" };
+    if (form.outside_rule && formData.get("outside_rules") !== "on") {
+      return { error: `「${form.outside_rule}」を確かめてください。` };
     }
     outside = n;
   }
@@ -173,7 +197,14 @@ export async function requestFacilityUse(
     return { error: `日時は1回の申請で${MAX_SLOTS}件までです。` };
   }
 
-  const supabase = await createClient();
+  const answers: Record<string, string> = {};
+  for (const q of questionsFor(form, facilityId)) {
+    const answer = String(formData.get(`q_${q.id}`) ?? "").trim();
+    const problem = answerProblem(q, answer);
+    if (problem) return { error: problem };
+    if (answer) answers[q.id] = answer;
+  }
+
   const { data, error } = await supabase.rpc("request_facility_use", {
     p_facility_id: facilityId,
     p_slots: slots,
@@ -185,6 +216,7 @@ export async function requestFacilityUse(
     p_outside_count: outside,
     p_equipment_note: equipmentNote || undefined,
     p_remarks: remarks || undefined,
+    p_answers: answers,
   });
   if (error) return { error: error.message };
 
@@ -198,6 +230,110 @@ export async function requestFacilityUse(
         : "使用許可願を出しました。職員の承認をお待ちください。",
     at: Date.now(),
   };
+}
+
+/** 追加の項目への答えの確認。DB でも同じことを確かめる */
+function answerProblem(q: FormQuestion, answer: string): string | null {
+  if (q.kind === "check") {
+    return q.required && answer !== "yes" ? `「${q.label}」を確かめてください。` : null;
+  }
+  if (!answer) return q.required ? `「${q.label}」に答えてください。` : null;
+  if (q.kind === "choice" && !q.options.includes(answer)) {
+    return `「${q.label}」の答えが選択肢にありません。`;
+  }
+  if (answer.length > 200) return `「${q.label}」の答えは200文字以内で入力してください。`;
+  return null;
+}
+
+/** 編集画面から届く項目。新しい項目には id が無い */
+type FormQuestionDraft = Omit<FormQuestion, "id"> & { id?: string };
+
+/** 様式の中身を確かめる。問題が無ければ null。DB でも同じことを確かめる */
+function formProblem(form: FacilityUseFormConfig): string | null {
+  const L = FORM_LIMITS;
+  if (form.notes.length > L.notes) return `注意事項は${L.notes}行までです。`;
+  if (form.notes.some((n) => n.length > L.noteLength)) {
+    return `注意事項は1行${L.noteLength}文字までです。`;
+  }
+  if (form.outside_rule.length > L.outsideRuleLength) {
+    return `学外者についての確認は${L.outsideRuleLength}文字までです。`;
+  }
+  if (form.questions.length > L.questions) return `追加の項目は${L.questions}個までです。`;
+  for (const q of form.questions) {
+    if (!q.label || q.label.length > L.labelLength) {
+      return `項目の名前は1〜${L.labelLength}文字で入力してください。`;
+    }
+    if (
+      q.kind === "choice" &&
+      (q.options.length < L.optionsMin ||
+        q.options.length > L.optionsMax ||
+        q.options.some((o) => o.length > L.optionLength))
+    ) {
+      return `「${q.label}」の選択肢は${L.optionsMin}〜${L.optionsMax}個、それぞれ${L.optionLength}文字までで入力してください。`;
+    }
+    if (q.hint.length > L.hintLength) {
+      return `「${q.label}」の補足は${L.hintLength}文字までです。`;
+    }
+  }
+  return null;
+}
+
+/**
+ * 施設使用許可願の様式を変える（大学職員のみ）。
+ *
+ * 編集画面は項目の並びを丸ごと JSON で送る（form_json）。reset が付いて
+ * いれば既定に戻す。判定と保存は DB の update_facility_use_form が行う。
+ */
+export async function updateFacilityUseForm(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireRole("staff");
+  const supabase = await createClient();
+
+  if (formData.get("reset") === "1") {
+    const { error } = await supabase.rpc("update_facility_use_form", { p_form: null });
+    if (error) return { error: error.message };
+    revalidatePath("/facilities", "layout");
+    return { notice: "既定の項目に戻しました。" };
+  }
+
+  let draft: { notes?: unknown; outside_rule?: unknown; questions?: unknown };
+  try {
+    draft = JSON.parse(String(formData.get("form_json") ?? ""));
+  } catch {
+    return { error: "様式を読み取れませんでした。画面を読み込み直してください。" };
+  }
+
+  const clean = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const form: FacilityUseFormConfig = {
+    notes: (Array.isArray(draft.notes) ? draft.notes : []).map(clean).filter(Boolean),
+    outside_rule: clean(draft.outside_rule),
+    questions: (Array.isArray(draft.questions) ? draft.questions : []).map(
+      (raw: FormQuestionDraft) => ({
+        id: typeof raw.id === "string" && raw.id ? raw.id : crypto.randomUUID(),
+        label: clean(raw.label),
+        kind: raw.kind,
+        options:
+          raw.kind === "choice"
+            ? (Array.isArray(raw.options) ? raw.options : []).map(clean).filter(Boolean)
+            : [],
+        hint: clean(raw.hint),
+        required: raw.required === true,
+        facility_ids: Array.isArray(raw.facility_ids)
+          ? raw.facility_ids.filter((id): id is string => typeof id === "string")
+          : [],
+      }),
+    ),
+  };
+  const problem = formProblem(form);
+  if (problem) return { error: problem };
+
+  const { error } = await supabase.rpc("update_facility_use_form", { p_form: form });
+  if (error) return { error: error.message };
+
+  revalidatePath("/facilities", "layout");
+  return { notice: "使用許可願の項目を保存しました。学生のフォームに、すぐに出ます。" };
 }
 
 /** 予約の承認 / 却下（大学職員のみ。判定は DB 側） */

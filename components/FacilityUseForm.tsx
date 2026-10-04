@@ -5,6 +5,11 @@ import { startTransition, useActionState, useState } from "react";
 import { requestFacilityUse, type FacilityUseState } from "@/app/actions/facilities";
 import { Field, FormMessage, Input, Select } from "@/components/Field";
 import { TimeSelect } from "@/components/TimeSelect";
+import {
+  questionsFor,
+  type FacilityUseFormConfig,
+  type FormQuestion,
+} from "@/lib/facility-form";
 import { toJstInput } from "@/lib/jst";
 
 /** 1回で出せる日時の数（紙の様式の行数に合わせる） */
@@ -35,7 +40,11 @@ function weekdayOf(date: string): string | null {
  * 使用用具・器具等・備考）に並べる。
  *
  * 学生番号・所属・氏名・連絡先はアカウントから分かり、受付欄は職員の
- * 承認が受け持つので、どちらも尋ねない。
+ * 承認が受け持つので、どちらも尋ねない。注意事項・学外者についての確認・
+ * 追加の項目は、大学ごとに職員が変えられる（form。0038）。
+ *
+ * preview では送信できない見本として出す。職員の編集画面で、学生に
+ * どう見えるかを確かめるのに使う。対象の施設を絞った項目も含めて並べる。
  *
  * 入力が多いので、断られたときは入力を残す。form の action に渡すと
  * 返事のたびに欄が空に戻るため、送信は onSubmit から行う。
@@ -43,9 +52,13 @@ function weekdayOf(date: string): string | null {
 export function FacilityUseForm({
   facilityId,
   circles,
+  form,
+  preview = false,
 }: {
   facilityId: string;
   circles: { id: string; name: string }[];
+  form: FacilityUseFormConfig;
+  preview?: boolean;
 }) {
   const [state, dispatch, pending] = useActionState<FacilityUseState, FormData>(
     requestFacilityUse,
@@ -63,6 +76,8 @@ export function FacilityUseForm({
         key={state?.at ?? 0}
         facilityId={facilityId}
         circles={circles}
+        form={form}
+        preview={preview}
         pending={pending}
         onSubmit={(formData) => startTransition(() => dispatch(formData))}
       />
@@ -73,14 +88,19 @@ export function FacilityUseForm({
 function FacilityUseFields({
   facilityId,
   circles,
+  form,
+  preview,
   pending,
   onSubmit,
 }: {
   facilityId: string;
   circles: { id: string; name: string }[];
+  form: FacilityUseFormConfig;
+  preview: boolean;
   pending: boolean;
   onSubmit: (formData: FormData) => void;
 }) {
+  const questions = preview ? form.questions : questionsFor(form, facilityId);
   const [slots, setSlots] = useState([{ id: 1, date: "" }]);
   const [nextId, setNextId] = useState(2);
   const [counts, setCounts] = useState<Record<string, string>>({});
@@ -104,9 +124,9 @@ function FacilityUseFields({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit(new FormData(e.currentTarget));
+        if (!preview) onSubmit(new FormData(e.currentTarget));
       }}
-      className="space-y-6"
+      className="@container space-y-6"
     >
       <input type="hidden" name="facility_id" value={facilityId} />
 
@@ -200,15 +220,17 @@ function FacilityUseFields({
                 inputMode="numeric"
               />
             </Field>
-            <label className="flex items-start gap-2.5 text-sm">
-              <input
-                type="checkbox"
-                name="outside_rules"
-                required
-                className="field-check mt-0.5 size-5 shrink-0"
-              />
-              <span>キャンパス内は全面禁煙であることを学外の方に伝え、守ってもらいます</span>
-            </label>
+            {form.outside_rule && (
+              <label className="flex items-start gap-2.5 text-sm">
+                <input
+                  type="checkbox"
+                  name="outside_rules"
+                  required
+                  className="field-check mt-0.5 size-5 shrink-0"
+                />
+                <span>{form.outside_rule}</span>
+              </label>
+            )}
           </div>
         )}
       </fieldset>
@@ -218,8 +240,7 @@ function FacilityUseFields({
           日時
         </legend>
         <p className="text-xs text-gray-600 dark:text-gray-400">
-          同じ内容で、{MAX_SLOTS}件まで日時をまとめて出せます。重なる予約が1つでもあると、
-          まとめて出せません。
+          {`同じ内容で、${MAX_SLOTS}件まで日時をまとめて出せます。重なる予約が1つでもあると、まとめて出せません。`}
         </p>
         <ol className="space-y-3">
           {slots.map((slot, i) => {
@@ -245,7 +266,8 @@ function FacilityUseFields({
                       </button>
                     )}
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                  {/* 置かれた枠の幅で並べ方を決める（職員の画面の見本は半分の幅） */}
+                  <div className="grid gap-3 @xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]">
                     <Field label={day ? `日付（${day}）` : "日付"}>
                       <Input
                         type="date"
@@ -295,17 +317,101 @@ function FacilityUseFields({
         />
       </Field>
 
-      <div className="rounded-xl border border-amber-300/70 bg-amber-50/70 p-3.5 text-sm dark:border-amber-800/60 dark:bg-amber-950/30">
-        <p className="font-semibold">注意事項</p>
-        <ul className="mt-1 list-disc space-y-0.5 pl-5">
-          <li>使用後は必ず清掃してください。</li>
-          <li>火気には注意してください。</li>
-        </ul>
-      </div>
+      {questions.map((q) => (
+        <ExtraQuestion key={q.id} question={q} preview={preview} />
+      ))}
 
-      <button type="submit" disabled={pending} className="btn-primary w-full">
-        {pending ? "申請しています…" : "使用許可を申請する"}
+      {form.notes.length > 0 && (
+        <div className="rounded-xl border border-amber-300/70 bg-amber-50/70 p-3.5 text-sm dark:border-amber-800/60 dark:bg-amber-950/30">
+          <p className="font-semibold">注意事項</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            {form.notes.map((note, i) => (
+              <li key={i}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <button type="submit" disabled={pending || preview} className="btn-primary w-full">
+        {preview ? "見本のため送信できません" : pending ? "申請しています…" : "使用許可を申請する"}
       </button>
     </form>
+  );
+}
+
+/** 大学が足した項目。選択式・確認のチェック・自由記述 */
+function ExtraQuestion({
+  question: q,
+  preview,
+}: {
+  question: FormQuestion;
+  preview: boolean;
+}) {
+  const name = `q_${q.id}`;
+  // 見本では、対象の施設を絞った項目だと分かるようにする
+  const scope =
+    preview && q.facility_ids.length > 0 ? (
+      <span className="block text-xs text-indigo-700 dark:text-indigo-300">
+        選んだ{q.facility_ids.length}件の施設のフォームにだけ出ます
+      </span>
+    ) : null;
+  const hint = q.hint ? (
+    <span className="block text-xs text-gray-500 dark:text-gray-400">{q.hint}</span>
+  ) : null;
+
+  if (q.kind === "choice") {
+    return (
+      <fieldset className="space-y-1.5">
+        <legend className="mb-1.5 text-sm font-medium text-gray-800 dark:text-gray-200">
+          {q.label}
+          {!q.required && "（任意）"}
+        </legend>
+        <div className="flex flex-wrap gap-x-6">
+          {q.options.map((option) => (
+            <label key={option} className="tap-target flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name={name}
+                value={option}
+                required={q.required}
+                className="size-4 accent-current"
+              />
+              {option}
+            </label>
+          ))}
+        </div>
+        {hint}
+        {scope}
+      </fieldset>
+    );
+  }
+
+  if (q.kind === "check") {
+    return (
+      <div className="space-y-1.5">
+        <label className="flex items-start gap-2.5 text-sm">
+          <input
+            type="checkbox"
+            name={name}
+            value="yes"
+            required={q.required}
+            className="field-check mt-0.5 size-5 shrink-0"
+          />
+          <span>{q.label}</span>
+        </label>
+        {hint}
+        {scope}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Field label={q.required ? q.label : `${q.label}（任意）`}>
+        <Input name={name} required={q.required} maxLength={200} />
+      </Field>
+      {hint}
+      {scope}
+    </div>
   );
 }

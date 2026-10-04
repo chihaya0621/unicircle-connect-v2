@@ -1,6 +1,11 @@
 import "server-only";
 
 import type { ApprovalStatus, FacilityCategory } from "@/lib/database.types";
+import {
+  DEFAULT_FACILITY_USE_FORM,
+  resolveFacilityUseForm,
+  type FacilityUseFormConfig,
+} from "@/lib/facility-form";
 import { createClient } from "@/lib/supabase-server";
 
 export type Facility = {
@@ -28,6 +33,8 @@ export type Reservation = {
   outside_count: number | null;
   equipment_note: string | null;
   remarks: string | null;
+  /** 大学が足した項目への答え（0038） */
+  answers: { label: string; answer: string }[] | null;
   facility: { name: string; university_id: string | null } | null;
   booker: { name: string } | null;
   circle: { name: string } | null;
@@ -37,7 +44,7 @@ const RESERVATION_SELECT = `
   id, facility_id, booked_by_user_id, group_circle_id,
   start_time, end_time, purpose, status,
   request_id, student_count, staff_count, other_count, outside_count,
-  equipment_note, remarks,
+  equipment_note, remarks, answers,
   facility:facilities!facility_reservations_facility_id_fkey(name, university_id),
   booker:users!facility_reservations_booked_by_user_id_fkey(name),
   circle:circles!facility_reservations_group_circle_id_fkey(name)
@@ -137,6 +144,21 @@ export function groupFacilities(facilities: Facility[]): FacilityGroup[] {
     },
   ];
   return groups.filter((g) => g.facilities.length > 0);
+}
+
+/** 大学の施設使用許可願の様式。未設定や大学が無いときは既定 */
+export async function getFacilityUseForm(
+  universityId: string | null,
+): Promise<FacilityUseFormConfig> {
+  if (!universityId) return DEFAULT_FACILITY_USE_FORM;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("universities")
+    .select("facility_use_form")
+    .eq("id", universityId)
+    .maybeSingle();
+  if (error) console.error("使用許可願の様式を読めませんでした:", error.message);
+  return resolveFacilityUseForm(data?.facility_use_form);
 }
 
 export async function getFacility(facilityId: string) {

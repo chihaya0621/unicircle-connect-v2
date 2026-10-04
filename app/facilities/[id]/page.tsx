@@ -7,6 +7,7 @@ import { ReservationList } from "@/components/ReservationList";
 import { getMyUniversityId, requireRole } from "@/lib/dal";
 import {
   getFacility,
+  getFacilityUseForm,
   listBookableCircles,
   listFacilityReservations,
 } from "@/lib/facilities";
@@ -36,9 +37,14 @@ export default async function FacilityDetailPage({
   const universityId = await getMyUniversityId();
   if (facility.university_id !== universityId) notFound();
 
-  const reservations = await listFacilityReservations(id);
-  const circles =
-    user.role === "student" ? await listBookableCircles(user.id) : [];
+  const isStudent = user.role === "student";
+  const [reservations, circles, form] = await Promise.all([
+    listFacilityReservations(id),
+    isStudent ? listBookableCircles(user.id) : Promise.resolve([]),
+    isStudent && facility.category !== "equipment"
+      ? getFacilityUseForm(facility.university_id)
+      : Promise.resolve(null),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
@@ -56,7 +62,7 @@ export default async function FacilityDetailPage({
         </p>
       </header>
 
-      {user.role === "student" && facility.is_available && (
+      {isStudent && facility.is_available && (
         <section className="mb-10 glass-panel">
           {facility.category === "equipment" ? (
             <>
@@ -69,7 +75,9 @@ export default async function FacilityDetailPage({
               <p className="mb-5 text-xs text-gray-600 dark:text-gray-400">
                 紙の施設使用許可願と同じ順に並べています。
               </p>
-              <FacilityUseForm facilityId={facility.id} circles={circles} />
+              {form && (
+                <FacilityUseForm facilityId={facility.id} circles={circles} form={form} />
+              )}
             </>
           )}
         </section>

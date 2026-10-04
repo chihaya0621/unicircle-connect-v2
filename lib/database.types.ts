@@ -77,6 +77,11 @@ export type Database = {
           required_circle_approvals: number;
           website_url: string | null;
           created_at: string;
+          /**
+           * 施設使用許可願の、大学ごとの注意事項・確認・追加の項目（0038）。
+           * null なら既定。lib/facility-form.ts の resolveFacilityUseForm で読む
+           */
+          facility_use_form: unknown;
         };
         Insert: { id?: string; name: string; created_at?: string };
         Update: {
@@ -511,6 +516,8 @@ export type Database = {
           equipment_note: string | null;
           /** 備考（0037） */
           remarks: string | null;
+          /** 大学が足した項目への答え。出したときの項目名と一緒に残す（0038） */
+          answers: { label: string; answer: string }[] | null;
         };
         Insert: ReservationBookerInsert & {
           id?: string;
@@ -762,8 +769,15 @@ export type Database = {
           p_outside_count?: number;
           p_equipment_note?: string;
           p_remarks?: string;
+          /** 大学が足した項目への答え。{項目の id: 答え}（0038） */
+          p_answers?: Record<string, string>;
         };
         Returns: number;
+      };
+      /** 施設使用許可願の様式を変える。null で既定に戻す。職員のみ（0038） */
+      update_facility_use_form: {
+        Args: { p_form: unknown };
+        Returns: undefined;
       };
       /** 予約の承認 / 却下（大学職員のみ） */
       decide_reservation: {
