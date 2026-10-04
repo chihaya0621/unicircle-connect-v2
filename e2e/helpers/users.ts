@@ -61,6 +61,22 @@ export const QUIET_CIRCLE = {
   name: "テニスサークル SMASH",
 } as const;
 
+/**
+ * 協賛のデモ用データ。seed_sponsorship.sql の固定 UUID。
+ * 軽音楽部（CIRCLE）の募集で、1社と成立している。
+ */
+export const SPONSORSHIP = {
+  id: "f5000000-0000-4000-8000-000000000001",
+  title: "12月の定期演奏会のホール代",
+  sponsor: "株式会社サンプルテック（架空）",
+} as const;
+
+/** 申し込みを試す募集（学内ハッカソン）。E2E は申し込んだらすぐ取り下げる */
+export const SPONSORSHIP_FOR_OFFER = {
+  id: "f5000000-0000-4000-8000-000000000002",
+  title: "学内ハッカソンの開催費",
+} as const;
+
 /** 役割ごとの、ログイン直後の着地点（lib/home.ts と対応） */
 export const HOME = {
   student: "/calendar",

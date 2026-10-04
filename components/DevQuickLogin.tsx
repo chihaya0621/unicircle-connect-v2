@@ -38,13 +38,13 @@ const SHORTCUTS: {
   {
     email: "staff1@aozora.test",
     label: "大学職員として見る",
-    hint: "サークルの承認と押印・予約の承認",
+    hint: "サークルと協賛の承認・押印・予約の承認",
     role: "staff",
   },
   {
     email: "general1@example.test",
-    label: "高校生・一般として見る",
-    hint: "サークル探しと学外向けイベント",
+    label: "企業・高校生として見る",
+    hint: "サークル探し・学外向けイベント・協賛の申し込み",
     role: "general",
   },
 ];

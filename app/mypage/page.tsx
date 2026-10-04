@@ -31,6 +31,15 @@ import { listPublicCircles } from "@/lib/circles";
 import { getMySeal } from "@/lib/approvals";
 import { getPreferences } from "@/lib/notifications";
 import { getPendingCounts } from "@/lib/pending";
+import { formatYen, listMyOffers } from "@/lib/sponsorship";
+
+/** 協賛の申し込みの状態の表示名 */
+const OFFER_STATUS = {
+  pending: "返事待ち",
+  accepted: "成立",
+  declined: "見送り",
+  withdrawn: "取り下げ",
+} as const;
 
 export const metadata: Metadata = { title: "マイページ | UniCircle Connect" };
 
@@ -165,6 +174,8 @@ export default async function MyPage() {
   const [universities, watchedIds] = isGeneral
     ? await Promise.all([listUniversities(), listWatchedUniversityIds()])
     : [[], [] as string[]];
+  // 協賛の申し込みは、企業・一般のアカウントだけが出せる（0036）
+  const myOffers = isGeneral ? await listMyOffers(user.id) : [];
 
   // 一覧は RLS 越しに引き直す。お気に入りの ID だけでは名前も画像も出せない。
   // ID で絞って取る。全国から上限まで取ってから絞ると、上限の外が消える。
@@ -195,6 +206,7 @@ export default async function MyPage() {
             circles: 0,
             closures: 0,
             reservations: 0,
+            sponsorships: 0,
             members: 0,
           }),
     ]);
@@ -244,6 +256,35 @@ export default async function MyPage() {
             selectedIds={watchedIds}
           />
         </section>
+      )}
+
+      {myOffers.length > 0 && (
+        <Section title="協賛の申し込み" count={myOffers.length}>
+          <ul className="divide-y divide-black/5 dark:divide-white/10">
+            {myOffers.map((o) => (
+              <li key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">
+                    {o.request ? (
+                      <Link href={`/sponsorships/${o.request.id}`} className="hover:underline">
+                        {o.request.title}
+                      </Link>
+                    ) : (
+                      "募集"
+                    )}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {o.request?.circle?.name ?? "サークル"} ／ {o.sponsor_name}として
+                    {formatYen(o.amount)}
+                  </p>
+                </div>
+                <span className="badge shrink-0 px-2.5 py-0.5 text-xs">
+                  {OFFER_STATUS[o.status]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Section>
       )}
 
       {favorites.length > 0 && (

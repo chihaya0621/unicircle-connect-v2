@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { PageHero } from "@/components/PageHero";
 import { PendingApplications } from "@/components/PendingApplications";
+import { SponsorshipCard } from "@/components/SponsorshipCard";
+import { SponsorshipDecision } from "@/components/SponsorshipDecision";
 import {
   getRequiredApprovals,
   listApprovalsByTarget,
@@ -10,6 +12,7 @@ import {
 import { listClosureRequests, listPendingCircles } from "@/lib/circles";
 import { getMyUniversityId, requireRole } from "@/lib/dal";
 import { getPendingCounts } from "@/lib/pending";
+import { listPendingSponsorships } from "@/lib/sponsorship";
 
 export const metadata: Metadata = { title: "対応待ち | UniCircle Connect" };
 
@@ -25,11 +28,12 @@ export default async function StaffInboxPage() {
   const user = await requireRole("staff");
   const universityId = await getMyUniversityId();
 
-  const [setups, closures, required, counts] = await Promise.all([
+  const [setups, closures, required, counts, sponsorships] = await Promise.all([
     listPendingCircles(user.id),
     listClosureRequests(universityId),
     getRequiredApprovals(universityId),
     getPendingCounts(user.id, user.role),
+    listPendingSponsorships(universityId),
   ]);
   const [setupSeals, closureSeals] = await Promise.all([
     listApprovalsByTarget(
@@ -42,9 +46,13 @@ export default async function StaffInboxPage() {
     ),
   ]);
 
-  const mine = counts.circles + counts.closures + counts.reservations;
+  const mine =
+    counts.circles + counts.closures + counts.reservations + sponsorships.length;
   const nothing =
-    setups.length === 0 && closures.length === 0 && counts.reservations === 0;
+    setups.length === 0 &&
+    closures.length === 0 &&
+    counts.reservations === 0 &&
+    sponsorships.length === 0;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -107,6 +115,27 @@ export default async function StaffInboxPage() {
             required={required}
             viewerId={user.id}
           />
+        </section>
+      )}
+
+      {sponsorships.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-1 text-lg font-semibold">
+            協賛の募集の確認（{sponsorships.length}件）
+          </h2>
+          <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+            サークルが企業に向けて出す募集です。大学の名前とともに外へ出るので、
+            中身を確かめてください。1人の判子で公開され、見送ると公開されません。
+          </p>
+          <ul className="grid gap-4">
+            {sponsorships.map((s) => (
+              <li key={s.id}>
+                <SponsorshipCard sponsorship={s} showCircle>
+                  <SponsorshipDecision requestId={s.id} circleId={s.circle_id} />
+                </SponsorshipCard>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

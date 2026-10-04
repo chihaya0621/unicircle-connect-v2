@@ -34,7 +34,7 @@ export async function Header() {
   const user = await getCurrentUser();
   const pending = user
     ? await getPendingCounts(user.id, user.role)
-    : { circles: 0, closures: 0, reservations: 0, members: 0 };
+    : { circles: 0, closures: 0, reservations: 0, sponsorships: 0, members: 0 };
   const isStaff = user?.role === "staff";
   const unread = user ? await getUnreadCount() : 0;
 
@@ -50,7 +50,11 @@ export async function Header() {
     items.push({
       href: "/staff",
       label: "対応待ち",
-      badge: pending.circles + pending.closures + pending.reservations,
+      badge:
+        pending.circles +
+        pending.closures +
+        pending.reservations +
+        pending.sponsorships,
     });
   }
   if (user) items.push({ href: "/calendar", label: "カレンダー" });
@@ -62,6 +66,10 @@ export async function Header() {
     });
   }
   items.push({ href: "/events", label: "イベント" });
+  // 協賛の募集は、企業（一般）と、見に来た人のための入口
+  if (!user || user.role === "general") {
+    items.push({ href: "/sponsorships", label: "協賛" });
+  }
   if (user?.role === "student") items.push({ href: "/board", label: "掲示板" });
   if (user && user.role !== "general") {
     items.push({ href: "/facilities", label: "施設予約" });

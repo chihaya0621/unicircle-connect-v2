@@ -22,6 +22,8 @@ import { JoinCircleButton } from "@/components/JoinCircleButton";
 import { PostComposer } from "@/components/PostComposer";
 import { PostList } from "@/components/PostList";
 import { MemberList } from "@/components/MemberList";
+import { SponsorshipCard } from "@/components/SponsorshipCard";
+import { SponsorshipManager } from "@/components/SponsorshipManager";
 import { BOARD_VISIBLE_DAYS, listCirclePosts } from "@/lib/board";
 import { getCircleActivity } from "@/lib/circle-activity";
 import { EventCard } from "@/components/EventCard";
@@ -42,6 +44,13 @@ import {
   verifyApprovalChain,
 } from "@/lib/approvals";
 import { getCurrentNote, getPendingHandover } from "@/lib/handover";
+import {
+  isAccepting,
+  listCircleSponsors,
+  listCircleSponsorships,
+  listOffers,
+  todayJst,
+} from "@/lib/sponsorship";
 import {
   listCampuses,
   listFavoriteCircleIds,
@@ -153,6 +162,17 @@ export default async function CircleDetailPage({
     isMember &&
     circle.university_id !== null &&
     (await getMyUniversityId()) === circle.university_id;
+
+  // 協賛（0036）。募集は RLS が見える範囲だけを返す（外の人には大学が
+  // 確かめた募集だけ）。申し込みの中身は管理者にだけ返る
+  const [sponsorships, sponsors] =
+    circle.status === "approved"
+      ? await Promise.all([listCircleSponsorships(id), listCircleSponsors(id)])
+      : [[], []];
+  const sponsorOffers = canManage
+    ? await listOffers(sponsorships.map((s) => s.id))
+    : [];
+  const acceptingSponsorships = sponsorships.filter(isAccepting);
 
   // 活動記録はメンバーだけに見せる。外部に活動履歴まで公開する必要はない。
   const activity = isMember
@@ -378,6 +398,74 @@ export default async function CircleDetailPage({
             <p className="glass-empty py-6">
               予定されているイベントはまだありません。
             </p>
+          )}
+        </section>
+      )}
+
+      {/* 協賛。外の人には、募集中の募集と協賛企業だけを見せる。管理者には、
+          返事を待っている申し込みと、募集を出す欄も出す */}
+      {(acceptingSponsorships.length > 0 ||
+        sponsors.length > 0 ||
+        (canManage &&
+          circle.status === "approved" &&
+          (!circle.closure_requested_at || sponsorships.length > 0))) && (
+        <section className="mb-10">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-lg font-semibold">協賛</h2>
+            <Link
+              href="/sponsorships"
+              className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              協賛の募集を見る
+            </Link>
+          </div>
+
+          {sponsors.length > 0 && (
+            <p className="mb-3 text-sm">
+              <span className="text-gray-600 dark:text-gray-400">協賛企業: </span>
+              {sponsors.map((sp, i) => (
+                <span key={`${sp.sponsor_name}-${i}`}>
+                  {i > 0 && "、"}
+                  {sp.sponsor_url ? (
+                    <a
+                      href={sp.sponsor_url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="font-medium underline"
+                    >
+                      {sp.sponsor_name}
+                    </a>
+                  ) : (
+                    <span className="font-medium">{sp.sponsor_name}</span>
+                  )}
+                </span>
+              ))}
+            </p>
+          )}
+
+          {acceptingSponsorships.length > 0 && (
+            <div className="mb-4 grid gap-4">
+              {acceptingSponsorships.map((s) => (
+                <SponsorshipCard
+                  key={s.id}
+                  sponsorship={s}
+                  href={`/sponsorships/${s.id}`}
+                  compact
+                />
+              ))}
+            </div>
+          )}
+
+          {canManage && (
+            <div className="glass-panel">
+              <SponsorshipManager
+                circleId={circle.id}
+                requests={sponsorships}
+                offers={sponsorOffers}
+                today={todayJst()}
+                canRequest={!circle.closure_requested_at}
+              />
+            </div>
           )}
         </section>
       )}

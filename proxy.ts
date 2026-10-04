@@ -23,6 +23,8 @@ const PUBLIC_PATHS = [
   "/update-password",
   "/events",
   "/circles",
+  // 協賛の募集は、企業がログインせずに探せるようにする（0036）
+  "/sponsorships",
   "/auth",
 ];
 

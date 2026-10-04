@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { describeOverflow, findHorizontalOverflow } from "./helpers/layout";
-import { CIRCLE, PUBLIC_EVENT, statePath } from "./helpers/users";
+import { CIRCLE, PUBLIC_EVENT, SPONSORSHIP, statePath } from "./helpers/users";
 
 /**
  * 狭い画面でしか起きないこと。
@@ -20,6 +20,8 @@ test.describe("横にはみ出さない", () => {
     { path: "/circles", label: "サークル一覧", auth: null },
     { path: "/events", label: "イベント一覧", auth: null },
     { path: "/login", label: "ログイン", auth: null },
+    { path: "/sponsorships", label: "協賛の募集", auth: null },
+    { path: `/sponsorships/${SPONSORSHIP.id}`, label: "協賛の詳細", auth: "general" },
     { path: "/calendar", label: "カレンダー", auth: "student" },
     { path: "/board", label: "掲示板", auth: "student" },
     { path: "/mypage", label: "マイページ", auth: "student" },

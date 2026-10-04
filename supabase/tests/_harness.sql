@@ -74,6 +74,20 @@ SET search_path = public, pg_temp AS
 $$ SELECT id FROM public.circle_handovers
     WHERE circle_id = p_circle AND status = 'pending' $$;
 
+/** 協賛の募集の ID を、題名から RLS を迂回して引く（理由は上と同じ） */
+CREATE OR REPLACE FUNCTION test.sponsorship(p_title TEXT)
+RETURNS UUID LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp AS
+$$ SELECT id FROM public.sponsorship_requests WHERE title = p_title $$;
+
+/** その募集への、返事待ちの申し込みの ID */
+CREATE OR REPLACE FUNCTION test.pending_offer(p_title TEXT)
+RETURNS UUID LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp AS
+$$ SELECT o.id FROM public.sponsorship_offers o
+     JOIN public.sponsorship_requests r ON r.id = o.request_id
+    WHERE r.title = p_title AND o.status = 'pending' $$;
+
 
 -- -----------------------------------------------------------------------------
 -- 検査

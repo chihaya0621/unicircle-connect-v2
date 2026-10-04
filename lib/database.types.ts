@@ -33,6 +33,18 @@ export type SealShape = "circle" | "square";
  * 記録として残すため。次の代に「一度断られた経緯」が伝わる。
  */
 export type HandoverStatus = "pending" | "accepted" | "declined" | "cancelled";
+/**
+ * 協賛の募集の状態（0036）。
+ * pending は大学の確認待ち、open は募集中、rejected は大学が見送った、
+ * closed はサークルが締め切ったもの。
+ */
+export type SponsorshipStatus = "pending" | "open" | "rejected" | "closed";
+/** 協賛の申し込みの状態（0036） */
+export type SponsorshipOfferStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "withdrawn";
 export type FacilityCategory = "facility" | "equipment";
 /** 表示テーマ（0016_theme.sql） */
 export type Theme = "pop" | "citrus" | "mint" | "berry" | "glass";
@@ -78,7 +90,7 @@ export type Database = {
       approvals: {
         Row: {
           id: string;
-          target_type: "circle" | "circle_closure" | "reservation";
+          target_type: "circle" | "circle_closure" | "reservation" | "sponsorship";
           target_id: string;
           approver_id: string | null;
           /** 記録した時点の氏名。アカウントが消えても誰か分かる */
@@ -92,6 +104,49 @@ export type Database = {
           /** 同じ案件の1つ前の記録のハッシュ。先頭は null（0029） */
           prev_hash: string | null;
           row_hash: string | null;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+      };
+      /** 協賛の募集（0036_sponsorship.sql） */
+      sponsorship_requests: {
+        Row: {
+          id: string;
+          circle_id: string;
+          title: string;
+          /** 何に使うか */
+          purpose: string;
+          /** 目標額（円）。決めていなければ null */
+          amount_goal: number | null;
+          /** 協賛へのお返し */
+          returns: string | null;
+          deadline: string;
+          status: SponsorshipStatus;
+          created_by: string | null;
+          created_at: string;
+          decided_at: string | null;
+          closed_at: string | null;
+          /** 確かめた職員の名前と印影の写し。外の人にも見せる */
+          checked_by_name: string | null;
+          checked_seal_text: string | null;
+          checked_seal_shape: SealShape | null;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+      };
+      /** 協賛の申し込み。当事者だけが読める（0036_sponsorship.sql） */
+      sponsorship_offers: {
+        Row: {
+          id: string;
+          request_id: string;
+          sponsor_id: string | null;
+          sponsor_name: string;
+          sponsor_url: string | null;
+          amount: number;
+          message: string | null;
+          status: SponsorshipOfferStatus;
+          created_at: string;
+          decided_at: string | null;
         };
         Insert: Record<string, never>;
         Update: Record<string, never>;
@@ -488,6 +543,59 @@ export type Database = {
       cancel_handover: {
         Args: { p_handover_id: string };
         Returns: undefined;
+      };
+      /** 協賛を募集する。サークル管理者のみ（0036） */
+      request_sponsorship: {
+        Args: {
+          p_circle_id: string;
+          p_title: string;
+          p_purpose: string;
+          p_amount_goal: number | null;
+          p_returns: string | null;
+          p_deadline: string;
+        };
+        Returns: string;
+      };
+      /** 協賛の募集を確かめる。その大学の職員のみ。判子が残る（0036） */
+      decide_sponsorship: {
+        Args: { p_request_id: string; p_approve: boolean; p_comment?: string | null };
+        Returns: "open" | "rejected";
+      };
+      /** 協賛を申し込む。一般のアカウントのみ（0036） */
+      offer_sponsorship: {
+        Args: {
+          p_request_id: string;
+          p_sponsor_name: string;
+          p_sponsor_url: string | null;
+          p_amount: number;
+          p_message: string | null;
+        };
+        Returns: string;
+      };
+      /** 申し込みに答える。サークル管理者のみ（0036） */
+      respond_sponsorship_offer: {
+        Args: { p_offer_id: string; p_accept: boolean };
+        Returns: "accepted" | "declined";
+      };
+      /** 申し込みを取り下げる。申し込んだ本人のみ（0036） */
+      withdraw_sponsorship_offer: {
+        Args: { p_offer_id: string };
+        Returns: undefined;
+      };
+      /** 募集を締め切る。サークル管理者のみ（0036） */
+      close_sponsorship: {
+        Args: { p_request_id: string };
+        Returns: undefined;
+      };
+      /** 成立した協賛企業の名前。サークルが見える人なら誰でも（0036） */
+      list_circle_sponsors: {
+        Args: { p_circle_id: string };
+        Returns: {
+          sponsor_name: string;
+          sponsor_url: string | null;
+          request_title: string;
+          accepted_at: string | null;
+        }[];
       };
       /** リマインドの設定・解除。分は NULL で解除（0022） */
       set_event_reminder: {

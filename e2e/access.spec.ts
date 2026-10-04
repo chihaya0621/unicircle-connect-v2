@@ -1,9 +1,12 @@
 import { expect, test } from "@playwright/test";
 
 import {
+  CIRCLE,
   OUTER_CIRCLE,
   PUBLIC_EVENT,
   QUIET_CIRCLE,
+  SPONSORSHIP,
+  SPONSORSHIP_FOR_OFFER,
   statePath,
 } from "./helpers/users";
 
@@ -160,6 +163,29 @@ test.describe("未ログインの道案内", () => {
   });
 });
 
+test.describe("協賛（未ログイン）", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("協賛の募集は、ログインせずに見られる", async ({ page }) => {
+    await page.goto("/sponsorships");
+    await expect(page.getByRole("heading", { name: "協賛の募集" })).toBeVisible();
+    await expect(page.getByRole("link", { name: SPONSORSHIP.title })).toBeVisible();
+  });
+
+  test("協賛の詳細では、申し込むにはログインを案内する", async ({ page }) => {
+    await page.goto(`/sponsorships/${SPONSORSHIP.id}`);
+    await expect(page.getByRole("heading", { name: SPONSORSHIP.title })).toBeVisible();
+    await expect(
+      page.getByText("申し込むには、企業・一般のアカウントでログインしてください"),
+    ).toBeVisible();
+  });
+
+  test("サークルのページに、協賛企業の名前が出る", async ({ page }) => {
+    await page.goto(`/circles/${CIRCLE.id}`);
+    await expect(page.getByText(SPONSORSHIP.sponsor).first()).toBeVisible();
+  });
+});
+
 test.describe("一般アカウント（高校生・企業）", () => {
   test.use({ storageState: statePath("general") });
 
@@ -173,6 +199,16 @@ test.describe("一般アカウント（高校生・企業）", () => {
   test("掲示板には入れない", async ({ page }) => {
     await page.goto("/board");
     expect(page.url()).not.toMatch(/\/board$/);
+  });
+
+  test("協賛の募集に、申し込む欄が出る", async ({ page }) => {
+    await page.goto(`/sponsorships/${SPONSORSHIP_FOR_OFFER.id}`);
+    // 前の実行が途中で落ちて返事待ちが残っていれば、取り下げのボタンになる
+    await expect(
+      page
+        .getByRole("button", { name: "協賛を申し込む" })
+        .or(page.getByRole("button", { name: "申し込みを取り下げる" })),
+    ).toBeVisible();
   });
 
   test("イベントは見られるが、参加登録のボタンは出ない", async ({ page }) => {
@@ -202,6 +238,12 @@ test.describe("学生", () => {
     // 画面の中身と食い違う
     await page.goto(`/circles?pref=${encodeURIComponent("東京都")}`);
     await expect(page).toHaveTitle(/^サークル \|/);
+  });
+
+  test("サークルの管理者には、協賛を募集する欄が出る", async ({ page }) => {
+    await page.goto(`/circles/${CIRCLE.id}`);
+    await expect(page.getByRole("heading", { name: "協賛", exact: true })).toBeVisible();
+    await expect(page.getByText("協賛を募集する")).toBeVisible();
   });
 
   test("カレンダーに着地して、自分の予定が出る", async ({ page }) => {

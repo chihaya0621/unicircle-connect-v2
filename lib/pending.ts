@@ -13,6 +13,8 @@ export type PendingCounts = {
   closures: number;
   /** 職員: 自大学の施設への予約申請 */
   reservations: number;
+  /** 職員: 自大学のサークルが出した、確認待ちの協賛の募集（0036） */
+  sponsorships: number;
   /** サークル管理者: 自分が管理するサークルへの参加申請 */
   members: number;
 };
@@ -21,6 +23,7 @@ const EMPTY: PendingCounts = {
   circles: 0,
   closures: 0,
   reservations: 0,
+  sponsorships: 0,
   members: 0,
 };
 
@@ -46,7 +49,7 @@ export const getPendingCounts = cache(
       const universityId = await getMyUniversityId();
       if (!universityId) return EMPTY;
 
-      const [setups, closures, reservations] = await Promise.all([
+      const [setups, closures, reservations, sponsorships] = await Promise.all([
         supabase
           .from("circles")
           .select("id")
@@ -62,6 +65,14 @@ export const getPendingCounts = cache(
           .select("id", { count: "exact", head: true })
           .eq("status", "pending")
           .gte("end_time", new Date().toISOString()),
+        supabase
+          .from("sponsorship_requests")
+          .select("id, circle:circles!inner(university_id)", {
+            count: "exact",
+            head: true,
+          })
+          .eq("status", "pending")
+          .eq("circle.university_id", universityId),
       ]);
 
       // 自分がもう押したものは数えない。あとはほかの職員の番で、
@@ -86,6 +97,7 @@ export const getPendingCounts = cache(
         closures: closureIds.filter((id) => !done.has(`circle_closure:${id}`))
           .length,
         reservations: reservations.count ?? 0,
+        sponsorships: sponsorships.count ?? 0,
         members: 0,
       };
     }
