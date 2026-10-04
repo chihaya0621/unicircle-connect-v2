@@ -270,6 +270,14 @@ test.describe("学生", () => {
     if (headings.includes("利用停止中")) expect(headings.at(-1)).toBe("利用停止中");
   });
 
+  test("予約の時刻は30分刻みで選ぶ", async ({ page }) => {
+    await page.goto("/facilities");
+    await page.getByRole("link", { name: "空き状況・予約" }).first().click();
+    const start = page.getByRole("combobox", { name: "開始時刻" });
+    await expect(start.locator('option[value="10:30"]')).toHaveCount(1);
+    await expect(start.locator('option[value="10:15"]')).toHaveCount(0);
+  });
+
   test("掲示板に入れる", async ({ page }) => {
     await page.goto("/board");
     await expect(page).toHaveURL(/\/board$/);

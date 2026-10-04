@@ -36,6 +36,11 @@ export async function createReservation(
   if (!facilityId || !startDate || !endDate || !startTime || !endTime) {
     return { error: "日付と時間を入力してください。" };
   }
+  // 予約は30分単位。フォームの選択肢も30分刻みにしてある
+  const HALF_HOUR = /^([01]\d|2[0-3]):(00|30)$/;
+  if (!HALF_HOUR.test(startTime) || !HALF_HOUR.test(endTime)) {
+    return { error: "時刻は30分単位で選んでください。" };
+  }
 
   // 備品の貸し出しは日をまたぐため、開始日と終了日を別々に受け取る。
   // 施設の場合はフォーム側で end_date に start_date を入れている。

@@ -16,6 +16,43 @@ function todayISO() {
   return toJstInput(new Date()).slice(0, 10);
 }
 
+/** 30分刻みの時刻（00:00〜23:30）。午前と午後に分けて並べる */
+const HALF_HOURS = Array.from({ length: 48 }, (_, i) => {
+  const hour = String(Math.floor(i / 2)).padStart(2, "0");
+  return `${hour}:${i % 2 === 0 ? "00" : "30"}`;
+});
+
+/**
+ * 時刻の選択欄。
+ *
+ * input[type=time] は step を付けても、Chrome の選択欄には1分ずつの分が
+ * 並ぶ（15:12 のような半端な時刻を選べてしまう）。予約は30分単位で足りる
+ * ので、選択肢を30分刻みに絞る。サーバー側でも30分単位かを確かめる。
+ */
+function TimeSelect({ name }: { name: string }) {
+  return (
+    <Select name={name} required defaultValue="">
+      <option value="" disabled>
+        選んでください
+      </option>
+      <optgroup label="午前">
+        {HALF_HOURS.slice(0, 24).map((t) => (
+          <option key={t} value={t}>
+            {t}
+          </option>
+        ))}
+      </optgroup>
+      <optgroup label="午後">
+        {HALF_HOURS.slice(24).map((t) => (
+          <option key={t} value={t}>
+            {t}
+          </option>
+        ))}
+      </optgroup>
+    </Select>
+  );
+}
+
 /**
  * 予約フォーム。
  *
@@ -64,7 +101,7 @@ export function ReservationForm({
               />
             </Field>
             <Field label="貸出時刻">
-              <Input type="time" name="start_time" required step={900} />
+              <TimeSelect name="start_time" />
             </Field>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -77,7 +114,7 @@ export function ReservationForm({
               />
             </Field>
             <Field label="返却時刻">
-              <Input type="time" name="end_time" required step={900} />
+              <TimeSelect name="end_time" />
             </Field>
           </div>
         </>
@@ -97,10 +134,10 @@ export function ReservationForm({
           <input type="hidden" name="end_date" value={startDate} />
           <div className="grid grid-cols-2 gap-3">
             <Field label="開始時刻">
-              <Input type="time" name="start_time" required step={900} />
+              <TimeSelect name="start_time" />
             </Field>
             <Field label="終了時刻">
-              <Input type="time" name="end_time" required step={900} />
+              <TimeSelect name="end_time" />
             </Field>
           </div>
         </>
