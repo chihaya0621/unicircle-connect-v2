@@ -9,6 +9,7 @@ import {
 } from "@/app/actions/images";
 import { ApprovalTrail } from "@/components/ApprovalTrail";
 import { BackLink } from "@/components/BackLink";
+import { CircleIcon } from "@/components/CircleIcon";
 import { HandoverPanel } from "@/components/HandoverPanel";
 import {
   CircleEditForm,
@@ -198,7 +199,7 @@ export default async function CircleDetailPage({
       <header className="mb-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-4">
-            {image && (
+            {image ? (
               <div className="relative size-20 shrink-0 overflow-hidden rounded-2xl border border-white/60 shadow-lg dark:border-white/15">
                 <Image
                   src={image}
@@ -209,6 +210,12 @@ export default async function CircleDetailPage({
                   className="object-cover"
                 />
               </div>
+            ) : (
+              <CircleIcon
+                name={circle.name}
+                category={circle.category}
+                className="size-20 rounded-2xl shadow-md"
+              />
             )}
             <h1 className="text-2xl font-bold tracking-tight">{circle.name}</h1>
           </div>

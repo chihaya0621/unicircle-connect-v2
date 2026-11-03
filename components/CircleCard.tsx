@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { CircleIcon } from "@/components/CircleIcon";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import type { CircleListItem } from "@/lib/circles";
 import type { Scope } from "@/lib/database.types";
@@ -19,16 +20,6 @@ const SCOPE_BADGE: Record<Scope, { label: string; className: string } | null> = 
       "bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
   },
 };
-
-/**
- * 画像の無いサークルの目印にする1文字。
- * 「【確認用】…」「『…』」のように記号で始まる名前は、記号を飛ばして
- * 最初の文字（かな・漢字・英数字）を使う。記号だけでは誰のことか分からない。
- */
-function initialOf(name: string): string {
-  const chars = [...name];
-  return chars.find((ch) => /[\p{L}\p{N}]/u.test(ch)) ?? chars[0] ?? "";
-}
 
 /**
  * カード全体をリンクにしつつ、中に「気になる」ボタンを置いている。
@@ -76,12 +67,12 @@ export function CircleCard({
             />
           </div>
         ) : (
-          <div
-            aria-hidden
-            className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-white/50 bg-white/30 text-sm font-semibold text-gray-500 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-400"
-          >
-            {initialOf(circle.name)}
-          </div>
+          // 画像の無いサークルは、名前と分野から選んだアイコンを出す
+          <CircleIcon
+            name={circle.name}
+            category={circle.category}
+            className="size-12 rounded-xl shadow-sm"
+          />
         )}
 
         <div className="min-w-0 flex-1">
