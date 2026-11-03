@@ -32,13 +32,13 @@ const SHORTCUTS: {
   {
     email: "student1@aozora.test",
     label: "学生として見る",
-    hint: "カレンダー・サークル運営・掲示板・施設予約",
+    hint: "わたしのサークル・サークル運営・施設使用許可願",
     role: "student",
   },
   {
     email: "staff1@aozora.test",
     label: "大学職員として見る",
-    hint: "サークルと協賛の承認・押印・予約の承認",
+    hint: "承認と押印・使用許可願の項目・大学のレポート",
     role: "staff",
   },
   {
@@ -198,10 +198,7 @@ export function DevQuickLogin({
 
           {isDemo ? (
             <p className="text-xs text-indigo-800 dark:text-indigo-300">
-              これは公開デモです。載っている大学名・サークル名・氏名は
-              すべて動作確認用に生成した架空のものです。
-              誰でも同じアカウントに入れるので、書き込んだ内容は
-              他の人からも見えます。実在の情報は入力しないでください。
+              {"これは公開デモです。載っている大学名・サークル名・氏名は、すべて動作確認用に生成した架空のものです。誰でも同じアカウントに入れるので、書き込んだ内容はほかの人からも見えます。実在の情報は入力しないでください。"}
             </p>
           ) : (
             <p className="text-xs text-amber-800 dark:text-amber-300">
