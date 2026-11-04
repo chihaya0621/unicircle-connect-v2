@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja" data-format="wide" data-mode="present" data-style="desu" data-short-title="UniCircle Connect">
+<head>
+<meta charset="utf-8">
+<title>UniCircle Connect 発表</title>
+<link rel="stylesheet" href="style.css">
+<script src="doc.js" defer></script>
+<style>
+  /* 画面の写真。白い面に細い枠 */
+  .shot { display: block; max-width: 100%; height: auto; margin: 0 auto; border: .25mm solid var(--rule); border-radius: 1.6mm; background: #fff; }
+  .card .shot { width: 100%; height: 40mm; object-fit: cover; object-position: top; margin-bottom: 3mm; }
+  .shot-cap { margin-top: 2mm; text-align: center; font-size: 9.5pt; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- 表紙 -->
+<section class="page cover">
+  <div class="cover-top">
+    <p class="cover-kind">ハッカソン発表</p>
+    <p class="cover-title">UniCircle Connect</p>
+    <div class="cover-rule"></div>
+    <p class="cover-subtitle">サークルの申請・承認・連絡を、1つのアプリに</p>
+  </div>
+  <div class="cover-palette"></div>
+  <div class="cover-bottom">
+    <p class="cover-abstract">大学のサークルの設立や施設の申請、職員の判子、部内の連絡を1つにまとめた Web アプリです。公開デモに、登録なしで学生・職員・企業の立場で入れます。</p>
+    <dl class="cover-meta">
+      <dt>日付</dt><dd>2026年11月7日</dd>
+      <dt>発表</dt><dd>九州工業大学 情報工学部 浦田千颯</dd>
+    </dl>
+  </div>
+</section>
+
+<!-- 第1章 -->
+<div class="chapter" data-title="作ったもの" data-lead="公開中のデモの画面で、3つの立場の使い方を紹介します。">
+  <section class="page chapter-cover light">
+    <img class="cc-illust" src="images/guide-present.png" alt="">
+  </section>
+
+  <section class="page" data-crumb="全体">
+    <p class="key-msg">紙とチャットに散らばる手続きを、<em>1つのアプリ</em>にまとめました</p>
+    <div class="cols-2 wide-right" style="align-items: center">
+      <div>
+        <img class="shot" src="images/login-demo.png" alt="ログイン画面のデモ用アカウント。学生、大学職員、企業・高校生の3つのボタンが並ぶ" style="max-height: 80mm; width: auto">
+        <p class="shot-cap">ログイン画面のデモ用アカウント</p>
+      </div>
+      <ul class="icons">
+        <li data-ic="users"><strong>学生</strong>　サークルの設立・施設の使用許可願・部内の連絡</li>
+        <li data-ic="building"><strong>職員</strong>　判子での承認・様式の調整・申請の状況の確認</li>
+        <li data-ic="yen"><strong>企業・高校生</strong>　サークル探し・協賛の申し込み</li>
+      </ul>
+    </div>
+    <p class="conclusion">公開デモに、<em>登録なしで3つの立場</em>で入れます</p>
+  </section>
+
+  <section class="page" data-crumb="承認と判子">
+    <p class="key-msg">職員は申請書を読んだその場で、<em>自分の判子</em>を押します</p>
+    <div class="cols-2" style="align-items: center">
+      <div>
+        <img class="shot" src="images/staff-card.png" alt="対応待ちの申請。押印欄が2つ空いていて、承認と却下のボタンがある">
+        <p class="shot-cap">対応待ちの申請（押す前）</p>
+      </div>
+      <div>
+        <img class="shot" src="images/print-seal.png" alt="申請書の承認欄。職員の印影が1つ押され、もう1つは空いている" style="max-height: 66mm; width: auto">
+        <p class="shot-cap">申請書の承認欄（1人が押したあと）</p>
+      </div>
+    </div>
+    <p class="conclusion">設立に何人の判子が要るかは、<em>大学ごとに決められます</em>（1〜5人）</p>
+  </section>
+
+  <section class="page" data-crumb="施設使用許可願">
+    <p class="key-msg">紙の使用許可願と<em>同じ項目</em>で、アプリから申請します</p>
+    <div class="cols-2 wide-left" style="align-items: center">
+      <div>
+        <img class="shot" src="images/use-form-main.png" alt="学生の施設使用許可願。利用人員と学外者の有無、土曜日2日分の日時が入っている" style="max-height: 84mm; width: auto">
+        <p class="shot-cap">学生の入力（日時は16件までまとめて出せる）</p>
+      </div>
+      <div>
+        <img class="shot" src="images/form-editor-item.png" alt="職員の編集画面。電気錠設定を、大講義室だけで尋ねる項目として足している" style="max-height: 84mm; width: auto">
+        <p class="shot-cap">職員が欄を足す</p>
+      </div>
+    </div>
+    <p class="conclusion">大学ごとに違う欄（電気錠など）は、<em>職員が画面から足せます</em></p>
+  </section>
+
+  <section class="page" data-crumb="使う理由">
+    <p class="key-msg">学生・大学・企業の<em>それぞれに、開く理由</em>を作りました</p>
+    <div class="cards cols-3">
+      <div class="card soft">
+        <p class="pill">学生</p>
+        <img class="shot" src="images/thumb-student.png" alt="わたしのサークルの画面">
+        <p class="card-title">わたしのサークル</p>
+        <p>所属するサークルの予定と連絡、返事が要るものが1画面に並びます。</p>
+      </div>
+      <div class="card soft">
+        <p class="pill">大学</p>
+        <img class="shot" src="images/thumb-staff.png" alt="大学のレポートの画面">
+        <p class="card-title">大学のレポート</p>
+        <p>届いた申請の件数、判断までの日数、止まっている申請が分かります。</p>
+      </div>
+      <div class="card soft">
+        <p class="pill">企業</p>
+        <img class="shot" src="images/thumb-company.png" alt="協賛の募集の画面">
+        <p class="card-title">協賛</p>
+        <p>職員が中身を確かめて判子を押した募集にだけ、協賛を申し込めます。</p>
+      </div>
+    </div>
+    <p class="conclusion">3者が、<em>大学が確かめた同じ記録</em>の上でつながります</p>
+  </section>
+</div>
+
+<!-- 第2章 -->
+<div class="chapter" data-title="こだわった実装" data-lead="見た目の前に、記録の確かさと、見える範囲を固めました。">
+  <section class="page chapter-cover light">
+    <img class="cc-illust" src="images/it-security.png" alt="">
+  </section>
+
+  <section class="page" data-crumb="承認の記録">
+    <p class="key-msg">判子の記録を<em>前の記録とつなぎ</em>、書き換えると分かるようにしました</p>
+    <svg viewBox="0 0 900 190" role="img" aria-label="承認の記録が、前の記録のハッシュでつながっている図">
+      <defs>
+        <marker id="arr-chain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="d-arrow-accent"/>
+        </marker>
+      </defs>
+      <rect class="d-box-soft" x="20" y="20" width="240" height="120" rx="8"/>
+      <text class="d-text d-text-bold" x="140" y="56" text-anchor="middle">1人目の判子</text>
+      <text class="d-text-sub" x="140" y="86" text-anchor="middle">誰が・いつ・何を</text>
+      <text class="d-text-sub" x="140" y="112" text-anchor="middle">ハッシュ 3f2a…</text>
+
+      <rect class="d-box-soft" x="330" y="20" width="240" height="120" rx="8"/>
+      <text class="d-text d-text-bold" x="450" y="56" text-anchor="middle">2人目の判子</text>
+      <text class="d-text-sub" x="450" y="86" text-anchor="middle">前のハッシュ 3f2a… を含む</text>
+      <text class="d-text-sub" x="450" y="112" text-anchor="middle">ハッシュ 9c41…</text>
+
+      <rect class="d-box-strong" x="640" y="20" width="240" height="120" rx="8"/>
+      <text class="d-text d-text-white d-text-bold" x="760" y="56" text-anchor="middle">検証</text>
+      <text class="d-text d-text-white" x="760" y="86" text-anchor="middle">最初から計算し直し</text>
+      <text class="d-text d-text-white" x="760" y="112" text-anchor="middle">合わなければ書き換え</text>
+
+      <line class="d-line-accent" x1="262" y1="80" x2="326" y2="80" marker-end="url(#arr-chain)"/>
+      <line class="d-line-accent" x1="572" y1="80" x2="636" y2="80" marker-end="url(#arr-chain)"/>
+      <text class="d-text-sub" x="450" y="174" text-anchor="middle">ハッシュの値は例です。途中の1件を書き換えると、そこから後ろが合わなくなります</text>
+    </svg>
+    <img class="shot" src="images/verify-line.png" alt="申請書の下に出る検証の結果。記録1件は押されたときのままです、照合値つき" style="width: 70%">
+    <p class="shot-cap">申請書の下に出る検証の結果</p>
+    <p class="conclusion">2人がほぼ同時に押しても、<em>案件ごとに順番に</em>つなぎます</p>
+  </section>
+
+  <section class="page" data-crumb="守りと検査">
+    <p class="key-msg">見える範囲と書き込みを、<em>データベースで</em>守っています</p>
+    <div class="cols-2 wide-left" style="align-items: center">
+      <ol class="num-rows soft">
+        <li>
+          <p class="nr-title">見える範囲</p>
+          <ul><li>他大学や部外の人に見せない行は、<span class="fn" data-yomi="あーるえるえす" data-note="行ごとに、誰が読めるかをデータベースが決める仕組み（Row Level Security）">RLS</span>でデータベースが返さない</li></ul>
+        </li>
+        <li>
+          <p class="nr-title">書き込み</p>
+          <ul><li>画面から表を直接書き換えず、確認つきの関数だけを通す</li></ul>
+        </li>
+        <li>
+          <p class="nr-title">二重予約</p>
+          <ul><li>同じ施設・重なる時間帯の予約は、データベースの制約で止める</li></ul>
+        </li>
+      </ol>
+      <div class="stats">
+        <div class="stat"><p class="stat-value">182<span class="unit">件</span></p><p class="stat-label">データベースの検査</p></div>
+        <div class="stat"><p class="stat-value">106<span class="unit">件</span></p><p class="stat-label">画面を操作する検査</p></div>
+      </div>
+    </div>
+    <p class="conclusion">データベースの検査は、<em>push のたびに自動で</em>流しています</p>
+  </section>
+</div>
+
+<!-- まとめ -->
+<section class="page" data-toc="まとめ">
+  <p class="key-msg">大学が確かめた記録を土台に、<em>学生・大学・企業</em>をつなぎます</p>
+  <div class="cols-2 wide-left" style="align-items: center">
+    <ul class="check">
+      <li>紙と同じ項目で申請し、職員が自分の判子で承認する</li>
+      <li>判子の記録はつながっていて、書き換えると分かる</li>
+      <li>見える範囲と書き込みを、データベースで守っている</li>
+    </ul>
+    <div>
+      <img src="images/qr.svg" alt="公開デモの QR コード" style="display: block; width: 52mm; margin: 0 auto">
+      <p class="shot-cap">unicircle-connect-v2.vercel.app</p>
+    </div>
+  </div>
+  <p class="conclusion solid">QR から、<em>登録なしで</em>試せます</p>
+</section>
+
+</body>
+</html>
