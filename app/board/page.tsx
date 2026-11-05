@@ -17,8 +17,6 @@ export default async function BoardPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <PageHero
-        variant="blobs"
-        eyebrow="BOARD"
         title="掲示板"
         description={`所属しているサークルごとの連絡です。メンバー以外には見えません。貼られた紙は${BOARD_VISIBLE_DAYS}日で下がりますが、お知らせに固定したものは残ります。`}
       />

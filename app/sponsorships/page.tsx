@@ -23,8 +23,6 @@ export default async function SponsorshipsPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <PageHero
-        variant="circles"
-        eyebrow="SPONSORSHIP"
         title="協賛の募集"
         description={
           <>

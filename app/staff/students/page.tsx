@@ -20,8 +20,6 @@ export default async function StaffStudentsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <PageHero
-        variant="circles"
-        eyebrow="STUDENTS"
         title="学生の登録"
         description="本人が新規登録したあと、ここで氏名を登録すると学生として利用できるようになります。"
       />

@@ -33,7 +33,7 @@ function Row({ n }: { n: Notification }) {
           {TYPE_LABEL[n.type]}
         </span>
         {unread && (
-          <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-500 shadow-[0_0_8px_2px_rgb(99_102_241/0.5)]" aria-label="未読" />
+          <span className="h-2 w-2 rounded-full bg-[rgb(var(--accent))]" aria-label="未読" />
         )}
         <time
           dateTime={n.created_at}
@@ -80,8 +80,6 @@ export default async function NotificationsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <PageHero
-        variant="arc"
-        eyebrow="NOTIFICATIONS"
         title="通知"
         description={
           unread > 0 ? `未読が${unread}件あります。` : "未読はありません。"

@@ -79,7 +79,7 @@ export function ImageUploader({
             accept="image/jpeg,image/png,image/webp,image/gif"
             required
             onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
-            className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-xl file:border-0 file:bg-gradient-to-br file:from-indigo-500 file:to-violet-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white file:transition-all file:duration-300 hover:file:brightness-110 dark:text-gray-400"
+            className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-[var(--btn-radius)] file:border-0 file:bg-[rgb(var(--btn-from))] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[rgb(var(--btn-to))] dark:text-gray-400"
           />
         </label>
         <p className="text-xs text-gray-500 dark:text-gray-400">

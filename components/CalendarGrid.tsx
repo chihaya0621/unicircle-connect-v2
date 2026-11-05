@@ -142,7 +142,7 @@ export function CalendarGrid({
                       <Link
                         href={`/events/${e.id}`}
                         title={`${timeFormatter.format(new Date(e.event_date))} ${e.title}\n${e.host_name}（${SOURCE_LABEL[e.source]}）`}
-                        className={`block truncate rounded-md px-1.5 py-0.5 text-xs transition-all duration-200 ease-out hover:-translate-y-px hover:brightness-105 ${SOURCE_COLOR[e.source]}`}
+                        className={`block truncate rounded-md px-1.5 py-0.5 text-xs hover:brightness-95 ${SOURCE_COLOR[e.source]}`}
                       >
                         {e.title}
                       </Link>

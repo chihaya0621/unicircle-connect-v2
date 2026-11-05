@@ -1,168 +1,113 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
+
+import { EmptySeal, Seal } from "@/components/Seal";
 
 /**
  * トップページのヒーロー。
  *
- * 左に何のアプリかを書き、右に飾りの図を置く。
- *   左: 散らばった文字が集まって製品名になり、その下に立場ごとの使い道を書く
- *   右: 抽象アイコンを線が結び、その上を信号が流れ続ける
+ * 左に何のアプリかを書き、右にこのアプリで扱う申請書の図を置く。
  *
- * 英語の飾り文字や、標語のような1行は置かない。誰が何に使うかを、
- * 平らな文で書く。
+ * 以前は右に「抽象アイコンを線で結び、信号が流れる網」を置き、
+ * 製品名も文字が散らばって集まる虹色のグラデーションにしていた。
+ * どの製品のトップにも置ける絵で、何のアプリなのかは何も伝えていなかった。
+ * このアプリにしか無いもの――判子の押された申請書――をそのまま見せる。
  *
- * 具体的なサークル名やイベント名は出さない。ここはまだ何も知らない人が
- * 見る場所なので、機能の抽象度を保ったまま関係だけを見せる。
- *
- * 動きは CSS のみ。クライアント JS を持たないので Server Component のまま置ける。
+ * 書き込み欄は空のままにする。ここはまだ何も知らない人が見る場所なので、
+ * 架空のサークル名を書くと、実在の団体と取り違えられる。
  */
 
-const TITLE = ["UniCircle", "Connect"];
+/** 申請書の記入欄。値は書かず、罫だけ引く */
+const FIELDS = ["サークル名", "代表者", "活動内容", "活動場所"];
 
 /**
- * 文字ごとの散らばり方。
- *
- * 乱数を使うとサーバーとクライアントで値が変わってハイドレーションが壊れるので、
- * 添字から決定的に求める。
+ * 承認欄。紙の決裁欄と同じく、上の役職を左に置き、右の担当から押していく。
+ * 一番上の欄は空けて「あと1人」を見せる
  */
-function scatter(i: number): CSSProperties {
-  const fract = (n: number) => n - Math.floor(n);
-  const a = fract(Math.sin(i * 12.9898) * 43758.5453);
-  const b = fract(Math.sin(i * 78.233) * 12345.6789);
-
-  return {
-    "--i": i,
-    "--kx": `${(a * 1.8 - 0.9).toFixed(2)}em`,
-    "--ky": `${(b * 1.7 - 0.5).toFixed(2)}em`,
-    "--kr": `${((a - 0.5) * 44).toFixed(0)}deg`,
-  } as CSSProperties;
-}
-
-/* --- 抽象アイコン。特定の団体や行事を指さない、関係だけを表す図形 --- */
-
-const GLYPH_PROPS = {
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.7,
-  strokeLinecap: "round",
-  strokeLinejoin: "round",
-  "aria-hidden": true,
-} as const;
-
-/** 集まり: 三つの点が互いに結ばれている */
-function GlyphGroup() {
-  return (
-    <svg {...GLYPH_PROPS} className="size-1/2">
-      <circle cx="12" cy="5.5" r="2.6" />
-      <circle cx="5.5" cy="17" r="2.6" />
-      <circle cx="18.5" cy="17" r="2.6" />
-      <path d="M10.2 7.7 7.3 14.8M13.8 7.7l2.9 7.1M8.1 17h7.8" />
-    </svg>
-  );
-}
-
-/** 予定: 枠の中に時間が刻まれている */
-function GlyphSchedule() {
-  return (
-    <svg {...GLYPH_PROPS} className="size-1/2">
-      <rect x="3.5" y="5.5" width="17" height="15" rx="3" />
-      <path d="M3.5 10.5h17M8 3.5v4M16 3.5v4" />
-      <circle cx="8.5" cy="15" r="1.3" fill="currentColor" stroke="none" />
-      <circle cx="14" cy="15" r="1.3" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-/** 場所: 屋根のある区画 */
-function GlyphPlace() {
-  return (
-    <svg {...GLYPH_PROPS} className="size-1/2">
-      <path d="M3.5 10 12 3.5 20.5 10v9a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19z" />
-      <path d="M9.5 20.5v-6h5v6" />
-    </svg>
-  );
-}
-
-/** やりとり: 重なった二つの吹き出し */
-function GlyphTalk() {
-  return (
-    <svg {...GLYPH_PROPS} className="size-1/2">
-      <path d="M3.5 7.5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H8l-3.5 3v-3a1 1 0 0 1-1-1z" />
-      <path d="M18 9.5h.5a2 2 0 0 1 2 2v4a1 1 0 0 1-1 1v3l-3.5-3h-3" />
-    </svg>
-  );
-}
-
-/** 知らせ: 中心から広がる波 */
-function GlyphSignal() {
-  return (
-    <svg {...GLYPH_PROPS} className="size-1/2">
-      <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none" />
-      <path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4" />
-      <path d="M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2" />
-    </svg>
-  );
-}
-
-/** 中心。ばらばらのものが集まる一点 */
-function GlyphHub() {
-  return (
-    <svg {...GLYPH_PROPS} className="size-1/2" strokeWidth={1.5}>
-      <circle cx="12" cy="12" r="7" />
-      <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-/** 節点の配置。単位は網の枠に対する % */
-const NODES = [
-  { x: 50, y: 11, orb: 1, size: "size-14", Glyph: GlyphGroup },
-  { x: 86, y: 33, orb: 2, size: "size-12", Glyph: GlyphSchedule },
-  { x: 72, y: 76, orb: 3, size: "size-13", Glyph: GlyphPlace },
-  { x: 24, y: 70, orb: 4, size: "size-12", Glyph: GlyphTalk },
-  { x: 12, y: 30, orb: 3, size: "size-12", Glyph: GlyphSignal },
-] as const;
-
-/** 線。中心から各節点へ、加えて外周どうしを2本結んで網にする */
-const LINES = [
-  "M50 47 Q45 28 50 11",
-  "M50 47 Q71 39 86 33",
-  "M50 47 Q65 61 72 76",
-  "M50 47 Q35 59 24 70",
-  "M50 47 Q29 38 12 30",
-  "M50 11 Q74 17 86 33",
-  "M24 70 Q47 82 72 76",
+const APPROVERS: { title: string; seal: string | null }[] = [
+  { title: "部長", seal: null },
+  { title: "課長", seal: "高橋" },
+  { title: "担当", seal: "鈴木" },
 ];
 
-export function HomeHero({ action }: { action: ReactNode }) {
-  let charIndex = 0;
-
+function FormSample() {
   return (
-    <section className="grid items-center gap-10 md:grid-cols-[1.05fr_0.95fr]">
+    <figure
+      className="mx-auto w-full max-w-sm border border-gray-300 bg-white p-5 text-gray-900 shadow-sm sm:p-6"
+      aria-hidden
+    >
+      <div className="flex justify-between text-[11px] text-gray-500">
+        <span>様式第1号</span>
+        <span>　　年　　月　　日</span>
+      </div>
+
+      <p className="mt-4 text-center text-base font-bold tracking-[0.3em]">
+        サークル設立申請書
+      </p>
+
+      <dl className="mt-5 border-t border-gray-300 text-xs">
+        {FIELDS.map((label) => (
+          <div
+            key={label}
+            className="grid grid-cols-[5.5rem_1fr] border-b border-gray-300"
+          >
+            <dt className="border-r border-gray-300 bg-gray-50 px-2 py-2.5 text-gray-600">
+              {label}
+            </dt>
+            <dd />
+          </div>
+        ))}
+      </dl>
+
+      <div className="mt-5 flex justify-end">
+        <table className="border-collapse text-center text-[11px]">
+          <thead>
+            <tr>
+              {APPROVERS.map((a) => (
+                <th
+                  key={a.title}
+                  className="w-16 border border-gray-300 bg-gray-50 py-1 font-normal text-gray-600"
+                >
+                  {a.title}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {APPROVERS.map((a) => (
+                <td
+                  key={a.title}
+                  className="h-16 border border-gray-300 align-middle"
+                >
+                  <span className="grid place-items-center">
+                    {a.seal ? (
+                      <Seal text={a.seal} size={40} />
+                    ) : (
+                      <span className="text-gray-500">
+                        <EmptySeal size={40} />
+                      </span>
+                    )}
+                  </span>
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </figure>
+  );
+}
+
+export function HomeHero({ action }: { action: ReactNode }) {
+  return (
+    <section className="grid items-center gap-12 md:grid-cols-[1.1fr_0.9fr]">
       <div className="min-w-0">
-        <p
-          className="mb-4 text-sm font-bold tracking-[0.12em]"
-          style={{ color: "rgb(var(--accent-ink))" }}
-        >
+        <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
           大学のサークルのための Web アプリ
         </p>
 
-        {/* 文字を1つずつに割るので、読み上げには元の文字列を渡す */}
-        <h1
-          className="text-[13vw] font-black leading-[1.05] tracking-tighter sm:text-6xl lg:text-7xl"
-          aria-label={TITLE.join(" ")}
-        >
-          <span className="kinetic" aria-hidden>
-            {TITLE.map((word) => (
-              <span key={word} className="flex">
-                {[...word].map((char, i) => (
-                  <i key={`${word}-${i}`} style={scatter(charIndex++)}>
-                    {char}
-                  </i>
-                ))}
-              </span>
-            ))}
-          </span>
+        <h1 className="text-5xl font-black leading-tight tracking-tight sm:text-6xl">
+          UniCircle Connect
         </h1>
 
         <p className="mt-6 max-w-xl text-lg text-gray-700 dark:text-gray-300">
@@ -172,59 +117,7 @@ export function HomeHero({ action }: { action: ReactNode }) {
         <div className="mt-8 flex flex-wrap gap-3">{action}</div>
       </div>
 
-      {/* 装飾。読み上げからは丸ごと外す */}
-      <div
-        className="thread-net mx-auto aspect-square w-full max-w-md"
-        aria-hidden
-      >
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-          {LINES.map((d, i) => (
-            <g key={d} style={{ "--i": i } as CSSProperties}>
-              <path className="thread-line" d={d} />
-              <path
-                className="thread-line thread-pulse"
-                d={d}
-                style={{ stroke: `rgb(var(--orb-${(i % 4) + 1}))` }}
-              />
-            </g>
-          ))}
-        </svg>
-
-        {NODES.map(({ x, y, orb, size, Glyph }, i) => (
-          <span
-            key={i}
-            className="thread-node"
-            style={{ left: `${x}%`, top: `${y}%`, "--i": i + 1 } as CSSProperties}
-          >
-            <span
-              className={`glass grid ${size} place-items-center rounded-full`}
-              style={{
-                color: `rgb(var(--orb-${orb}))`,
-                borderRadius: "9999px",
-              }}
-            >
-              <Glyph />
-            </span>
-          </span>
-        ))}
-
-        {/* 中心。ここに集まる、という一点 */}
-        <span
-          className="thread-node thread-hub"
-          style={{ left: "50%", top: "47%", "--i": 0 } as CSSProperties}
-        >
-          <span
-            className="grid size-20 place-items-center rounded-full text-white"
-            style={{
-              background:
-                "linear-gradient(135deg, rgb(var(--btn-from)), rgb(var(--btn-to)))",
-              boxShadow: "0 14px 30px -10px rgb(var(--btn-from) / 0.6)",
-            }}
-          >
-            <GlyphHub />
-          </span>
-        </span>
-      </div>
+      <FormSample />
     </section>
   );
 }

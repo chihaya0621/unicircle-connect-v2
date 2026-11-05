@@ -139,7 +139,7 @@ export function FacilityRow({
                 <input type="hidden" name="facility_id" value={facility.id} />
                 <button
                   type="submit"
-                  className="btn-base bg-gradient-to-br from-rose-500 to-red-600 px-3 py-1.5 text-xs text-white shadow-lg shadow-rose-500/25 hover:-translate-y-0.5 hover:shadow-xl"
+                  className="btn-base bg-rose-600 px-3 py-1.5 text-xs text-white hover:bg-rose-700"
                 >
                   本当に削除する
                 </button>

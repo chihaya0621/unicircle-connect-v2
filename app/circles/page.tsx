@@ -251,8 +251,6 @@ export default async function CirclesPage({
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <PageHero
-        variant="arc"
-        eyebrow="CIRCLES"
         title={isAnon || isGeneral ? "サークルを探す" : "サークル"}
         description={
           selected ? (

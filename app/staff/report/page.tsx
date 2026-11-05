@@ -53,8 +53,6 @@ export default async function StaffReportPage() {
     <div className="mx-auto max-w-5xl px-4 py-10">
       <BackLink href="/staff" label="対応待ち" />
       <PageHero
-        variant="arc"
-        eyebrow="REPORT"
         title="大学のレポート"
         description={
           <>
