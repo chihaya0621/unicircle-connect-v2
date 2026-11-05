@@ -4,11 +4,11 @@ import type { CSSProperties, ReactNode } from "react";
  * トップページのヒーロー。
  *
  * 左に何のアプリかを書き、右に飾りの図を置く。
- *   左: 散らばった文字が集まって製品名になり、その下に用途を平らな文で書く
+ *   左: 散らばった文字が集まって製品名になり、その下に立場ごとの使い道を書く
  *   右: 抽象アイコンを線が結び、その上を信号が流れ続ける
  *
- * 英語の飾り文字や標語は置かない。初めて見た人が、何に使うアプリかを
- * 1行で分かるようにする。
+ * 英語の飾り文字や、標語のような1行は置かない。誰が何に使うかを、
+ * 平らな文で書く。
  *
  * 具体的なサークル名やイベント名は出さない。ここはまだ何も知らない人が
  * 見る場所なので、機能の抽象度を保ったまま関係だけを見せる。
@@ -165,12 +165,7 @@ export function HomeHero({ action }: { action: ReactNode }) {
           </span>
         </h1>
 
-        <p className="mt-6 text-xl font-bold tracking-tight sm:text-2xl">
-          サークルの申請・承認・連絡を、
-          <br className="hidden sm:inline" />
-          1つにまとめます
-        </p>
-        <p className="mt-3 max-w-xl text-gray-600 dark:text-gray-400">
+        <p className="mt-6 max-w-xl text-lg text-gray-700 dark:text-gray-300">
           学生はサークルの申請と部内の連絡に、大学の職員は判子での承認に、企業や高校生はサークル探しと協賛に使えます。
         </p>
 
