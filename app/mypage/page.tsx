@@ -214,8 +214,6 @@ export default async function MyPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <PageHero
-        variant="stack"
-        eyebrow="MY PAGE"
         title="マイページ"
         description={
           <>
@@ -404,7 +402,7 @@ export default async function MyPage() {
               <li>
                 <Link
                   href="/staff"
-                  className={`block rounded-xl border p-4 transition hover:shadow-md ${
+                  className={`block rounded-xl border p-4 transition-colors hover:border-[rgb(var(--accent)/0.5)] ${
                     pending.circles + pending.closures > 0
                       ? "border-rose-300 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/30"
                       : "border-black/10 bg-white dark:border-white/10 dark:bg-white/5"
@@ -421,7 +419,7 @@ export default async function MyPage() {
               <li>
                 <Link
                   href="/reservations"
-                  className={`block rounded-xl border p-4 transition hover:shadow-md ${
+                  className={`block rounded-xl border p-4 transition-colors hover:border-[rgb(var(--accent)/0.5)] ${
                     pending.reservations > 0
                       ? "border-rose-300 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/30"
                       : "border-black/10 bg-white dark:border-white/10 dark:bg-white/5"

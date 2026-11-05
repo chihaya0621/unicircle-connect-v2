@@ -57,8 +57,6 @@ export default async function StaffInboxPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <PageHero
-        variant="arc"
-        eyebrow="PENDING"
         title="対応待ち"
         action={
           <Link href="/staff/report" className="btn-ghost py-2">

@@ -16,8 +16,8 @@ const ROLE_LABEL: Record<UserRole, string> = {
 
 // 折り返さない。字の途中で折れると、件数の札が下の段に落ちる
 const navLink =
-  "relative whitespace-nowrap rounded-lg px-1.5 py-1 text-gray-600 transition-all duration-300 ease-out " +
-  "hover:-translate-y-0.5 hover:text-gray-900 hover:bg-white/40 " +
+  "relative whitespace-nowrap rounded-lg px-1.5 py-1 text-gray-600 transition-colors " +
+  "hover:text-gray-900 hover:bg-black/5 " +
   "dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-white/10";
 
 /**
@@ -101,9 +101,22 @@ export async function Header() {
       className={`tap-target ${navLink}`}
       aria-label={unread > 0 ? `通知 ${unread}件の未読` : "通知"}
     >
-      <span aria-hidden>🔔</span>
+      {/* 絵文字は端末ごとに絵柄も色も変わり、ここだけ浮く。線画にそろえる */}
+      <svg
+        viewBox="0 0 24 24"
+        className="size-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M6 9a6 6 0 1 1 12 0c0 4.5 1.5 6.5 2 7H4c.5-.5 2-2.5 2-7z" />
+        <path d="M10 19.5a2.2 2.2 0 0 0 4 0" />
+      </svg>
       {unread > 0 && (
-        <span className="absolute -right-2 -top-1 inline-flex min-w-4 animate-[pop-in_300ms_cubic-bezier(0.34,1.56,0.64,1)] items-center justify-center rounded-full bg-rose-600 px-1 py-0.5 text-[10px] font-semibold leading-none text-white shadow-md shadow-rose-500/40">
+        <span className="absolute -right-2 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 py-0.5 text-[10px] font-semibold leading-none text-white">
           {unread > 99 ? "99+" : unread}
         </span>
       )}
@@ -115,10 +128,9 @@ export async function Header() {
       <div className="relative mx-auto flex h-14 max-w-5xl items-center justify-between gap-2 px-4">
         <Link
           href="/"
-          className="shrink-0 font-semibold tracking-tight transition-transform duration-300 ease-out hover:scale-[1.03]"
+          className="shrink-0 font-bold tracking-tight"
         >
-          UniCircle{" "}
-          <span className="text-indigo-600 dark:text-indigo-400">Connect</span>
+          UniCircle Connect
         </Link>
 
         {/* 広い画面: すべて横に並べる */}

@@ -63,8 +63,6 @@ export default async function HomePage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <PageHero
-        variant="circles"
-        eyebrow="HOME"
         title="わたしのサークル"
         description={
           circles.length > 0 ? (

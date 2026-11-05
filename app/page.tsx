@@ -81,15 +81,22 @@ export default async function Home() {
         }
       />
 
-      <section className="mt-20 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {FEATURES.map((feature) => (
-          <div key={feature.title} className="glass-panel">
-            <h2 className="font-semibold">{feature.title}</h2>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              {feature.body}
-            </p>
-          </div>
-        ))}
+      {/* 同じ形のカードを横に4枚並べると、どの製品のトップにもある絵になる。
+          読むための短い説明なので、罫で区切った一覧にする */}
+      <section className="mt-20 border-t border-black/10 dark:border-white/15">
+        <dl className="grid sm:grid-cols-2">
+          {FEATURES.map((feature) => (
+            <div
+              key={feature.title}
+              className="border-b border-black/10 py-5 sm:odd:pr-8 sm:even:pl-8 dark:border-white/15"
+            >
+              <dt className="font-semibold">{feature.title}</dt>
+              <dd className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
+                {feature.body}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </section>
     </div>
   );

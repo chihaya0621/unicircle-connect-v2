@@ -47,8 +47,6 @@ export default async function FacilitiesPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <PageHero
-        variant="stack"
-        eyebrow="FACILITIES"
         title="施設・備品"
         description={
           isStaff

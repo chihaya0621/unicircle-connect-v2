@@ -19,7 +19,7 @@ export default async function LoginPage({
     <div className="glass-panel p-6">
       <h1 className="text-xl font-semibold">ログイン</h1>
       <p className="mt-1 mb-6 text-sm text-gray-600 dark:text-gray-400">
-        登録済みのアカウントでサインインしてください。
+        登録したメールアドレスとパスワードを入れてください。
       </p>
       <LoginForm next={next} />
       <p className="mt-4 text-sm">

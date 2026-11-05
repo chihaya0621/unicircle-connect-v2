@@ -38,7 +38,7 @@ export function EventCard({
         {image && (
           <Link
             href={`/events/${event.id}`}
-            className="relative size-12 shrink-0 overflow-hidden rounded-xl border border-white/60 shadow-md transition-transform duration-300 ease-out hover:scale-105 dark:border-white/15"
+            className="relative size-12 shrink-0 overflow-hidden rounded-xl border border-black/10 dark:border-white/15"
           >
             <Image src={image} alt="" fill sizes="48px" className="object-cover" />
           </Link>

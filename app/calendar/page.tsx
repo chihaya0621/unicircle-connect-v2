@@ -15,12 +15,6 @@ import { jstDate, jstParts } from "@/lib/jst";
 
 export const metadata: Metadata = { title: "カレンダー | UniCircle Connect" };
 
-/** 見出しに出す英語の月名。参考にした卓上カレンダーの体裁に合わせている */
-const MONTH_EN = [
-  "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
-  "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
-];
-
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   month: "short",
   day: "numeric",
@@ -130,21 +124,9 @@ export default async function CalendarPage({
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      {/* 卓上カレンダー風の見出し。月番号を lead に渡して大きく見せる。
-          図形の配置はページごとに変えているので、ここは circles を使う。 */}
       <PageHero
-        variant="circles"
-        eyebrow={MONTH_EN[month]}
         title={`${year}年${month + 1}月`}
         description={`${thisMonth.length}件の予定`}
-        lead={
-          <span
-            className="text-5xl font-extrabold leading-none tracking-tighter tabular-nums sm:text-8xl"
-            style={{ color: "rgb(var(--accent-ink))" }}
-          >
-            {String(month + 1).padStart(2, "0")}
-          </span>
-        }
         action={
           <>
             <Link

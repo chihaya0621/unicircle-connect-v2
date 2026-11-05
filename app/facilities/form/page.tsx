@@ -41,8 +41,6 @@ export default async function FacilityFormPage() {
     <div className="mx-auto max-w-6xl px-4 py-10">
       <BackLink href="/facilities" label="施設・備品" />
       <PageHero
-        variant="stack"
-        eyebrow="FORM"
         title="使用許可願の項目"
         description="施設使用許可願のうち、大学ごとに違う注意事項・学外者についての確認・追加の項目を変えられます。保存すると、学生のフォームにすぐに出ます。"
       />

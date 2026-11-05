@@ -20,8 +20,6 @@ export default async function ReservationsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <PageHero
-        variant="wave"
-        eyebrow="RESERVATIONS"
         title={user.role === "staff" ? "予約の承認" : "自分の予約"}
         description={
           <>
