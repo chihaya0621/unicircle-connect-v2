@@ -3,9 +3,12 @@ import type { CSSProperties, ReactNode } from "react";
 /**
  * トップページのヒーロー。
  *
- * 二層で「つながる」を言い直している。
- *   上: 散らばった文字が集まって製品名になる（キネティック・タイポ）
- *   下: 抽象アイコンを線が結び、その上を信号が流れ続ける
+ * 左に何のアプリかを書き、右に飾りの図を置く。
+ *   左: 散らばった文字が集まって製品名になり、その下に用途を平らな文で書く
+ *   右: 抽象アイコンを線が結び、その上を信号が流れ続ける
+ *
+ * 英語の飾り文字や標語は置かない。初めて見た人が、何に使うアプリかを
+ * 1行で分かるようにする。
  *
  * 具体的なサークル名やイベント名は出さない。ここはまだ何も知らない人が
  * 見る場所なので、機能の抽象度を保ったまま関係だけを見せる。
@@ -138,10 +141,10 @@ export function HomeHero({ action }: { action: ReactNode }) {
     <section className="grid items-center gap-10 md:grid-cols-[1.05fr_0.95fr]">
       <div className="min-w-0">
         <p
-          className="mb-4 text-xs font-bold uppercase tracking-[0.24em]"
+          className="mb-4 text-sm font-bold tracking-[0.12em]"
           style={{ color: "rgb(var(--accent-ink))" }}
         >
-          University circles, connected
+          大学のサークルのための Web アプリ
         </p>
 
         {/* 文字を1つずつに割るので、読み上げには元の文字列を渡す */}
@@ -163,11 +166,12 @@ export function HomeHero({ action }: { action: ReactNode }) {
         </h1>
 
         <p className="mt-6 text-xl font-bold tracking-tight sm:text-2xl">
-          大学生活の「つながる」を、ひとつの場所に。
+          サークルの申請・承認・連絡を、
+          <br className="hidden sm:inline" />
+          1つにまとめます
         </p>
         <p className="mt-3 max-w-xl text-gray-600 dark:text-gray-400">
-          サークル活動の管理・イベントの告知・大学施設の予約を、
-          ばらばらのままにしないためのプラットフォームです。
+          学生はサークルの申請と部内の連絡に、大学の職員は判子での承認に、企業や高校生はサークル探しと協賛に使えます。
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">{action}</div>

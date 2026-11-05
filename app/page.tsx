@@ -4,18 +4,23 @@ import { HomeHero } from "@/components/HomeHero";
 import { getCurrentUser } from "@/lib/dal";
 import { IS_DEMO } from "@/lib/dev-users";
 
+/** 立場ごとに、よく使う画面を1つずつ。どれも今のアプリにある機能だけを書く */
 const FEATURES = [
   {
-    title: "サークル",
-    body: "設立申請から承認、メンバー管理までをひとつの画面で。",
+    title: "わたしのサークル",
+    body: "所属するサークルの次の予定と最新の連絡、返事が要るものが1画面に並びます。",
   },
   {
-    title: "イベント",
-    body: "大学公式・サークル主催の告知を、対象学年や公開範囲つきで発信。",
+    title: "承認と判子",
+    body: "職員は申請書を読み、その場で自分の判子を押します。要る人数は大学ごとに決められます。",
   },
   {
-    title: "施設予約",
-    body: "教室・備品の空き状況を確認して、そのまま予約申請。",
+    title: "施設使用許可願",
+    body: "窓口の様式と同じ項目で、施設の使用を申請できます。大学ごとの欄は職員が足せます。",
+  },
+  {
+    title: "協賛",
+    body: "職員が確かめて判子を押した募集にだけ、企業が協賛を申し込めます。",
   },
 ];
 
@@ -76,7 +81,7 @@ export default async function Home() {
         }
       />
 
-      <section className="mt-20 grid gap-4 sm:grid-cols-3">
+      <section className="mt-20 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {FEATURES.map((feature) => (
           <div key={feature.title} className="glass-panel">
             <h2 className="font-semibold">{feature.title}</h2>
